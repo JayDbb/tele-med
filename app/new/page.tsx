@@ -3,10 +3,10 @@
 
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createVisit, getPatients, transcribeAudio, updateVisit } from "../../../lib/api";
-import type { Patient } from "../../../lib/types";
-import { useAuthGuard } from "../../../lib/useAuthGuard";
-import { uploadToPrivateBucket } from "../../../lib/storage";
+import { createVisit, getPatients, transcribeAudio, updateVisit } from "../../lib/api";
+import type { Patient } from "../../lib/types";
+import { useAuthGuard } from "../../lib/useAuthGuard";
+import { uploadToPrivateBucket } from "../../lib/storage";
 
 function NewVisitPageContent() {
   const { ready } = useAuthGuard();

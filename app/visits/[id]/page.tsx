@@ -162,89 +162,236 @@ export default function VisitDetailPage() {
               <div className="stack" style={{ gap: "16px" }}>
                 {/* Summary */}
                 {visit.transcripts.segments?.summary && (
-                  <div style={{ padding: 16, background: "#f9fafb", borderRadius: 8 }}>
-                    <h3 style={{ margin: "0 0 8px 0", fontSize: "16px", fontWeight: "600" }}>Summary</h3>
-                    <p style={{ margin: 0, lineHeight: "1.6", whiteSpace: "pre-wrap", color: "#475569" }}>
-                      {visit.transcripts.segments.summary}
-                    </p>
+                  <div style={{ padding: 20, background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+                    <h3 style={{ margin: "0 0 16px 0", fontSize: "18px", fontWeight: "600", color: "#111827" }}>Summary</h3>
+                    <div style={{ lineHeight: "1.8", color: "#374151", whiteSpace: "pre-wrap" }}>
+                      {visit.transcripts.segments.summary.split('\n').map((paragraph: string, idx: number) => {
+                        if (!paragraph.trim()) return null;
+                        // Check if paragraph starts with a bold section header pattern
+                        const isSectionHeader = /^(Chief Complaint|Examination|Treatment Plan|Physical Examination|Diagnosis):/i.test(paragraph);
+                        if (isSectionHeader) {
+                          const [header, ...content] = paragraph.split(':');
+                          return (
+                            <div key={idx} style={{ marginBottom: idx > 0 ? "16px" : 0 }}>
+                              <strong style={{ color: "#111827", display: "block", marginBottom: "4px" }}>
+                                {header}:
+                              </strong>
+                              <span style={{ display: "block", paddingLeft: "8px" }}>{content.join(':').trim()}</span>
+                            </div>
+                          );
+                        }
+                        return (
+                          <p key={idx} style={{ margin: idx > 0 ? "12px 0 0 0" : 0 }}>
+                            {paragraph}
+                          </p>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
                 {/* Structured Data */}
                 {visit.transcripts.segments?.structured && (
-                  <details className="stack" style={{ background: "#f9fafb", padding: 16, borderRadius: 8 }}>
-                    <summary style={{ cursor: "pointer", fontWeight: "600", marginBottom: 8 }}>
-                      Structured Medical Data
-                    </summary>
-                    <div className="stack" style={{ marginTop: 12, gap: 12 }}>
-                      {visit.transcripts.segments.structured.past_medical_history?.length > 0 && (
-                        <div>
-                          <strong>Past Medical History:</strong>
-                          <ul style={{ margin: "4px 0 0 20px", padding: 0 }}>
-                            {visit.transcripts.segments.structured.past_medical_history.map((item: string, idx: number) => (
-                              <li key={idx}>{item}</li>
-                            ))}
-                          </ul>
+                  <div className="stack" style={{ gap: "16px" }}>
+                    {/* Current Symptoms */}
+                    {visit.transcripts.segments.structured.current_symptoms && Object.keys(visit.transcripts.segments.structured.current_symptoms).length > 0 && (
+                      <div style={{ background: "#f9fafb", padding: 16, borderRadius: 8, border: "1px solid #e5e7eb" }}>
+                        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#111827" }}>
+                          Current Symptoms
+                        </h3>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                          {Object.entries(visit.transcripts.segments.structured.current_symptoms).map(([key, value]) => (
+                            <div
+                              key={key}
+                              style={{
+                                background: "#fff",
+                                padding: "8px 12px",
+                                borderRadius: 6,
+                                border: "1px solid #e5e7eb",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8
+                              }}
+                            >
+                              <span style={{ fontWeight: "500", color: "#374151", textTransform: "capitalize" }}>
+                                {key.replace(/_/g, " ")}:
+                              </span>
+                              <span style={{ color: "#6b7280" }}>
+                                {typeof value === "string" ? value : String(value)}
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      {visit.transcripts.segments.structured.current_symptoms && Object.keys(visit.transcripts.segments.structured.current_symptoms).length > 0 && (
-                        <div>
-                          <strong>Current Symptoms:</strong>
-                          <pre style={{ margin: "4px 0 0 0", padding: 8, background: "#fff", borderRadius: 4, fontSize: 14, overflow: "auto" }}>
-                            {JSON.stringify(visit.transcripts.segments.structured.current_symptoms, null, 2)}
-                          </pre>
+                    {/* Physical Exam Findings */}
+                    {visit.transcripts.segments.structured.physical_exam_findings && Object.keys(visit.transcripts.segments.structured.physical_exam_findings).length > 0 && (
+                      <div style={{ background: "#f9fafb", padding: 16, borderRadius: 8, border: "1px solid #e5e7eb" }}>
+                        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#111827" }}>
+                          Physical Exam Findings
+                        </h3>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                          {Object.entries(visit.transcripts.segments.structured.physical_exam_findings).map(([key, value]) => (
+                            <div
+                              key={key}
+                              style={{
+                                background: "#fff",
+                                padding: "12px",
+                                borderRadius: 6,
+                                border: "1px solid #e5e7eb"
+                              }}
+                            >
+                              <div style={{ fontWeight: "500", color: "#374151", marginBottom: 4, textTransform: "capitalize" }}>
+                                {key.replace(/_/g, " ")}
+                              </div>
+                              <div style={{ color: "#6b7280", fontSize: "14px" }}>
+                                {typeof value === "string" ? value : typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      {visit.transcripts.segments.structured.physical_exam_findings && Object.keys(visit.transcripts.segments.structured.physical_exam_findings).length > 0 && (
-                        <div>
-                          <strong>Physical Exam Findings:</strong>
-                          <pre style={{ margin: "4px 0 0 0", padding: 8, background: "#fff", borderRadius: 4, fontSize: 14, overflow: "auto" }}>
-                            {JSON.stringify(visit.transcripts.segments.structured.physical_exam_findings, null, 2)}
-                          </pre>
+                    {/* Diagnosis */}
+                    {visit.transcripts.segments.structured.diagnosis && (
+                      <div style={{ background: "#eff6ff", padding: 16, borderRadius: 8, border: "1px solid #bfdbfe" }}>
+                        <h3 style={{ margin: "0 0 8px 0", fontSize: "16px", fontWeight: "600", color: "#1e40af" }}>
+                          Diagnosis
+                        </h3>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                          {Array.isArray(visit.transcripts.segments.structured.diagnosis) ? (
+                            visit.transcripts.segments.structured.diagnosis.map((diag: string, idx: number) => (
+                              <span
+                                key={idx}
+                                style={{
+                                  background: "#dbeafe",
+                                  color: "#1e40af",
+                                  padding: "6px 12px",
+                                  borderRadius: 6,
+                                  fontSize: "14px",
+                                  fontWeight: "500"
+                                }}
+                              >
+                                {diag}
+                              </span>
+                            ))
+                          ) : (
+                            <span
+                              style={{
+                                background: "#dbeafe",
+                                color: "#1e40af",
+                                padding: "6px 12px",
+                                borderRadius: 6,
+                                fontSize: "14px",
+                                fontWeight: "500"
+                              }}
+                            >
+                              {visit.transcripts.segments.structured.diagnosis}
+                            </span>
+                          )}
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      {visit.transcripts.segments.structured.diagnosis && (
-                        <div>
-                          <strong>Diagnosis:</strong>
-                          <p style={{ margin: "4px 0 0 0" }}>
-                            {Array.isArray(visit.transcripts.segments.structured.diagnosis)
-                              ? visit.transcripts.segments.structured.diagnosis.join(", ")
-                              : visit.transcripts.segments.structured.diagnosis}
-                          </p>
-                        </div>
-                      )}
+                    {/* Past Medical History */}
+                    {visit.transcripts.segments.structured.past_medical_history?.length > 0 && (
+                      <div style={{ background: "#f9fafb", padding: 16, borderRadius: 8, border: "1px solid #e5e7eb" }}>
+                        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#111827" }}>
+                          Past Medical History
+                        </h3>
+                        <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "6px" }}>
+                          {visit.transcripts.segments.structured.past_medical_history.map((item: string, idx: number) => (
+                            <li
+                              key={idx}
+                              style={{
+                                background: "#fff",
+                                padding: "10px 12px",
+                                borderRadius: 6,
+                                border: "1px solid #e5e7eb",
+                                color: "#374151"
+                              }}
+                            >
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-                      {visit.transcripts.segments.structured.treatment_plan?.length > 0 && (
-                        <div>
-                          <strong>Treatment Plan:</strong>
-                          <ul style={{ margin: "4px 0 0 20px", padding: 0 }}>
-                            {visit.transcripts.segments.structured.treatment_plan.map((item: string, idx: number) => (
-                              <li key={idx}>{item}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                    {/* Treatment Plan */}
+                    {visit.transcripts.segments.structured.treatment_plan?.length > 0 && (
+                      <div style={{ background: "#f0fdf4", padding: 16, borderRadius: 8, border: "1px solid #bbf7d0" }}>
+                        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#166534" }}>
+                          Treatment Plan
+                        </h3>
+                        <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "8px" }}>
+                          {visit.transcripts.segments.structured.treatment_plan.map((item: string, idx: number) => (
+                            <li
+                              key={idx}
+                              style={{
+                                background: "#fff",
+                                padding: "12px",
+                                borderRadius: 6,
+                                border: "1px solid #bbf7d0",
+                                color: "#166534",
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 8
+                              }}
+                            >
+                              <span style={{ color: "#22c55e", fontSize: "18px", lineHeight: 1 }}>•</span>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-                      {visit.transcripts.segments.structured.prescriptions?.length > 0 && (
-                        <div>
-                          <strong>Prescriptions:</strong>
-                          <ul style={{ margin: "4px 0 0 20px", padding: 0 }}>
-                            {visit.transcripts.segments.structured.prescriptions.map((prescription: any, idx: number) => (
-                              <li key={idx}>
+                    {/* Prescriptions */}
+                    {visit.transcripts.segments.structured.prescriptions?.length > 0 && (
+                      <div style={{ background: "#fef3c7", padding: 16, borderRadius: 8, border: "1px solid #fde68a" }}>
+                        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#92400e" }}>
+                          Prescriptions
+                        </h3>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                          {visit.transcripts.segments.structured.prescriptions.map((prescription: any, idx: number) => (
+                            <div
+                              key={idx}
+                              style={{
+                                background: "#fff",
+                                padding: "14px",
+                                borderRadius: 6,
+                                border: "1px solid #fde68a"
+                              }}
+                            >
+                              <div style={{ fontWeight: "600", color: "#92400e", marginBottom: 6, fontSize: "15px" }}>
                                 {prescription.medication || "Medication"}
-                                {prescription.dosage && ` - ${prescription.dosage}`}
-                                {prescription.frequency && ` (${prescription.frequency})`}
-                                {prescription.duration && ` for ${prescription.duration}`}
-                              </li>
-                            ))}
-                          </ul>
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: "14px", color: "#78350f" }}>
+                                {prescription.dosage && (
+                                  <div>
+                                    <strong>Dosage:</strong> {prescription.dosage}
+                                  </div>
+                                )}
+                                {prescription.frequency && (
+                                  <div>
+                                    <strong>Frequency:</strong> {prescription.frequency}
+                                  </div>
+                                )}
+                                {prescription.duration && (
+                                  <div>
+                                    <strong>Duration:</strong> {prescription.duration}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      )}
-                    </div>
-                  </details>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Full Transcript */}

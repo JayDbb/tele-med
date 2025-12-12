@@ -46,7 +46,7 @@ export async function convertToMP3(audioBlob: Blob): Promise<Blob> {
   // Create MP3 encoder
   const mp3encoder = new Mp3Encoder(numberOfChannels, sampleRate, 128); // 128 kbps bitrate
   const sampleBlockSize = 1152; // MP3 frame size
-  const mp3Data: Int8Array[] = [];
+  const mp3Data: Uint8Array[] = [];
   
   // Encode in chunks
   for (let i = 0; i < samples.length; i += sampleBlockSize * numberOfChannels) {
@@ -64,7 +64,7 @@ export async function convertToMP3(audioBlob: Blob): Promise<Blob> {
   }
   
   // Combine all MP3 chunks into a single blob
-  const mp3Blob = new Blob(mp3Data, { type: "audio/mp3" });
+  const mp3Blob = new Blob(mp3Data as BlobPart[], { type: "audio/mp3" });
   
   // Close audio context
   await audioContext.close();

@@ -96,9 +96,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Parse transcript using DeepSeek LLM via Replicate
+    // Parse transcript and generate summary using DeepSeek LLM via Replicate
     const deepSeekModel = "deepseek-ai/deepseek-v3.1";
-    const parsingPrompt = `You are a medical transcription assistant. Parse the following medical consultation transcript into structured JSON format.
+    const combinedPrompt = `You are a medical transcription assistant. Parse the following medical consultation transcript into structured JSON format and create a summary.
 
 Extract the following information:
 1. past_medical_history: Array of past medical conditions, surgeries, and relevant medical history
@@ -107,6 +107,7 @@ Extract the following information:
 4. diagnosis: String or array with the diagnosis or working diagnosis
 5. treatment_plan: Array of treatment recommendations, procedures, and follow-up plans
 6. prescriptions: Array of prescribed medications with dosage, frequency, and duration if mentioned
+7. summary: A concise, readable summary (2-3 paragraphs) of the entire medical consultation session written in continuous prose. The summary should include the chief complaint and current symptoms, key findings from physical examination, diagnosis, and treatment plan with any prescriptions. Keep it professional and easy to read for medical review. Write in continuous text format without bullet points.
 
 Return ONLY valid JSON in this exact format (no markdown, no code blocks, no additional text):
 {
@@ -115,7 +116,8 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, no add
   "physical_exam_findings": {},
   "diagnosis": "",
   "treatment_plan": [],
-  "prescriptions": []
+  "prescriptions": [],
+  "summary": ""
 }
 
 If any field is not mentioned in the transcript, use an empty array [] or empty object {} or empty string "" as appropriate.
@@ -123,25 +125,25 @@ If any field is not mentioned in the transcript, use an empty array [] or empty 
 Transcript:
 ${transcript}`;
 
-    const parsingInput = {
-      prompt: parsingPrompt,
+    const combinedInput = {
+      prompt: combinedPrompt,
       max_tokens: 8096,
       response_format: "json",
       temperature: 0.2,
     };
 
-    const parsingPrediction = await replicate.run(deepSeekModel, {
-      input: parsingInput,
+    const combinedPrediction = await replicate.run(deepSeekModel, {
+      input: combinedInput,
     });
 
     // Extract the parsed JSON from the response
     let parsedData: any;
     const predictionStr =
-      typeof parsingPrediction === "string"
-        ? parsingPrediction
-        : Array.isArray(parsingPrediction)
-        ? parsingPrediction.join("")
-        : String(parsingPrediction);
+      typeof combinedPrediction === "string"
+        ? combinedPrediction
+        : Array.isArray(combinedPrediction)
+        ? combinedPrediction.join("")
+        : String(combinedPrediction);
 
     try {
       // Try to parse as JSON directly
@@ -160,52 +162,11 @@ ${transcript}`;
       }
     }
 
-    // Generate a short readable summary for review
-    const summaryPrompt = `Create a concise, readable summary (2-3 paragraphs) of the following medical consultation. Include:
-- Chief complaint and current symptoms
-- Key findings from physical examination
-- Diagnosis
-- Treatment plan and any prescriptions
+    // Extract summary from parsed data, default to empty string if not present
+    const summary = parsedData.summary || "";
 
-Keep it professional and easy to read for medical review.
-
-Structured Data:
-${JSON.stringify(parsedData, null, 2)}
-
-Transcript:
-${transcript}`;
-
-    const summaryInput = {
-      prompt: summaryPrompt,
-      max_tokens: 1000,
-      temperature: 0.3,
-    };
-
-    const summaryPrediction = await replicate.run(deepSeekModel, {
-      input: summaryInput,
-    });
-
-    // Extract the summary text
-    let summary: string;
-    if (typeof summaryPrediction === "string") {
-      summary = summaryPrediction;
-    } else if (Array.isArray(summaryPrediction)) {
-      summary = summaryPrediction.join("");
-    } else if (summaryPrediction && typeof summaryPrediction === "object") {
-      summary =
-        (summaryPrediction as any).text ||
-        (summaryPrediction as any).summary ||
-        (summaryPrediction as any).output ||
-        JSON.stringify(summaryPrediction);
-    } else {
-      summary = String(summaryPrediction);
-    }
-
-    // Clean up summary (remove markdown formatting if present)
-    summary = summary
-      .replace(/```[\s\S]*?```/g, "")
-      .replace(/`/g, "")
-      .trim();
+    // Remove summary from structured data to keep them separate
+    const { summary: _, ...structuredData } = parsedData;
 
     // Save transcription to database if visit_id is provided
     if (visit_id) {
@@ -216,7 +177,7 @@ ${transcript}`;
             visit_id,
             raw_text: transcript,
             segments: {
-              structured: parsedData,
+              structured: structuredData,
               summary: summary,
             },
           },
@@ -231,7 +192,7 @@ ${transcript}`;
 
     return NextResponse.json({
       transcript, // Full transcript
-      structured: parsedData, // Structured JSON
+      structured: structuredData, // Structured JSON (without summary)
       summary, // Short readable summary for review
     });
   } catch (error: any) {
