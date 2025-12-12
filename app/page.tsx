@@ -1,65 +1,134 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
+import { login, signup } from "../lib/api";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [signupSuccess, setSignupSuccess] = useState(false);
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      if (mode === "signin") {
+        await login(email, password);
+        router.push("/dashboard");
+      } else {
+        await signup(email, password);
+        setSignupSuccess(true);
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (signupSuccess) {
+    return (
+      <main className="shell fade-in">
+        <div className="card" style={{ maxWidth: 420, margin: "24px auto" }}>
+          <h1 style={{ marginBottom: 8 }}>Check your email</h1>
+          <div className="stack">
+            <div className="pill" style={{ background: "#d1fae5", color: "#065f46" }}>
+              ✓ Account created successfully
+            </div>
+            <p style={{ color: "#475569", marginTop: 0 }}>
+              We've sent a verification link to <strong>{email}</strong>. Please check your email and click the link to verify your account before signing in.
+            </p>
+            <button
+              className="button secondary"
+              onClick={() => {
+                setSignupSuccess(false);
+                setMode("signin");
+                setEmail("");
+                setPassword("");
+              }}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+              Back to sign in
+            </button>
+          </div>
         </div>
       </main>
-    </div>
+    );
+  }
+
+  return (
+    <main className="shell fade-in">
+      <div className="card" style={{ maxWidth: 420, margin: "24px auto" }}>
+        <h1 style={{ marginBottom: 8 }}>Sign in</h1>
+        <p style={{ color: "#475569", marginTop: 0 }}>
+          Secure access to your TeleHealth dashboard.
+        </p>
+        <form className="stack" onSubmit={onSubmit}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              className={`button ${mode === "signin" ? "" : "secondary"}`}
+              onClick={() => setMode("signin")}
+              disabled={loading}
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              className={`button success ${mode === "signup" ? "" : "secondary"}`}
+              onClick={() => setMode("signup")}
+              disabled={loading}
+            >
+              Sign up
+            </button>
+          </div>
+          <label className="stack">
+            <span className="label">Email</span>
+            <input
+              className="input"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoFocus
+            />
+          </label>
+          <label className="stack">
+            <span className="label">Password</span>
+            <input
+              className="input"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </label>
+          {error && (
+            <div className="pill" style={{ background: "#fef2f2", color: "#b91c1c" }}>
+              {error}
+            </div>
+          )}
+          <button 
+            className={mode === "signup" ? "button success" : "button"} 
+            type="submit" 
+            disabled={loading}
+          >
+            {loading
+              ? mode === "signin"
+                ? "Signing in..."
+                : "Creating account..."
+              : mode === "signin"
+              ? "Sign in"
+              : "Create account"}
+          </button>
+        </form>
+      </div>
+    </main>
   );
 }
+
