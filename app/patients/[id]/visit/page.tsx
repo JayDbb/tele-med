@@ -116,20 +116,12 @@ export default function PatientVisitPage() {
       if (transcriptionResult.structured) {
         const structured = transcriptionResult.structured;
         
-        // Handle current symptoms - extract from symptoms array if it exists
-        if (structured.current_symptoms) {
-          let symptomsText = '';
-          if (structured.current_symptoms.symptoms && Array.isArray(structured.current_symptoms.symptoms)) {
-            symptomsText = structured.current_symptoms.symptoms
-              .filter((s: any) => s.description && s.description !== 'undefined')
-              .map((s: any) => `${s.symptom}: ${s.description}`)
-              .join(', ');
-          } else {
-            symptomsText = Object.entries(structured.current_symptoms)
-              .filter(([key, value]) => value && value !== 'undefined')
-              .map(([key, value]) => `${key.replace(/_/g, ' ')}: ${typeof value === 'object' ? JSON.stringify(value) : value}`)
-              .join(', ');
-          }
+        // Handle current symptoms - extract symptom names only
+        if (structured.current_symptoms && Array.isArray(structured.current_symptoms)) {
+          const symptomsText = structured.current_symptoms
+            .map((s: any) => s.symptom)
+            .filter((symptom: string) => symptom && symptom !== 'undefined')
+            .join(', ');
           setChiefComplaint(symptomsText);
         }
         
@@ -475,84 +467,21 @@ export default function PatientVisitPage() {
                       {/* Structured Data */}
                       {transcription.structured && (
                         <div className="space-y-4">
-                          {/* Current Symptoms - Commented out due to undefined issues */}
-                          {/* TODO: Fix undefined values in current_symptoms before re-enabling */}
-                          {/* {transcription.structured.current_symptoms && (
+                          {transcription.structured.current_symptoms && Array.isArray(transcription.structured.current_symptoms) && (
                             <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                               <h4 className="font-semibold text-blue-800 mb-2">Current Symptoms</h4>
                               <div className="space-y-2">
-                                {transcription.structured.current_symptoms.symptoms && Array.isArray(transcription.structured.current_symptoms.symptoms) ? (
-                                  transcription.structured.current_symptoms.symptoms
-                                    .filter((symptom: any) => symptom.description && symptom.description !== 'undefined')
-                                    .map((symptom: any, idx: number) => (
-                                    <div key={idx} className="bg-white p-2 rounded border">
-                                      <input 
-                                        className="font-semibold text-blue-800 bg-transparent border-none focus:outline-none w-full" 
-                                        value={symptom.symptom}
-                                        onChange={(e) => {
-                                          const newSymptoms = [...transcription.structured.current_symptoms.symptoms];
-                                          newSymptoms[idx] = {...symptom, symptom: e.target.value};
-                                          setTranscription({
-                                            ...transcription, 
-                                            structured: {
-                                              ...transcription.structured,
-                                              current_symptoms: {
-                                                ...transcription.structured.current_symptoms,
-                                                symptoms: newSymptoms
-                                              }
-                                            }
-                                          });
-                                        }}
-                                      />
-                                      <textarea 
-                                        className="text-sm text-blue-700 bg-transparent border-none focus:outline-none w-full resize-none" 
-                                        rows={1}
-                                        value={symptom.description}
-                                        onChange={(e) => {
-                                          const newSymptoms = [...transcription.structured.current_symptoms.symptoms];
-                                          newSymptoms[idx] = {...symptom, description: e.target.value};
-                                          setTranscription({
-                                            ...transcription, 
-                                            structured: {
-                                              ...transcription.structured,
-                                              current_symptoms: {
-                                                ...transcription.structured.current_symptoms,
-                                                symptoms: newSymptoms
-                                              }
-                                            }
-                                          });
-                                        }}
-                                      />
-                                    </div>
-                                  ))
-                                ) : (
-                                  Object.entries(transcription.structured.current_symptoms)
-                                    .filter(([key, value]) => value && value !== 'undefined')
-                                    .map(([key, value]) => (
-                                    <div key={key} className="bg-white p-2 rounded border">
-                                      <span className="font-semibold text-blue-800">{key.replace(/_/g, ' ')}:</span>
-                                      <input 
-                                        className="text-sm text-blue-700 bg-transparent border-none focus:outline-none w-full" 
-                                        value={typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                        onChange={(e) => {
-                                          setTranscription({
-                                            ...transcription,
-                                            structured: {
-                                              ...transcription.structured,
-                                              current_symptoms: {
-                                                ...transcription.structured.current_symptoms,
-                                                [key]: e.target.value
-                                              }
-                                            }
-                                          });
-                                        }}
-                                      />
-                                    </div>
-                                  ))
-                                )}
+                                {transcription.structured.current_symptoms.map((symptom: any, idx: number) => (
+                                  <div key={idx} className="bg-white p-2 rounded border">
+                                    <span className="font-semibold text-blue-800">{symptom.symptom}</span>
+                                    {symptom.characteristics && symptom.characteristics !== 'unspecified' && (
+                                      <p className="text-sm text-blue-700">Characteristics: {symptom.characteristics}</p>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
                             </div>
-                          )} */}
+                          )}
                           
                           {transcription.structured.physical_exam_findings && Object.keys(transcription.structured.physical_exam_findings).length > 0 && (
                             <div className="bg-green-50 p-4 rounded-lg border border-green-200">

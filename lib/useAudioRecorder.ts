@@ -27,6 +27,9 @@ export function useAudioRecorder() {
     }
 
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Audio recording not supported in this browser or context. Please use HTTPS or a supported browser.");
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
