@@ -8,6 +8,7 @@ import { uploadToPrivateBucket } from "../../../lib/storage";
 import { useAudioRecorder } from "../../../lib/useAudioRecorder";
 import { useAuthGuard } from "../../../lib/useAuthGuard";
 import type { Patient, Visit } from "../../../lib/types";
+import { Header } from "../../../components/Header";
 
 export default function VisitDetailPage() {
   const { ready } = useAuthGuard();
@@ -93,7 +94,9 @@ export default function VisitDetailPage() {
   }
 
   return (
-    <main className="shell stack fade-in">
+    <div className="bg-[#F3F6FD] min-h-screen">
+      <Header />
+      <main className="p-4 md:p-8 overflow-y-auto max-w-6xl mx-auto">
       <div className="card stack">
         <div className="header" style={{ padding: 0 }}>
           <div>
@@ -199,28 +202,66 @@ export default function VisitDetailPage() {
                         <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#111827" }}>
                           Current Symptoms
                         </h3>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                          {Object.entries(visit.transcripts.segments.structured.current_symptoms).map(([key, value]) => (
-                            <div
-                              key={key}
-                              style={{
-                                background: "#fff",
-                                padding: "8px 12px",
-                                borderRadius: 6,
-                                border: "1px solid #e5e7eb",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8
-                              }}
-                            >
-                              <span style={{ fontWeight: "500", color: "#374151", textTransform: "capitalize" }}>
-                                {key.replace(/_/g, " ")}:
-                              </span>
-                              <span style={{ color: "#6b7280" }}>
-                                {typeof value === "string" ? value : String(value)}
-                              </span>
-                            </div>
-                          ))}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                          {Object.entries(visit.transcripts.segments.structured.current_symptoms).map(([key, value]) => {
+                            if (key === 'symptoms' && Array.isArray(value)) {
+                              return (
+                                <div key={key}>
+                                  <div style={{ fontWeight: "600", color: "#374151", marginBottom: 8 }}>
+                                    Symptoms:
+                                  </div>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                    {value.map((symptom: any, idx: number) => (
+                                      <div
+                                        key={idx}
+                                        style={{
+                                          background: "#fff",
+                                          padding: "12px",
+                                          borderRadius: 6,
+                                          border: "1px solid #e5e7eb",
+                                          wordBreak: "break-word"
+                                        }}
+                                      >
+                                        <div style={{ fontWeight: "500", color: "#1f2937", marginBottom: 4 }}>
+                                          {symptom.symptom || 'Symptom'}
+                                        </div>
+                                        {symptom.characteristics && (
+                                          <div style={{ color: "#6b7280", fontSize: "14px", marginBottom: 4 }}>
+                                            <strong>Description:</strong> {symptom.characteristics}
+                                          </div>
+                                        )}
+                                        {symptom.onset && symptom.onset !== 'Not specified' && (
+                                          <div style={{ color: "#6b7280", fontSize: "14px" }}>
+                                            <strong>Onset:</strong> {symptom.onset}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return (
+                              <div key={key}>
+                                <div style={{ fontWeight: "600", color: "#374151", marginBottom: 4, textTransform: "capitalize" }}>
+                                  {key.replace(/_/g, " ")}:
+                                </div>
+                                <div
+                                  style={{
+                                    background: "#fff",
+                                    padding: "12px",
+                                    borderRadius: 6,
+                                    border: "1px solid #e5e7eb",
+                                    color: "#6b7280",
+                                    wordBreak: "break-word",
+                                    whiteSpace: "pre-wrap"
+                                  }}
+                                >
+                                  {String(value)}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -429,7 +470,8 @@ export default function VisitDetailPage() {
           </div>
         </>
       )}
-    </main>
+      </main>
+    </div>
   );
 }
 
