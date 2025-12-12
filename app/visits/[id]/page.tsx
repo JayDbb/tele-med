@@ -8,6 +8,7 @@ import { uploadToPrivateBucket } from "../../../lib/storage";
 import { useAudioRecorder } from "../../../lib/useAudioRecorder";
 import { useAuthGuard } from "../../../lib/useAuthGuard";
 import type { Patient, Visit } from "../../../lib/types";
+import { Header } from "../../../components/Header";
 
 export default function VisitDetailPage() {
   const { ready } = useAuthGuard();
@@ -96,7 +97,9 @@ export default function VisitDetailPage() {
   }
 
   return (
-    <main className="shell stack fade-in">
+    <div className="bg-[#F3F6FD] min-h-screen">
+      <Header />
+      <main className="p-4 md:p-8 overflow-y-auto max-w-6xl mx-auto">
       <div className="card stack">
         <div className="header" style={{ padding: 0 }}>
           <div>
@@ -449,7 +452,8 @@ export default function VisitDetailPage() {
           </div>
         </>
       )}
-    </main>
+      </main>
+    </div>
   );
 }
 
