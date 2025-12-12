@@ -265,71 +265,220 @@ function NewVisitPageContent() {
                   <summary style={{ cursor: "pointer", fontWeight: "600", marginBottom: "8px" }}>
                     Structured Medical Data
                   </summary>
-                  <div className="stack" style={{ marginTop: "12px", gap: "12px" }}>
-                    {transcription.structured.past_medical_history?.length > 0 && (
-                      <div>
-                        <strong>Past Medical History:</strong>
-                        <ul style={{ margin: "4px 0 0 20px", padding: 0 }}>
-                          {transcription.structured.past_medical_history.map((item: string, idx: number) => (
-                            <li key={idx}>{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                  <div className="stack" style={{ marginTop: "12px", gap: "16px" }}>
+                    {/* Current Symptoms */}
+                    {transcription.structured.current_symptoms &&
+                      (Array.isArray(transcription.structured.current_symptoms)
+                        ? transcription.structured.current_symptoms.length > 0
+                        : Object.keys(transcription.structured.current_symptoms).length > 0) && (
+                        <div style={{ background: "#f9fafb", padding: 16, borderRadius: 8, border: "1px solid #e5e7eb" }}>
+                          <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#111827" }}>
+                            Current Symptoms
+                          </h3>
+                          <div style={{ overflowX: "auto" }}>
+                            <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 6 }}>
+                              <thead>
+                                <tr style={{ background: "#f3f4f6" }}>
+                                  <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#111827", borderBottom: "2px solid #e5e7eb" }}>
+                                    Symptom
+                                  </th>
+                                  <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#111827", borderBottom: "2px solid #e5e7eb" }}>
+                                    Characteristics
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(Array.isArray(transcription.structured.current_symptoms)
+                                  ? transcription.structured.current_symptoms
+                                  : Object.entries(transcription.structured.current_symptoms).map(([key, value]) => ({
+                                    symptom: key.replace(/_/g, " "),
+                                    characteristics: typeof value === "string" ? value : String(value)
+                                  }))
+                                ).map((symptom: any, idx: number) => (
+                                  <tr key={idx} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                                    <td style={{ padding: "12px", color: "#374151" }}>
+                                      {symptom.symptom || "-"}
+                                    </td>
+                                    <td style={{ padding: "12px", color: "#6b7280" }}>
+                                      {symptom.characteristics || "-"}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
 
-                    {transcription.structured.current_symptoms && Object.keys(transcription.structured.current_symptoms).length > 0 && (
-                      <div>
-                        <strong>Current Symptoms:</strong>
-                        <pre style={{ margin: "4px 0 0 0", padding: "8px", background: "#fff", borderRadius: "4px", fontSize: "14px", overflow: "auto" }}>
-                          {JSON.stringify(transcription.structured.current_symptoms, null, 2)}
-                        </pre>
-                      </div>
-                    )}
-
+                    {/* Physical Exam Findings */}
                     {transcription.structured.physical_exam_findings && Object.keys(transcription.structured.physical_exam_findings).length > 0 && (
-                      <div>
-                        <strong>Physical Exam Findings:</strong>
-                        <pre style={{ margin: "4px 0 0 0", padding: "8px", background: "#fff", borderRadius: "4px", fontSize: "14px", overflow: "auto" }}>
-                          {JSON.stringify(transcription.structured.physical_exam_findings, null, 2)}
-                        </pre>
+                      <div style={{ background: "#f9fafb", padding: 16, borderRadius: 8, border: "1px solid #e5e7eb" }}>
+                        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#111827" }}>
+                          Physical Exam Findings
+                        </h3>
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 6 }}>
+                            <thead>
+                              <tr style={{ background: "#f3f4f6" }}>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#111827", borderBottom: "2px solid #e5e7eb" }}>
+                                  Category
+                                </th>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#111827", borderBottom: "2px solid #e5e7eb" }}>
+                                  Finding
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {Object.entries(transcription.structured.physical_exam_findings).map(([key, value], idx: number) => (
+                                <tr key={idx} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                                  <td style={{ padding: "12px", color: "#374151", textTransform: "capitalize", fontWeight: "500" }}>
+                                    {key.replace(/_/g, " ")}
+                                  </td>
+                                  <td style={{ padding: "12px", color: "#6b7280" }}>
+                                    {typeof value === "string" ? value : typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
 
+                    {/* Diagnosis */}
                     {transcription.structured.diagnosis && (
-                      <div>
-                        <strong>Diagnosis:</strong>
-                        <p style={{ margin: "4px 0 0 0" }}>
-                          {Array.isArray(transcription.structured.diagnosis)
-                            ? transcription.structured.diagnosis.join(", ")
-                            : transcription.structured.diagnosis}
-                        </p>
+                      <div style={{ background: "#eff6ff", padding: 16, borderRadius: 8, border: "1px solid #bfdbfe" }}>
+                        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#1e40af" }}>
+                          Diagnosis
+                        </h3>
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 6 }}>
+                            <thead>
+                              <tr style={{ background: "#dbeafe" }}>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#1e40af", borderBottom: "2px solid #bfdbfe" }}>
+                                  Diagnosis
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(Array.isArray(transcription.structured.diagnosis)
+                                ? transcription.structured.diagnosis
+                                : [transcription.structured.diagnosis]
+                              ).map((diag: string, idx: number) => (
+                                <tr key={idx} style={{ borderBottom: "1px solid #bfdbfe" }}>
+                                  <td style={{ padding: "12px", color: "#1e40af", fontWeight: "500" }}>
+                                    {diag}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
 
+                    {/* Past Medical History */}
+                    {transcription.structured.past_medical_history?.length > 0 && (
+                      <div style={{ background: "#f9fafb", padding: 16, borderRadius: 8, border: "1px solid #e5e7eb" }}>
+                        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#111827" }}>
+                          Past Medical History
+                        </h3>
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 6 }}>
+                            <thead>
+                              <tr style={{ background: "#f3f4f6" }}>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#111827", borderBottom: "2px solid #e5e7eb" }}>
+                                  History Item
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {transcription.structured.past_medical_history.map((item: string, idx: number) => (
+                                <tr key={idx} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                                  <td style={{ padding: "12px", color: "#374151" }}>
+                                    {item}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Treatment Plan */}
                     {transcription.structured.treatment_plan?.length > 0 && (
-                      <div>
-                        <strong>Treatment Plan:</strong>
-                        <ul style={{ margin: "4px 0 0 20px", padding: 0 }}>
-                          {transcription.structured.treatment_plan.map((item: string, idx: number) => (
-                            <li key={idx}>{item}</li>
-                          ))}
-                        </ul>
+                      <div style={{ background: "#f0fdf4", padding: 16, borderRadius: 8, border: "1px solid #bbf7d0" }}>
+                        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#166534" }}>
+                          Treatment Plan
+                        </h3>
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 6 }}>
+                            <thead>
+                              <tr style={{ background: "#dcfce7" }}>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#166534", borderBottom: "2px solid #bbf7d0" }}>
+                                  Treatment Item
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {transcription.structured.treatment_plan.map((item: string, idx: number) => (
+                                <tr key={idx} style={{ borderBottom: "1px solid #bbf7d0" }}>
+                                  <td style={{ padding: "12px", color: "#166534" }}>
+                                    {item}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
 
+                    {/* Prescriptions */}
                     {transcription.structured.prescriptions?.length > 0 && (
-                      <div>
-                        <strong>Prescriptions:</strong>
-                        <ul style={{ margin: "4px 0 0 20px", padding: 0 }}>
-                          {transcription.structured.prescriptions.map((prescription: any, idx: number) => (
-                            <li key={idx}>
-                              {prescription.medication || "Medication"}
-                              {prescription.dosage && ` - ${prescription.dosage}`}
-                              {prescription.frequency && ` (${prescription.frequency})`}
-                              {prescription.duration && ` for ${prescription.duration}`}
-                            </li>
-                          ))}
-                        </ul>
+                      <div style={{ background: "#fef3c7", padding: 16, borderRadius: 8, border: "1px solid #fde68a" }}>
+                        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#92400e" }}>
+                          Prescriptions
+                        </h3>
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 6 }}>
+                            <thead>
+                              <tr style={{ background: "#fef9c3" }}>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#92400e", borderBottom: "2px solid #fde68a" }}>
+                                  Medication
+                                </th>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#92400e", borderBottom: "2px solid #fde68a" }}>
+                                  Dosage
+                                </th>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#92400e", borderBottom: "2px solid #fde68a" }}>
+                                  Frequency
+                                </th>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#92400e", borderBottom: "2px solid #fde68a" }}>
+                                  Duration
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {transcription.structured.prescriptions.map((prescription: any, idx: number) => (
+                                <tr key={idx} style={{ borderBottom: "1px solid #fde68a" }}>
+                                  <td style={{ padding: "12px", color: "#92400e", fontWeight: "500" }}>
+                                    {prescription.medication || "-"}
+                                  </td>
+                                  <td style={{ padding: "12px", color: "#78350f" }}>
+                                    {prescription.dosage || "-"}
+                                  </td>
+                                  <td style={{ padding: "12px", color: "#78350f" }}>
+                                    {prescription.frequency || "-"}
+                                  </td>
+                                  <td style={{ padding: "12px", color: "#78350f" }}>
+                                    {prescription.duration || "-"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
                   </div>

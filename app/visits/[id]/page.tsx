@@ -20,15 +20,18 @@ export default function VisitDetailPage() {
   const [recording, setRecording] = useState(false);
   const [saving, setSaving] = useState(false);
   const recorder = useAudioRecorder();
+  console.log("VisitDetailPage component mounted");
 
   useEffect(() => {
     if (!ready) return;
+    console.log("Loading visit...");
     loadVisit();
   }, [params.id, ready]);
 
   const loadVisit = async () => {
     try {
       const data = await getVisit(params.id);
+      console.log("Visit data:", data);
       setVisit(data.visit);
       setPatient(data.patient);
       setLoading(false);
@@ -194,36 +197,48 @@ export default function VisitDetailPage() {
                 {visit.transcripts.segments?.structured && (
                   <div className="stack" style={{ gap: "16px" }}>
                     {/* Current Symptoms */}
-                    {visit.transcripts.segments.structured.current_symptoms && Object.keys(visit.transcripts.segments.structured.current_symptoms).length > 0 && (
-                      <div style={{ background: "#f9fafb", padding: 16, borderRadius: 8, border: "1px solid #e5e7eb" }}>
-                        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#111827" }}>
-                          Current Symptoms
-                        </h3>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                          {Object.entries(visit.transcripts.segments.structured.current_symptoms).map(([key, value]) => (
-                            <div
-                              key={key}
-                              style={{
-                                background: "#fff",
-                                padding: "8px 12px",
-                                borderRadius: 6,
-                                border: "1px solid #e5e7eb",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8
-                              }}
-                            >
-                              <span style={{ fontWeight: "500", color: "#374151", textTransform: "capitalize" }}>
-                                {key.replace(/_/g, " ")}:
-                              </span>
-                              <span style={{ color: "#6b7280" }}>
-                                {typeof value === "string" ? value : String(value)}
-                              </span>
-                            </div>
-                          ))}
+                    {visit.transcripts.segments.structured.current_symptoms &&
+                      (Array.isArray(visit.transcripts.segments.structured.current_symptoms)
+                        ? visit.transcripts.segments.structured.current_symptoms.length > 0
+                        : Object.keys(visit.transcripts.segments.structured.current_symptoms).length > 0) && (
+                        <div style={{ background: "#f9fafb", padding: 16, borderRadius: 8, border: "1px solid #e5e7eb" }}>
+                          <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#111827" }}>
+                            Current Symptoms
+                          </h3>
+                          <div style={{ overflowX: "auto" }}>
+                            <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 6 }}>
+                              <thead>
+                                <tr style={{ background: "#f3f4f6" }}>
+                                  <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#111827", borderBottom: "2px solid #e5e7eb" }}>
+                                    Symptom
+                                  </th>
+                                  <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#111827", borderBottom: "2px solid #e5e7eb" }}>
+                                    Characteristics
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {(Array.isArray(visit.transcripts.segments.structured.current_symptoms)
+                                  ? visit.transcripts.segments.structured.current_symptoms
+                                  : Object.entries(visit.transcripts.segments.structured.current_symptoms).map(([key, value]) => ({
+                                    symptom: key.replace(/_/g, " "),
+                                    characteristics: typeof value === "string" ? value : String(value)
+                                  }))
+                                ).map((symptom: any, idx: number) => (
+                                  <tr key={idx} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                                    <td style={{ padding: "12px", color: "#374151" }}>
+                                      {symptom.symptom || "-"}
+                                    </td>
+                                    <td style={{ padding: "12px", color: "#6b7280" }}>
+                                      {symptom.characteristics || "-"}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
                     {/* Physical Exam Findings */}
                     {visit.transcripts.segments.structured.physical_exam_findings && Object.keys(visit.transcripts.segments.structured.physical_exam_findings).length > 0 && (
@@ -231,25 +246,31 @@ export default function VisitDetailPage() {
                         <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#111827" }}>
                           Physical Exam Findings
                         </h3>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                          {Object.entries(visit.transcripts.segments.structured.physical_exam_findings).map(([key, value]) => (
-                            <div
-                              key={key}
-                              style={{
-                                background: "#fff",
-                                padding: "12px",
-                                borderRadius: 6,
-                                border: "1px solid #e5e7eb"
-                              }}
-                            >
-                              <div style={{ fontWeight: "500", color: "#374151", marginBottom: 4, textTransform: "capitalize" }}>
-                                {key.replace(/_/g, " ")}
-                              </div>
-                              <div style={{ color: "#6b7280", fontSize: "14px" }}>
-                                {typeof value === "string" ? value : typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}
-                              </div>
-                            </div>
-                          ))}
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 6 }}>
+                            <thead>
+                              <tr style={{ background: "#f3f4f6" }}>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#111827", borderBottom: "2px solid #e5e7eb" }}>
+                                  Category
+                                </th>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#111827", borderBottom: "2px solid #e5e7eb" }}>
+                                  Finding
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {Object.entries(visit.transcripts.segments.structured.physical_exam_findings).map(([key, value], idx: number) => (
+                                <tr key={idx} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                                  <td style={{ padding: "12px", color: "#374151", textTransform: "capitalize", fontWeight: "500" }}>
+                                    {key.replace(/_/g, " ")}
+                                  </td>
+                                  <td style={{ padding: "12px", color: "#6b7280" }}>
+                                    {typeof value === "string" ? value : typeof value === "object" ? JSON.stringify(value, null, 2) : String(value)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     )}
@@ -257,40 +278,31 @@ export default function VisitDetailPage() {
                     {/* Diagnosis */}
                     {visit.transcripts.segments.structured.diagnosis && (
                       <div style={{ background: "#eff6ff", padding: 16, borderRadius: 8, border: "1px solid #bfdbfe" }}>
-                        <h3 style={{ margin: "0 0 8px 0", fontSize: "16px", fontWeight: "600", color: "#1e40af" }}>
+                        <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#1e40af" }}>
                           Diagnosis
                         </h3>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                          {Array.isArray(visit.transcripts.segments.structured.diagnosis) ? (
-                            visit.transcripts.segments.structured.diagnosis.map((diag: string, idx: number) => (
-                              <span
-                                key={idx}
-                                style={{
-                                  background: "#dbeafe",
-                                  color: "#1e40af",
-                                  padding: "6px 12px",
-                                  borderRadius: 6,
-                                  fontSize: "14px",
-                                  fontWeight: "500"
-                                }}
-                              >
-                                {diag}
-                              </span>
-                            ))
-                          ) : (
-                            <span
-                              style={{
-                                background: "#dbeafe",
-                                color: "#1e40af",
-                                padding: "6px 12px",
-                                borderRadius: 6,
-                                fontSize: "14px",
-                                fontWeight: "500"
-                              }}
-                            >
-                              {visit.transcripts.segments.structured.diagnosis}
-                            </span>
-                          )}
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 6 }}>
+                            <thead>
+                              <tr style={{ background: "#dbeafe" }}>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#1e40af", borderBottom: "2px solid #bfdbfe" }}>
+                                  Diagnosis
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(Array.isArray(visit.transcripts.segments.structured.diagnosis)
+                                ? visit.transcripts.segments.structured.diagnosis
+                                : [visit.transcripts.segments.structured.diagnosis]
+                              ).map((diag: string, idx: number) => (
+                                <tr key={idx} style={{ borderBottom: "1px solid #bfdbfe" }}>
+                                  <td style={{ padding: "12px", color: "#1e40af", fontWeight: "500" }}>
+                                    {diag}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     )}
@@ -301,22 +313,26 @@ export default function VisitDetailPage() {
                         <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#111827" }}>
                           Past Medical History
                         </h3>
-                        <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "6px" }}>
-                          {visit.transcripts.segments.structured.past_medical_history.map((item: string, idx: number) => (
-                            <li
-                              key={idx}
-                              style={{
-                                background: "#fff",
-                                padding: "10px 12px",
-                                borderRadius: 6,
-                                border: "1px solid #e5e7eb",
-                                color: "#374151"
-                              }}
-                            >
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 6 }}>
+                            <thead>
+                              <tr style={{ background: "#f3f4f6" }}>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#111827", borderBottom: "2px solid #e5e7eb" }}>
+                                  History Item
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {visit.transcripts.segments.structured.past_medical_history.map((item: string, idx: number) => (
+                                <tr key={idx} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                                  <td style={{ padding: "12px", color: "#374151" }}>
+                                    {item}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
 
@@ -326,26 +342,26 @@ export default function VisitDetailPage() {
                         <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#166534" }}>
                           Treatment Plan
                         </h3>
-                        <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "8px" }}>
-                          {visit.transcripts.segments.structured.treatment_plan.map((item: string, idx: number) => (
-                            <li
-                              key={idx}
-                              style={{
-                                background: "#fff",
-                                padding: "12px",
-                                borderRadius: 6,
-                                border: "1px solid #bbf7d0",
-                                color: "#166534",
-                                display: "flex",
-                                alignItems: "flex-start",
-                                gap: 8
-                              }}
-                            >
-                              <span style={{ color: "#22c55e", fontSize: "18px", lineHeight: 1 }}>•</span>
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 6 }}>
+                            <thead>
+                              <tr style={{ background: "#dcfce7" }}>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#166534", borderBottom: "2px solid #bbf7d0" }}>
+                                  Treatment Item
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {visit.transcripts.segments.structured.treatment_plan.map((item: string, idx: number) => (
+                                <tr key={idx} style={{ borderBottom: "1px solid #bbf7d0" }}>
+                                  <td style={{ padding: "12px", color: "#166534" }}>
+                                    {item}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
 
@@ -355,39 +371,43 @@ export default function VisitDetailPage() {
                         <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#92400e" }}>
                           Prescriptions
                         </h3>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                          {visit.transcripts.segments.structured.prescriptions.map((prescription: any, idx: number) => (
-                            <div
-                              key={idx}
-                              style={{
-                                background: "#fff",
-                                padding: "14px",
-                                borderRadius: 6,
-                                border: "1px solid #fde68a"
-                              }}
-                            >
-                              <div style={{ fontWeight: "600", color: "#92400e", marginBottom: 6, fontSize: "15px" }}>
-                                {prescription.medication || "Medication"}
-                              </div>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: "14px", color: "#78350f" }}>
-                                {prescription.dosage && (
-                                  <div>
-                                    <strong>Dosage:</strong> {prescription.dosage}
-                                  </div>
-                                )}
-                                {prescription.frequency && (
-                                  <div>
-                                    <strong>Frequency:</strong> {prescription.frequency}
-                                  </div>
-                                )}
-                                {prescription.duration && (
-                                  <div>
-                                    <strong>Duration:</strong> {prescription.duration}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", borderRadius: 6 }}>
+                            <thead>
+                              <tr style={{ background: "#fef9c3" }}>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#92400e", borderBottom: "2px solid #fde68a" }}>
+                                  Medication
+                                </th>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#92400e", borderBottom: "2px solid #fde68a" }}>
+                                  Dosage
+                                </th>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#92400e", borderBottom: "2px solid #fde68a" }}>
+                                  Frequency
+                                </th>
+                                <th style={{ padding: "12px", textAlign: "left", fontWeight: "600", color: "#92400e", borderBottom: "2px solid #fde68a" }}>
+                                  Duration
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {visit.transcripts.segments.structured.prescriptions.map((prescription: any, idx: number) => (
+                                <tr key={idx} style={{ borderBottom: "1px solid #fde68a" }}>
+                                  <td style={{ padding: "12px", color: "#92400e", fontWeight: "500" }}>
+                                    {prescription.medication || "-"}
+                                  </td>
+                                  <td style={{ padding: "12px", color: "#78350f" }}>
+                                    {prescription.dosage || "-"}
+                                  </td>
+                                  <td style={{ padding: "12px", color: "#78350f" }}>
+                                    {prescription.frequency || "-"}
+                                  </td>
+                                  <td style={{ padding: "12px", color: "#78350f" }}>
+                                    {prescription.duration || "-"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     )}

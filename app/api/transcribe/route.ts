@@ -112,7 +112,7 @@ Extract the following information:
 Return ONLY valid JSON in this exact format (no markdown, no code blocks, no additional text):
 {
   "past_medical_history": [],
-  "current_symptoms": {},
+  "current_symptoms": [{ symptom: string, characteristics: 'mild' | 'moderate' | 'severe' | 'unspecified' }],
   "physical_exam_findings": {},
   "diagnosis": "",
   "treatment_plan": [],
@@ -148,6 +148,7 @@ ${transcript}`;
     try {
       // Try to parse as JSON directly
       parsedData = JSON.parse(predictionStr);
+      console.log("Parsed data:", parsedData);
     } catch {
       // If parsing fails, try to extract JSON from the response
       const jsonMatch = predictionStr.match(/\{[\s\S]*\}/);
@@ -189,6 +190,10 @@ ${transcript}`;
         // Don't fail the request, just log the error
       }
     }
+
+    // console.log("Transcript:", transcript);
+    console.log("Structured data:", structuredData);
+    // console.log("Summary:", summary);
 
     return NextResponse.json({
       transcript, // Full transcript
