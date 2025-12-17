@@ -5,8 +5,24 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api
 
 class ApiService {
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    // For now, return mock data. Replace with actual API calls when backend is ready
-    return this.getMockData(endpoint);
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+        ...options,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.warn('API call failed, using mock data:', error);
+      return this.getMockData(endpoint);
+    }
   }
 
   private getMockData(endpoint: string): any {

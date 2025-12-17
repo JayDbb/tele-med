@@ -1,4 +1,4 @@
-const CACHE_NAME = 'medical-dashboard-v1';
+const CACHE_NAME = 'medical-dashboard-v' + Date.now();
 const urlsToCache = [
   '/',
   '/static/js/bundle.js',

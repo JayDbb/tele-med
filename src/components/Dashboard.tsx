@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Patient, TimelineEvent, PatientCondition, Update, User } from '../types';
 import { apiService } from '../services/api';
+import PatientsPage from './PatientsPage';
 
 const Dashboard: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -11,6 +12,8 @@ const Dashboard: React.FC = () => {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState('dashboard');
 
   useEffect(() => {
     const loadData = async () => {
@@ -61,7 +64,59 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="relative flex min-h-screen w-full">
-      {/* Sidebar */}
+      {/* Mobile Navigation */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 z-50 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-8" 
+                 style={{backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAIvhsI2mvBKXaHlCUz0PA5n5FW4lyFIJhxJpNXoPyBoHFL72A1graDo7-FmfcUdzvHyJAKBwcmxr83-yxj9STK928Og--F5_H0wNRQ_9VdAzZrxxk-eeBdZ8P8Xcsyp5jqHD2KCc3UBFPnoePLA69iZaeOKgxg5mRsGO14CqdGLak3vlMb-KYEDtX0z3re05rOcoV-vlF1Ky8Hn3MqrxdKFFhIT8pCiW3iMVgbHKKzpkRHw-741kfhXZ6RRnrsHalhB4WafkR6mKs")'}} />
+            <h1 className="text-gray-900 dark:text-white text-lg font-medium">Medical.</h1>
+          </div>
+          <button 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="text-gray-600 dark:text-gray-300"
+          >
+            <span className="material-symbols-outlined">{mobileMenuOpen ? 'close' : 'menu'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setMobileMenuOpen(false)} />
+      )}
+
+      {/* Mobile Sidebar */}
+      <aside className={`lg:hidden fixed top-16 left-0 h-full w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 z-50 transform transition-transform ${
+        mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <nav className="flex flex-col gap-2 p-4">
+          <button 
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg ${currentPage === 'dashboard' ? 'bg-primary/10 text-primary' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+            onClick={() => { setCurrentPage('dashboard'); setMobileMenuOpen(false); }}
+          >
+            <span className="material-symbols-outlined fill">dashboard</span>
+            <p className="text-sm font-medium">Dashboard</p>
+          </button>
+          <button className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+            <span className="material-symbols-outlined">calendar_month</span>
+            <p className="text-sm font-medium">Calendar</p>
+          </button>
+          <button 
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg ${currentPage === 'patients' ? 'bg-primary/10 text-primary' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+            onClick={() => { setCurrentPage('patients'); setMobileMenuOpen(false); }}
+          >
+            <span className="material-symbols-outlined">groups</span>
+            <p className="text-sm font-medium">Patients</p>
+          </button>
+          <button className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+            <span className="material-symbols-outlined">monitor_heart</span>
+            <p className="text-sm font-medium">Diagnosis</p>
+          </button>
+        </nav>
+      </aside>
+
+      {/* Desktop Sidebar */}
       <aside className="hidden lg:flex h-screen w-64 flex-col bg-white dark:bg-gray-900 p-4 border-r border-gray-200 dark:border-gray-800 sticky top-0">
         <div className="flex items-center gap-3 mb-8">
           <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10" 
@@ -70,22 +125,28 @@ const Dashboard: React.FC = () => {
         </div>
         
         <nav className="flex flex-col gap-2 flex-grow">
-          <a className="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary" href="#">
+          <button 
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg ${currentPage === 'dashboard' ? 'bg-primary/10 text-primary' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+            onClick={() => setCurrentPage('dashboard')}
+          >
             <span className="material-symbols-outlined fill">dashboard</span>
             <p className="text-sm font-medium">Dashboard</p>
-          </a>
-          <a className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800" href="#">
+          </button>
+          <button className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
             <span className="material-symbols-outlined">calendar_month</span>
             <p className="text-sm font-medium">Calendar</p>
-          </a>
-          <a className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800" href="#">
+          </button>
+          <button 
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg ${currentPage === 'patients' ? 'bg-primary/10 text-primary' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+            onClick={() => setCurrentPage('patients')}
+          >
             <span className="material-symbols-outlined">groups</span>
             <p className="text-sm font-medium">Patients</p>
-          </a>
-          <a className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800" href="#">
+          </button>
+          <button className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
             <span className="material-symbols-outlined">monitor_heart</span>
             <p className="text-sm font-medium">Diagnosis</p>
-          </a>
+          </button>
         </nav>
 
         <div className="flex flex-col gap-4">
@@ -116,7 +177,8 @@ const Dashboard: React.FC = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
+      {currentPage === 'dashboard' ? (
+      <main className="flex-1 pt-20 lg:pt-8 p-4 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
         {/* Search */}
         <div className="col-span-1 lg:col-span-12">
           <div className="flex w-full flex-1 items-stretch rounded-lg h-12">
@@ -329,6 +391,13 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </main>
+      ) : currentPage === 'patients' ? (
+        <PatientsPage />
+      ) : (
+        <div className="flex-1 pt-20 lg:pt-8 p-4 lg:p-8 flex items-center justify-center">
+          <p className="text-gray-500">Page not found</p>
+        </div>
+      )}
     </div>
   );
 };

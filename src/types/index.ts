@@ -8,6 +8,12 @@ export interface Patient {
   diagnosis?: string;
   symptoms?: string;
   comment?: string;
+  currentIssue?: string;
+  currentMedication?: string;
+  email?: string;
+  gender?: string;
+  age?: number;
+  lastConsultation?: string;
 }
 
 export interface TimelineEvent {

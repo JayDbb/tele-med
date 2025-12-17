@@ -10,7 +10,13 @@ export const mockPatients: Patient[] = [
     referral: 'Dr. Sarah Johnson',
     diagnosis: 'Routine checkup',
     symptoms: 'None',
-    comment: 'Patient in good health.'
+    comment: 'Patient in good health.',
+    currentIssue: 'Hypertension',
+    currentMedication: 'Lisinopril 10mg',
+    email: 'martin.coblen@example.com',
+    gender: 'Male',
+    age: 24,
+    lastConsultation: 'May 12, 2019'
   },
   {
     id: '2',
@@ -21,7 +27,13 @@ export const mockPatients: Patient[] = [
     referral: 'Dr. Michael Brown',
     diagnosis: 'Hypertension monitoring',
     symptoms: 'Mild headaches',
-    comment: 'Blood pressure stable.'
+    comment: 'Blood pressure stable.',
+    currentIssue: 'Diabetes Type 2',
+    currentMedication: 'Metformin 500mg',
+    email: 'katie.tannebe@example.com',
+    gender: 'Female',
+    age: 28,
+    lastConsultation: 'May 15, 2019'
   },
   {
     id: '3',
@@ -32,7 +44,13 @@ export const mockPatients: Patient[] = [
     referral: 'Dr. Helen Miller',
     diagnosis: 'Post-operative checkup',
     symptoms: 'Mild pain, swelling',
-    comment: 'Patient recovering well.'
+    comment: 'Patient recovering well.',
+    currentIssue: 'Post-surgical recovery',
+    currentMedication: 'Ibuprofen 400mg',
+    email: 'amanda.kimber@example.com',
+    gender: 'Female',
+    age: 31,
+    lastConsultation: 'May 10, 2019'
   },
   {
     id: '4',
@@ -40,10 +58,16 @@ export const mockPatients: Patient[] = [
     time: '09:30',
     status: 'upcoming',
     type: 'Surgery consultation',
-    referral: 'Dr. Alex Robin',
+    referral: 'Dr. Ilya',
     diagnosis: 'Appendicitis evaluation',
     symptoms: 'Abdominal pain',
-    comment: 'Requires immediate attention.'
+    comment: 'Requires immediate attention.',
+    currentIssue: 'Acute appendicitis',
+    currentMedication: 'Morphine 5mg PRN',
+    email: 'robert.mirro@example.com',
+    gender: 'Male',
+    age: 35,
+    lastConsultation: 'May 8, 2019'
   },
   {
     id: '5',
@@ -54,7 +78,13 @@ export const mockPatients: Patient[] = [
     referral: 'Dr. Lisa Wang',
     diagnosis: 'Cardiac evaluation',
     symptoms: 'Chest pain, shortness of breath',
-    comment: 'Scheduled for ECG.'
+    comment: 'Scheduled for ECG.',
+    currentIssue: 'Chest pain investigation',
+    currentMedication: 'Aspirin 81mg daily',
+    email: 'chester.bennington@example.com',
+    gender: 'Male',
+    age: 42,
+    lastConsultation: 'May 5, 2019'
   }
 ];
 
@@ -112,7 +142,7 @@ export const mockUpdates: Update[] = [
 ];
 
 export const mockUser: User = {
-  name: 'Dr. Alex Robin',
+  name: 'Dr. Ilya',
   role: 'Surgeon',
   avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBevzzTiuFvj77hHgIQO-zsMGw3JH6wML3gRur0C6z0xrjqm75RCjxpea_yuq9YxdfbrSCVugctD9ckg66H_Es4AnRjNeKVKJN-3hhwq3uoZVX4xXctMFHvTAZDBz3PUNqzdAGDvX-raEXyNcmiBKZItUurchM50ZCy5v92O7NEIIYv1seAmACOaiGlWAfwACk8nZhn6Wvww3wdpeK0QrFBb8yGpQA7M9plB7puFkf9xxic63ekREoqqelmGMm-v3TzjOMdbL4291I'
 };
