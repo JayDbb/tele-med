@@ -193,9 +193,9 @@ export default function PatientDetailPage() {
                 <Link href={`/patients/${patient.id}/visit`} className="w-full bg-[#5BB5E8] hover:bg-blue-600 text-white px-4 py-3 rounded-lg text-sm font-medium flex items-center transition">
                   <span className="text-sm mr-2">🎤</span> Start New Visit
                 </Link>
-                <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-lg text-sm font-medium flex items-center transition">
-                  <span className="text-sm mr-2">📝</span> View All Notes
-                </button>
+                <Link href={`/patients/${patient.id}/video`} className="w-full bg-white border hover:bg-gray-50 text-[#5BB5E8] px-4 py-3 rounded-lg text-sm font-medium flex items-center transition">
+                  <span className="text-sm mr-2">📹</span> Start Video Consultation
+                </Link>
               </div>
             </div>
           </div>

@@ -53,12 +53,6 @@ export function Header() {
           >
             Dashboard
           </Link>
-          <Link
-            href="/patients/new"
-            className="flex-shrink-0 bg-white hover:bg-blue-50 text-blue-900 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 font-semibold text-sm px-4 py-2 rounded-xl shadow-sm transition-all duration-200 active:scale-95 flex items-center gap-2"
-          >
-            New Patient
-          </Link>
           <SignOut />
         </nav>
       )}
