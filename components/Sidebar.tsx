@@ -1,9 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(true)
+  const [isDark, setIsDark] = useState(false)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('theme')
+    if (stored === 'dark') {
+      setIsDark(true)
+      document.documentElement.classList.add('dark')
+    }
+  }, [])
+
+  const toggleTheme = () => {
+    const newTheme = !isDark
+    setIsDark(newTheme)
+    if (newTheme) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }
   const navItems = [
     { icon: 'dashboard', label: 'Dashboard', active: true },
     { icon: 'calendar_month', label: 'Calendar', active: false },
@@ -69,6 +90,16 @@ const Sidebar = () => {
               {!isCollapsed && <p className="text-sm font-medium">{item.label}</p>}
             </a>
           ))}
+          
+          <button
+            onClick={toggleTheme}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            <span className="material-symbols-outlined">
+              {isDark ? 'light_mode' : 'dark_mode'}
+            </span>
+            {!isCollapsed && <p className="text-sm font-medium">{isDark ? 'Light Mode' : 'Dark Mode'}</p>}
+          </button>
         </div>
 
         <div className={`border-t border-gray-200 dark:border-gray-700 pt-4 ${isCollapsed ? 'hidden' : ''}`}>

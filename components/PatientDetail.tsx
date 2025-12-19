@@ -159,39 +159,38 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
               </div>
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                <Link href={`/patients/${patientId}/trends/blood-pressure`} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer">
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">BP:</p>
                   <p className="font-semibold text-gray-900 dark:text-white">130/80</p>
                   <div className="flex items-center gap-1 mt-1">
                     <span className="material-symbols-outlined text-green-500 text-sm">trending_down</span>
                     <span className="text-xs text-green-600 dark:text-green-400">↓15</span>
                   </div>
-                </div>
-                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                </Link>
+                <Link href={`/patients/${patientId}/trends/pulse`} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer">
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pulse:</p>
                   <p className="font-semibold text-gray-900 dark:text-white">72 bpm</p>
                   <div className="flex items-center gap-1 mt-1">
                     <span className="material-symbols-outlined text-green-500 text-sm">trending_down</span>
                     <span className="text-xs text-green-600 dark:text-green-400">↓3</span>
                   </div>
-                </div>
-                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                </Link>
+                <Link href={`/patients/${patientId}/trends/weight`} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer">
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Weight:</p>
                   <p className="font-semibold text-gray-900 dark:text-white">185 lbs</p>
                   <div className="flex items-center gap-1 mt-1">
                     <span className="material-symbols-outlined text-green-500 text-sm">trending_down</span>
                     <span className="text-xs text-green-600 dark:text-green-400">↓5lbs</span>
                   </div>
-                </div>
-                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                </Link>
+                <Link href={`/patients/${patientId}/trends/temperature`} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer">
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Temp:</p>
                   <p className="font-semibold text-gray-900 dark:text-white">98.6°F</p>
                   <div className="flex items-center gap-1 mt-1">
                     <span className="material-symbols-outlined text-gray-500 text-sm">trending_flat</span>
                   </div>
-                </div>
+                </Link>
               </div>
-              
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-4">
                 <div className="flex items-start gap-2">
                   <span className="text-blue-600 dark:text-blue-400">🤖</span>
