@@ -1,37 +1,110 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Medical Dashboard
+
+A modern medical dashboard built with Next.js, TypeScript, and Tailwind CSS for healthcare professionals.
+
+## Features
+
+- **Dashboard Overview**: Complete medical dashboard with sidebar navigation
+- **Calendar Integration**: Interactive calendar with appointment scheduling
+- **Patient Management**: Appointments list with status tracking
+- **Timeline View**: Daily schedule and task management
+- **Patient Analytics**: Visual charts showing patient conditions
+- **Real-time Updates**: Important notifications and updates
+- **Responsive Design**: Works on desktop and mobile devices
+- **Dark Mode Support**: Built-in dark/light theme switching
+
+## Tech Stack
+
+- **Next.js 14** - React framework with App Router
+- **TypeScript** - Type-safe development
+- **Tailwind CSS** - Utility-first CSS framework
+- **Material Icons** - Google Material Design icons
 
 ## Getting Started
 
-First, run the development server:
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
+2. **Run the development server:**
+   ```bash
+   npm run dev
+   ```
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+3. **Open your browser:**
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+## Project Structure
+
+```
+├── app/                    # Next.js App Router
+│   ├── globals.css        # Global styles
+│   ├── layout.tsx         # Root layout
+│   └── page.tsx           # Dashboard page
+├── components/            # React components
+│   ├── Sidebar.tsx        # Navigation sidebar
+│   ├── Calendar.tsx       # Calendar widget
+│   ├── Timeline.tsx       # Daily timeline
+│   ├── Appointments.tsx   # Appointments list
+│   ├── AppointmentDetail.tsx # Patient details
+│   ├── PatientConditions.tsx # Analytics chart
+│   ├── ImportantUpdates.tsx  # Updates panel
+│   └── SearchBar.tsx      # Search functionality
+├── types/                 # TypeScript interfaces
+└── tailwind.config.ts     # Tailwind configuration
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Components
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Sidebar
+- Navigation menu with active states
+- User profile section
+- Material Design icons
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Calendar
+- Interactive monthly calendar
+- Current date highlighting
+- Navigation controls
 
-## Learn More
+### Timeline
+- Daily schedule overview
+- Status indicators
+- Time-based layout
 
-To learn more about Next.js, take a look at the following resources:
+### Appointments
+- Patient appointment list
+- Status badges (Done, Current, Upcoming)
+- Interactive rows
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Patient Analytics
+- Donut chart visualization
+- Patient condition breakdown
+- Real-time statistics
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Customization
 
-## Deploy on Vercel
+### Theme Colors
+The dashboard uses a custom color palette defined in `tailwind.config.ts`:
+- Primary: `#137fec` (Medical blue)
+- Background Light: `#f6f7f8`
+- Background Dark: `#101922`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Adding New Components
+1. Create component in `/components` directory
+2. Add TypeScript interfaces in `/types`
+3. Import and use in dashboard page
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Future Enhancements
+
+- Backend API integration
+- Real-time data updates
+- Advanced patient management
+- Appointment scheduling
+- Medical records integration
+- Notification system
+- Multi-language support
+
+## License
+
+This project is for educational and demonstration purposes.
