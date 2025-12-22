@@ -118,12 +118,30 @@ export default function PatientVisitPage() {
         const structured = transcriptionResult.structured;
 
         // Handle current symptoms - extract symptom names only
-        if (structured.current_symptoms && Array.isArray(structured.current_symptoms)) {
-          const symptomsText = structured.current_symptoms
-            .map((s: any) => s.symptom)
-            .filter((symptom: string) => symptom && symptom !== 'undefined')
-            .join(', ');
-          setChiefComplaint(symptomsText);
+        if (structured.current_symptoms) {
+          let symptomsText = '';
+          if (Array.isArray(structured.current_symptoms)) {
+            // Handle array of symptom objects
+            symptomsText = structured.current_symptoms
+              .map((s: any) => s.symptom)
+              .filter((symptom: string) => symptom && symptom !== 'undefined')
+              .join(', ');
+          } else if (structured.current_symptoms.symptoms && Array.isArray(structured.current_symptoms.symptoms)) {
+            // Handle nested symptoms array
+            symptomsText = structured.current_symptoms.symptoms
+              .filter((s: any) => s.description && s.description !== 'undefined')
+              .map((s: any) => `${s.symptom}: ${s.description}`)
+              .join(', ');
+          } else {
+            // Handle object structure
+            symptomsText = Object.entries(structured.current_symptoms)
+              .filter(([key, value]) => value && value !== 'undefined')
+              .map(([key, value]) => `${key.replace(/_/g, ' ')}: ${typeof value === 'object' ? JSON.stringify(value) : value}`)
+              .join(', ');
+          }
+          if (symptomsText) {
+            setChiefComplaint(symptomsText);
+          }
         }
 
         if (structured.physical_exam_findings) {

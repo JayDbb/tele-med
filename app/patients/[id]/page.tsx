@@ -27,7 +27,7 @@ export default function PatientDetailPage() {
         const supabase = supabaseBrowser();
         const { data: { user } } = await supabase.auth.getUser();
         setUser(user);
-        
+
         const data = await getPatient(params.id);
         setPatient(data.patient);
         setVisits(data.visits);
@@ -143,11 +143,11 @@ export default function PatientDetailPage() {
                   {visits.map((visit, idx) => {
                     const visitDate = visit.created_at ? new Date(visit.created_at) : null;
                     const transcriptSummary = visit.transcripts?.segments?.summary;
-                    const noteData = Array.isArray(visit.notes) 
-                      ? visit.notes[0]?.note 
+                    const noteData = Array.isArray(visit.notes)
+                      ? visit.notes[0]?.note
                       : visit.notes?.note;
                     const summary = transcriptSummary || noteData?.summary || noteData?.text?.substring(0, 100) || "No notes yet";
-                    
+
                     return (
                       <Link
                         key={visit.id}
@@ -168,11 +168,10 @@ export default function PatientDetailPage() {
                         <div className="flex items-center gap-3 w-full sm:w-auto">
                           <div className="hidden sm:block text-right mr-4">
                             <p className="text-xs text-[#718096]">Status</p>
-                            <p className={`text-sm font-medium ${
-                              visit.status === "finalized" ? "text-green-600" : 
-                              visit.status === "pending_review" ? "text-yellow-600" : 
-                              "text-blue-600"
-                            }`}>{visit.status}</p>
+                            <p className={`text-sm font-medium ${visit.status === "finalized" ? "text-green-600" :
+                              visit.status === "pending_review" ? "text-yellow-600" :
+                                "text-blue-600"
+                              }`}>{visit.status}</p>
                           </div>
                           <span className="bg-blue-50 text-[#5BB5E8] px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-100 transition w-full sm:w-auto text-center">
                             View Details
@@ -195,15 +194,14 @@ export default function PatientDetailPage() {
                 <Link href={`/patients/${patient.id}/visit`} className="w-full bg-[#5BB5E8] hover:bg-blue-600 text-white px-4 py-3 rounded-lg text-sm font-medium flex items-center transition">
                   <span className="text-sm mr-2">🎤</span> Start New Visit
                 </Link>
-                <button className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-lg text-sm font-medium flex items-center transition">
-                  <span className="text-sm mr-2">📝</span> View All Notes
-                </button>
+                <Link href={`/patients/${patient.id}/video`} className="w-full bg-white border hover:bg-gray-50 text-[#5BB5E8] px-4 py-3 rounded-lg text-sm font-medium flex items-center transition">
+                  <span className="text-sm mr-2">📹</span> Start Video Consultation
+                </Link>
               </div>
             </div>
           </div>
         </div>
       </main>
     </div>
-  );
+  )
 }
-

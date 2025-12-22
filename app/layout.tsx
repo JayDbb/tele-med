@@ -1,30 +1,33 @@
-import "./globals.css";
-import type { Metadata } from "next";
-import { ReactNode } from "react";
+import type { Metadata } from 'next'
+import './globals.css'
+import ClientThemeWrapper from '../components/ClientThemeWrapper'
+import AuthProvider from '../components/AuthProvider'
 
 export const metadata: Metadata = {
-  title: "Intellibus Telehealth",
-  description: "Ready to help your patients today? Manage patient records, schedule visits, and track health progress.",
-  icons: {
-    icon: '/intellibus.jpeg',
-    shortcut: '/intellibus.jpeg',
-    apple: '/intellibus.jpeg',
-  },
-};
+  title: 'Medical Dashboard',
+  description: 'Medical Dashboard for Doctors',
+}
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/intellibus.jpeg" type="image/jpeg" />
-        <link rel="shortcut icon" href="/intellibus.jpeg" type="image/jpeg" />
-        <link rel="apple-touch-icon" href="/intellibus.jpeg" />
-        <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+          rel="stylesheet"
+        />
       </head>
-      <body className="page">
-        {children}
+      <body className="font-display bg-background-light dark:bg-background-dark">
+        <AuthProvider>
+          <ClientThemeWrapper>
+            {children}
+          </ClientThemeWrapper>
+        </AuthProvider>
       </body>
     </html>
-  );
+  )
 }
-

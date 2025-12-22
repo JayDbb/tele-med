@@ -144,6 +144,9 @@ export default function DashboardPage() {
                   <Link href="/patients/new" className="bg-white text-[#5BB5E8] px-6 py-2.5 rounded-xl font-semibold text-sm hover:bg-blue-50 transition shadow-sm">
                     Add New Patient
                   </Link>
+                  <Link href="/video/demo" className="bg-white text-[#5BB5E8] px-6 py-2.5 rounded-xl font-semibold text-sm hover:bg-blue-50 transition shadow-sm">
+                    Video Consultation Demo Room
+                  </Link>
                   <button className="bg-blue-400 bg-opacity-30 border border-blue-300 border-opacity-30 text-white px-6 py-2.5 rounded-xl font-medium text-sm hover:bg-opacity-40 transition">
                     View All Patients
                   </button>
