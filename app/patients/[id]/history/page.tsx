@@ -7,7 +7,7 @@ export default function VisitHistoryPage({ params }: { params: { id: string } })
     <div className="relative flex min-h-screen w-full">
       <Sidebar />
       <div className="flex flex-1 overflow-hidden">
-        <PatientDetailSidebar />
+        <PatientDetailSidebar patientId={params.id} />
         <VisitHistory patientId={params.id} />
       </div>
     </div>

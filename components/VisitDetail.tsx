@@ -15,7 +15,7 @@ export default function VisitDetail({ patientId, visitId }: VisitDetailProps) {
     assessment: true
   })
 
-  const toggleSection = (section: string) => {
+  const toggleSection = (section: keyof typeof openSections) => {
     setOpenSections(prev => ({ ...prev, [section]: !prev[section] }))
   }
 

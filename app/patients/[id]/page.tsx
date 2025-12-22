@@ -7,7 +7,7 @@ export default function PatientDetailPage({ params }: { params: { id: string } }
     <div className="relative flex min-h-screen w-full">
       <Sidebar />
       <div className="flex flex-1 overflow-hidden">
-        <PatientDetailSidebar />
+        <PatientDetailSidebar patientId={params.id} />
         <PatientDetail patientId={params.id} />
       </div>
     </div>

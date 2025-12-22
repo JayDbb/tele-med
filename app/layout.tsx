@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import ClientThemeWrapper from '../components/ClientThemeWrapper'
+import AuthProvider from '../components/AuthProvider'
 
 export const metadata: Metadata = {
   title: 'Medical Dashboard',
@@ -21,9 +22,11 @@ export default function RootLayout({
         />
       </head>
       <body className="font-display bg-background-light dark:bg-background-dark">
-        <ClientThemeWrapper>
-          {children}
-        </ClientThemeWrapper>
+        <AuthProvider>
+          <ClientThemeWrapper>
+            {children}
+          </ClientThemeWrapper>
+        </AuthProvider>
       </body>
     </html>
   )
