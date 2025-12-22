@@ -8,6 +8,7 @@ import type { Patient, Visit } from "../../../lib/types";
 import { useAuthGuard } from "../../../lib/useAuthGuard";
 import { supabaseBrowser } from "../../../lib/supabaseBrowser";
 import { Header } from "../../../components/Header";
+import { OfflineSyncIndicator } from "../../../components/OfflineSyncIndicator";
 
 export default function PatientDetailPage() {
   const { ready } = useAuthGuard();
@@ -74,6 +75,7 @@ export default function PatientDetailPage() {
   return (
     <div className="bg-[#F3F6FD] min-h-screen">
       <Header />
+      <OfflineSyncIndicator />
       {/* Main Content */}
       <main className="p-4 md:p-8 overflow-y-auto">
         {/* Header */}

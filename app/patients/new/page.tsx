@@ -7,6 +7,7 @@ import { createPatient } from "../../../lib/api";
 import { useAuthGuard } from "../../../lib/useAuthGuard";
 import { supabaseBrowser } from "../../../lib/supabaseBrowser";
 import { Header } from "../../../components/Header";
+import { OfflineSyncIndicator } from "../../../components/OfflineSyncIndicator";
 
 export default function NewPatientPage() {
   const { ready } = useAuthGuard();
@@ -40,7 +41,11 @@ export default function NewPatientPage() {
         phone: phone || null,
 
       });
-      router.push(`/patients/${patient.id}`);
+      if ((patient as any)._queued) {
+        router.push('/dashboard');
+      } else {
+        router.push(`/patients/${patient.id}`);
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -60,6 +65,7 @@ export default function NewPatientPage() {
   return (
     <div className="bg-[#F3F6FD] min-h-screen">
       <Header />
+      <OfflineSyncIndicator />
       {/* Main Content */}
       <main className="p-4 md:p-8 overflow-y-auto">
         {/* Header */}
@@ -108,11 +114,11 @@ export default function NewPatientPage() {
                   <label className="block text-sm font-medium text-[#718096] mb-2" htmlFor="fullname">
                     Full Legal Name <span className="text-red-500">*</span>
                   </label>
-                  <input 
-                    className="w-full h-11 px-4 rounded-xl bg-white border border-gray-200 text-[#2D3748] placeholder:text-gray-400 focus:ring-2 focus:ring-[#5BB5E8] focus:border-[#5BB5E8] transition-all" 
-                    id="fullname" 
-                    name="fullname" 
-                    placeholder="e.g. Johnathan Doe" 
+                  <input
+                    className="w-full h-11 px-4 rounded-xl bg-white border border-gray-200 text-[#2D3748] placeholder:text-gray-400 focus:ring-2 focus:ring-[#5BB5E8] focus:border-[#5BB5E8] transition-all"
+                    id="fullname"
+                    name="fullname"
+                    placeholder="e.g. Johnathan Doe"
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -126,11 +132,11 @@ export default function NewPatientPage() {
                   </label>
                   <div className="flex gap-4">
                     <div className="relative flex items-center w-full">
-                      <input 
-                        className="peer hidden" 
-                        id="sex_male" 
-                        name="sex" 
-                        type="radio" 
+                      <input
+                        className="peer hidden"
+                        id="sex_male"
+                        name="sex"
+                        type="radio"
                         value="M"
                         checked={sex === "M"}
                         onChange={(e) => setSex("M")}
@@ -140,11 +146,11 @@ export default function NewPatientPage() {
                       </label>
                     </div>
                     <div className="relative flex items-center w-full">
-                      <input 
-                        className="peer hidden" 
-                        id="sex_female" 
-                        name="sex" 
-                        type="radio" 
+                      <input
+                        className="peer hidden"
+                        id="sex_female"
+                        name="sex"
+                        type="radio"
                         value="F"
                         checked={sex === "F"}
                         onChange={(e) => setSex("F")}
@@ -169,11 +175,11 @@ export default function NewPatientPage() {
                     <label className="block text-sm font-medium text-[#718096] mb-2" htmlFor="phone">
                       Mobile Number <span className="text-red-500">*</span>
                     </label>
-                    <input 
-                      className="w-full h-11 px-4 rounded-xl bg-white border border-gray-200 text-[#2D3748] placeholder:text-gray-400 focus:ring-2 focus:ring-[#5BB5E8] focus:border-[#5BB5E8] transition-all" 
-                      id="phone" 
-                      name="phone" 
-                      placeholder="(555) 000-0000" 
+                    <input
+                      className="w-full h-11 px-4 rounded-xl bg-white border border-gray-200 text-[#2D3748] placeholder:text-gray-400 focus:ring-2 focus:ring-[#5BB5E8] focus:border-[#5BB5E8] transition-all"
+                      id="phone"
+                      name="phone"
+                      placeholder="(555) 000-0000"
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
@@ -196,16 +202,16 @@ export default function NewPatientPage() {
 
               {/* Footer / Actions */}
               <div className="mt-8 flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
-                <button 
-                  className="w-full sm:w-auto px-6 h-11 rounded-xl border border-gray-200 text-gray-700 font-medium bg-white hover:bg-gray-50 transition-colors" 
+                <button
+                  className="w-full sm:w-auto px-6 h-11 rounded-xl border border-gray-200 text-gray-700 font-medium bg-white hover:bg-gray-50 transition-colors"
                   type="button"
                   onClick={() => router.back()}
                   disabled={loading}
                 >
                   Cancel
                 </button>
-                <button 
-                  className="w-full sm:w-auto px-6 h-11 rounded-xl bg-[#5BB5E8] text-white font-medium hover:bg-blue-600 transition-colors shadow-sm flex items-center justify-center gap-2" 
+                <button
+                  className="w-full sm:w-auto px-6 h-11 rounded-xl bg-[#5BB5E8] text-white font-medium hover:bg-blue-600 transition-colors shadow-sm flex items-center justify-center gap-2"
                   type="submit"
                   disabled={loading}
                 >
