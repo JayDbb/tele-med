@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [isDark, setIsDark] = useState(false)
+  const pathname = usePathname()
 
   useEffect(() => {
     const stored = localStorage.getItem('theme')
@@ -26,10 +28,10 @@ const Sidebar = () => {
     }
   }
   const navItems = [
-    { icon: 'dashboard', label: 'Dashboard', active: true },
-    { icon: 'calendar_month', label: 'Calendar', active: false },
-    { icon: 'groups', label: 'Patients', active: false },
-    { icon: 'monitor_heart', label: 'Diagnosis', active: false },
+    { icon: 'dashboard', label: 'Dashboard', href: '/' },
+    { icon: 'calendar_month', label: 'Calendar', href: '/calendar' },
+    { icon: 'groups', label: 'Patients', href: '/patients' },
+    { icon: 'monitor_heart', label: 'Diagnosis', href: '#' },
   ]
 
   const bottomItems = [
@@ -60,22 +62,25 @@ const Sidebar = () => {
       </div>
 
       <nav className="flex flex-col gap-2 flex-grow">
-        {navItems.map((item) => (
-          <a
-            key={item.label}
-            className={`flex items-center gap-3 px-3 py-2 rounded-lg ${
-              item.active
-                ? 'bg-primary/10 text-primary'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-            href={item.label === 'Patients' ? '/patients' : item.label === 'Dashboard' ? '/' : '#'}
-          >
-            <span className={`material-symbols-outlined ${item.active ? 'fill' : ''}`}>
-              {item.icon}
-            </span>
-            {!isCollapsed && <p className="text-sm font-medium">{item.label}</p>}
-          </a>
-        ))}
+        {navItems.map((item) => {
+          const isActive = pathname === item.href || (item.href === '/patients' && pathname.startsWith('/patients'))
+          return (
+            <a
+              key={item.label}
+              className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg ${
+                isActive
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+              href={item.href}
+            >
+              <span className={`material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center ${isActive ? 'fill' : ''}`}>
+                {item.icon}
+              </span>
+              {!isCollapsed && <p className="text-sm font-medium">{item.label}</p>}
+            </a>
+          )
+        })}
       </nav>
 
       <div className="flex flex-col gap-4">
@@ -83,19 +88,19 @@ const Sidebar = () => {
           {bottomItems.map((item) => (
             <a
               key={item.label}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800`}
               href="#"
             >
-              <span className="material-symbols-outlined">{item.icon}</span>
+              <span className="material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center">{item.icon}</span>
               {!isCollapsed && <p className="text-sm font-medium">{item.label}</p>}
             </a>
           ))}
           
           <button
             onClick={toggleTheme}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800`}
           >
-            <span className="material-symbols-outlined">
+            <span className="material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center">
               {isDark ? 'light_mode' : 'dark_mode'}
             </span>
             {!isCollapsed && <p className="text-sm font-medium">{isDark ? 'Light Mode' : 'Dark Mode'}</p>}

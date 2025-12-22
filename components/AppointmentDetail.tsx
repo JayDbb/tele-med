@@ -3,12 +3,41 @@
 const AppointmentDetail = () => {
   const appointmentDetails = {
     patientName: 'Amanda Kimber',
+    patientEmail: 'amanda.kimber@email.com',
     time: '09:00 - 09:30',
     type: 'Consultation',
     referral: 'Dr. Helen Miller',
     diagnosis: 'Post-operative checkup',
     symptoms: 'Mild pain, swelling',
     comment: 'Patient recovering well.'
+  }
+
+  const startVideoCall = async () => {
+    try {
+      const response = await fetch('/api/video-call/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          patientEmail: appointmentDetails.patientEmail,
+          patientName: appointmentDetails.patientName,
+          doctorName: 'Dr. Alex Robin'
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        // Open video call in new window/tab
+        window.open(data.callUrl, '_blank')
+      } else {
+        alert('Failed to start video call')
+      }
+    } catch (error) {
+      console.error('Error starting video call:', error)
+      alert('Error starting video call')
+    }
   }
 
   return (
@@ -57,10 +86,20 @@ const AppointmentDetail = () => {
         </div>
       </div>
 
-      <button className="w-full bg-primary text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-primary/90">
-        <span>Medical Card</span>
-        <span className="material-symbols-outlined">arrow_forward</span>
-      </button>
+      <div className="flex gap-2">
+        <button className="flex-1 bg-primary text-white font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-primary/90">
+          <span>Medical Card</span>
+          <span className="material-symbols-outlined">arrow_forward</span>
+        </button>
+        
+        <button 
+          onClick={startVideoCall}
+          className="bg-green-500 hover:bg-green-600 text-white p-3 rounded-lg flex items-center justify-center transition-colors"
+          title="Start Video Call"
+        >
+          <span className="material-symbols-outlined">videocam</span>
+        </button>
+      </div>
     </div>
   )
 }

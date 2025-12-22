@@ -3,6 +3,33 @@
 import Link from 'next/link'
 
 const PatientsList = () => {
+  const startVideoCall = async (patientEmail: string, patientName: string) => {
+    try {
+      const response = await fetch('/api/video-call/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          patientEmail,
+          patientName,
+          doctorName: 'Dr. Alex Robin'
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        window.open(data.callUrl, '_blank')
+      } else {
+        alert('Failed to start video call')
+      }
+    } catch (error) {
+      console.error('Error starting video call:', error)
+      alert('Error starting video call')
+    }
+  }
+
   const patients = [
     {
       id: '1',
@@ -106,7 +133,20 @@ const PatientsList = () => {
               />
               <div className="flex-1 min-w-0">
                 <h4 className="font-semibold text-gray-900 dark:text-white truncate">{patient.name}</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{patient.email}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{patient.email}</p>
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      startVideoCall(patient.email, patient.name)
+                    }}
+                    className="bg-green-500 hover:bg-green-600 text-white p-1 rounded flex items-center justify-center transition-colors"
+                    title="Start Video Call"
+                  >
+                    <span className="material-symbols-outlined text-sm">videocam</span>
+                  </button>
+                </div>
               </div>
             </div>
             
