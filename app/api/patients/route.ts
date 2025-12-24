@@ -1,69 +1,55 @@
-import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "../../../lib/auth";
-import { supabaseServer } from "../../../lib/supabaseServer";
+import { NextRequest, NextResponse } from 'next/server'
 
-export async function GET(req: NextRequest) {
-  const { userId, error } = await requireUser(req);
-  if (!userId) {
-    return NextResponse.json({ error }, { status: 401 });
+// Mock database - replace with actual database
+let patients: any[] = [
+  {
+    id: 'P001',
+    name: 'Amanda Kimber',
+    email: 'amanda.kimber@email.com',
+    dob: '1985-03-15',
+    phone: '+1 (555) 123-4567',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'P002', 
+    name: 'John Smith',
+    email: 'john.smith@email.com',
+    dob: '1978-07-22',
+    phone: '+1 (555) 987-6543',
+    createdAt: new Date().toISOString()
   }
+]
 
-  const supabase = supabaseServer();
-  const { data: owned, error: ownedError } = await supabase
-    .from("patients")
-    .select("*")
-    .eq("clinician_id", userId)
-    .order("created_at", { ascending: false });
+export async function GET() {
+  return NextResponse.json({ patients })
+}
 
-  const { data: sharedLinks, error: sharedError } = await supabase
-    .from("patient_shares")
-    .select("patient_id, patients(*)")
-    .eq("shared_user_id", userId);
-
-  if (ownedError || sharedError) {
+export async function POST(request: NextRequest) {
+  try {
+    const { name, email, dob, phone } = await request.json()
+    
+    // Generate patient ID
+    const patientId = `P${String(patients.length + 1).padStart(3, '0')}`
+    
+    const newPatient = {
+      id: patientId,
+      name,
+      email,
+      dob,
+      phone,
+      createdAt: new Date().toISOString()
+    }
+    
+    patients.push(newPatient)
+    
+    return NextResponse.json({ 
+      success: true, 
+      patient: newPatient 
+    })
+  } catch (error) {
     return NextResponse.json(
-      { error: ownedError?.message || sharedError?.message },
+      { success: false, error: 'Failed to create patient' },
       { status: 500 }
-    );
+    )
   }
-
-  const sharedPatients =
-    sharedLinks
-      ?.map((row: any) => row.patients)
-      .filter(Boolean) ?? [];
-
-  const merged = [...(owned ?? []), ...sharedPatients].reduce((acc: any[], p: any) => {
-    if (!acc.find((x) => x.id === p.id)) acc.push(p);
-    return acc;
-  }, []);
-
-  // Return with ownership info
-  const result = merged.map((p: any) => {
-    const isShared = sharedPatients.some((sp: any) => sp.id === p.id);
-    return { ...p, is_shared: isShared };
-  });
-
-  return NextResponse.json(result);
 }
-
-export async function POST(req: NextRequest) {
-  const { userId, error } = await requireUser(req);
-  if (!userId) {
-    return NextResponse.json({ error }, { status: 401 });
-  }
-
-  const payload = await req.json();
-  const supabase = supabaseServer();
-  const { data, error: dbError } = await supabase
-    .from("patients")
-    .insert({ ...payload, clinician_id: userId })
-    .select()
-    .single();
-
-  if (dbError) {
-    return NextResponse.json({ error: dbError.message }, { status: 400 });
-  }
-
-  return NextResponse.json(data);
-}
-

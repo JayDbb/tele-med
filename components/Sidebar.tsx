@@ -28,10 +28,13 @@ const Sidebar = () => {
     }
   }
   const navItems = [
-    { icon: 'dashboard', label: 'Dashboard', href: '/' },
-    { icon: 'calendar_month', label: 'Calendar', href: '/calendar' },
+    { icon: 'dashboard', label: 'Dashboard', href: '/dashboard' },
     { icon: 'groups', label: 'Patients', href: '/patients' },
+    { icon: 'calendar_month', label: 'Calendar', href: '/calendar' },
+    { icon: 'assignment', label: 'Orders', href: '/orders' },
+    { icon: 'medication', label: 'Medications', href: '/medications' },
     { icon: 'monitor_heart', label: 'Diagnosis', href: '#' },
+    { icon: 'history', label: 'History', href: '/history' },
   ]
 
   const bottomItems = [
@@ -63,17 +66,22 @@ const Sidebar = () => {
 
       <nav className="flex flex-col gap-2 flex-grow">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || (item.href === '/patients' && pathname.startsWith('/patients'))
+          const isActive = pathname === item.href || 
+            (item.href === '/patients' && pathname.startsWith('/patients')) ||
+            (item.href === '/medications' && pathname.startsWith('/medications'))
           return (
             <a
               key={item.label}
-              className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg ${
+              className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg relative ${
                 isActive
-                  ? 'bg-primary/10 text-primary'
+                  ? 'text-primary'
                   : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
               }`}
               href={item.href}
             >
+              {isActive && (
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-red-500 to-blue-500 rounded-r"></div>
+              )}
               <span className={`material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center ${isActive ? 'fill' : ''}`}>
                 {item.icon}
               </span>

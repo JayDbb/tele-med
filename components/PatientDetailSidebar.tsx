@@ -83,7 +83,7 @@ const PatientDetailSidebar = ({ patientId }: PatientDetailSidebarProps) => {
                 ? 'bg-white dark:bg-gray-700 border-l-4 border-primary text-primary font-medium shadow-sm'
                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border-l-4 border-transparent hover:border-gray-300'
             }`}
-            href={item.label === 'Visit History' ? `/patients/${patientId}/history` : item.label === 'Overview' ? `/patients/${patientId}` : '#'}
+            href={item.label === 'Visit History' ? `/patients/${patientId}/history` : item.label === 'Overview' ? `/patients/${patientId}` : item.label === 'Screening' ? `/patients/${patientId}/screening` : '#'}
           >
             {item.hasAlert && (
               <div className="absolute left-1 top-1/2 -mt-4 w-0.5 h-8 bg-red-400 rounded" />

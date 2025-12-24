@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import ClientThemeWrapper from '../components/ClientThemeWrapper'
 import AuthProvider from '../components/AuthProvider'
+import { AppointmentsProvider } from '../contexts/AppointmentsContext'
 
 export const metadata: Metadata = {
   title: 'Medical Dashboard',
@@ -23,9 +24,11 @@ export default function RootLayout({
       </head>
       <body className="font-display bg-background-light dark:bg-background-dark">
         <AuthProvider>
-          <ClientThemeWrapper>
-            {children}
-          </ClientThemeWrapper>
+          <AppointmentsProvider>
+            <ClientThemeWrapper>
+              {children}
+            </ClientThemeWrapper>
+          </AppointmentsProvider>
         </AuthProvider>
       </body>
     </html>

@@ -13,10 +13,12 @@ const LoginPage = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (selectedRole === 'doctor') {
-      router.push('/dashboard')
-    } else {
-      router.push('/nurse-portal')
+    if (email && password) {
+      if (selectedRole === 'doctor') {
+        router.push('/')
+      } else {
+        router.push('/nurse-portal')
+      }
     }
   }
 
@@ -71,6 +73,7 @@ const LoginPage = () => {
                 id="email"
                 name="email"
                 placeholder="name@example.com"
+                required
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -93,6 +96,7 @@ const LoginPage = () => {
                 id="password"
                 name="password"
                 placeholder="Enter your password"
+                required
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

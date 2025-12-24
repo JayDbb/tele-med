@@ -82,9 +82,16 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
 
           <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm">
             <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Notes</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-3">
               Regular checkups recommended. Patient shows good compliance with medication.
             </p>
+            <Link 
+              href={`/patients/${patientId}/notes`}
+              className="text-primary hover:text-primary/80 text-sm font-medium transition-colors flex items-center gap-1"
+            >
+              View all notes
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </Link>
           </div>
         </div>
 
@@ -146,117 +153,90 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-900 rounded-xl p-8 shadow-sm">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Health Trends & Analysis</h3>
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Health Trends & Analysis</h3>
+              <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full font-medium">AI Analysis</span>
+            </div>
             
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Latest: Follow-up</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">2024-01-15 - Dr. Ilya</p>
-                </div>
-                <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full font-medium">AI Analysis</span>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Latest: Follow-up • 2024-01-15 - Dr. Ilya</p>
+            
+            <div className="grid grid-cols-4 gap-3 mb-3">
+              <Link href={`/patients/${patientId}/trends/blood-pressure`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <p className="text-xs text-gray-500 dark:text-gray-400">BP</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">130/80</p>
+                <span className="text-xs text-green-600 dark:text-green-400">↓15</span>
+              </Link>
+              <Link href={`/patients/${patientId}/trends/pulse`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Pulse</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">72 bpm</p>
+                <span className="text-xs text-green-600 dark:text-green-400">↓3</span>
+              </Link>
+              <Link href={`/patients/${patientId}/trends/weight`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Weight</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">185 lbs</p>
+                <span className="text-xs text-green-600 dark:text-green-400">↓5lbs</span>
+              </Link>
+              <Link href={`/patients/${patientId}/trends/temperature`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <p className="text-xs text-gray-500 dark:text-gray-400">Temp</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">98.6°F</p>
+                <span className="text-xs text-gray-500">—</span>
+              </Link>
+            </div>
+            
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-3">
+              <p className="text-xs text-blue-800 dark:text-blue-200">🤖 BP trending down 15pts since starting Lisinopril. Weight loss of 5lbs indicates good compliance.</p>
+            </div>
+            
+            <div className="flex items-center justify-between text-xs">
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Meds: </span>
+                <span className="text-gray-900 dark:text-white">Lisinopril 10mg, Aspirin 81mg</span>
               </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <Link href={`/patients/${patientId}/trends/blood-pressure`} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">BP:</p>
-                  <p className="font-semibold text-gray-900 dark:text-white">130/80</p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <span className="material-symbols-outlined text-green-500 text-sm">trending_down</span>
-                    <span className="text-xs text-green-600 dark:text-green-400">↓15</span>
-                  </div>
-                </Link>
-                <Link href={`/patients/${patientId}/trends/pulse`} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pulse:</p>
-                  <p className="font-semibold text-gray-900 dark:text-white">72 bpm</p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <span className="material-symbols-outlined text-green-500 text-sm">trending_down</span>
-                    <span className="text-xs text-green-600 dark:text-green-400">↓3</span>
-                  </div>
-                </Link>
-                <Link href={`/patients/${patientId}/trends/weight`} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Weight:</p>
-                  <p className="font-semibold text-gray-900 dark:text-white">185 lbs</p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <span className="material-symbols-outlined text-green-500 text-sm">trending_down</span>
-                    <span className="text-xs text-green-600 dark:text-green-400">↓5lbs</span>
-                  </div>
-                </Link>
-                <Link href={`/patients/${patientId}/trends/temperature`} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Temp:</p>
-                  <p className="font-semibold text-gray-900 dark:text-white">98.6°F</p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <span className="material-symbols-outlined text-gray-500 text-sm">trending_flat</span>
-                  </div>
-                </Link>
-              </div>
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-4">
-                <div className="flex items-start gap-2">
-                  <span className="text-blue-600 dark:text-blue-400">🤖</span>
-                  <div>
-                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">AI Insight:</p>
-                    <p className="text-sm text-blue-800 dark:text-blue-200">Blood pressure trending down 15 points since starting Lisinopril. Weight loss of 5lbs indicates good medication compliance. Continue current treatment.</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mb-4">
-                <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">Current Medications:</p>
-                <ul className="space-y-1">
-                  <li className="text-sm text-gray-600 dark:text-gray-300">• Lisinopril 10mg daily</li>
-                  <li className="text-sm text-gray-600 dark:text-gray-300">• Aspirin 81mg daily</li>
-                </ul>
-              </div>
-              
-              <button className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
-                View detailed trends →
-              </button>
+              <Link href="/medications" className="text-primary hover:text-primary/80 font-medium">View →</Link>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-900 rounded-xl p-8 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Medication History</h3>
-              <button className="flex items-center gap-2 text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Medication History</h3>
+              <Link href="/medications" className="flex items-center gap-1 text-primary hover:text-primary/80 text-xs font-medium">
                 <span className="material-symbols-outlined text-sm">add</span>
-                Add medication
-              </button>
+                Add
+              </Link>
             </div>
             
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                    <th className="font-medium pb-3 pr-4">Brand Name</th>
-                    <th className="font-medium pb-3 pr-4">Generic Name</th>
-                    <th className="font-medium pb-3 pr-4">Strength</th>
-                    <th className="font-medium pb-3 pr-4">Form</th>
-                    <th className="font-medium pb-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="text-gray-900 dark:text-white">
-                  <tr className="border-b border-gray-200 dark:border-gray-700 last:border-0">
-                    <td className="py-3 pr-4 font-medium">Lisinopril</td>
-                    <td className="py-3 pr-4">Lisinopril</td>
-                    <td className="py-3 pr-4">10mg</td>
-                    <td className="py-3 pr-4">Tab</td>
-                    <td className="py-3">
-                      <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-medium rounded-full">Active</span>
-                    </td>
-                  </tr>
-                  <tr className="border-b border-gray-200 dark:border-gray-700 last:border-0">
-                    <td className="py-3 pr-4 font-medium">Ibuprofen</td>
-                    <td className="py-3 pr-4">Ibuprofen</td>
-                    <td className="py-3 pr-4">400mg</td>
-                    <td className="py-3 pr-4">Tab</td>
-                    <td className="py-3">
-                      <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-medium rounded-full">Discontinued</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                  <th className="font-medium pb-2 pr-3 text-left">Brand Name</th>
+                  <th className="font-medium pb-2 pr-3 text-left">Generic</th>
+                  <th className="font-medium pb-2 pr-3 text-left">Strength</th>
+                  <th className="font-medium pb-2 pr-3 text-left">Form</th>
+                  <th className="font-medium pb-2 text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody className="text-gray-900 dark:text-white">
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <td className="py-2 pr-3 font-medium">Lisinopril</td>
+                  <td className="py-2 pr-3">Lisinopril</td>
+                  <td className="py-2 pr-3">10mg</td>
+                  <td className="py-2 pr-3">Tab</td>
+                  <td className="py-2">
+                    <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded-full">Active</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-3 font-medium">Ibuprofen</td>
+                  <td className="py-2 pr-3">Ibuprofen</td>
+                  <td className="py-2 pr-3">400mg</td>
+                  <td className="py-2 pr-3">Tab</td>
+                  <td className="py-2">
+                    <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs rounded-full">Discontinued</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
