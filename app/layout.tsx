@@ -3,6 +3,11 @@ import './globals.css'
 import ClientThemeWrapper from '../components/ClientThemeWrapper'
 import AuthProvider from '../components/AuthProvider'
 import { AppointmentsProvider } from '../contexts/AppointmentsContext'
+import { VideoCallProvider } from '../contexts/VideoCallContext'
+import { DoctorProvider } from '../contexts/DoctorContext'
+import { NurseProvider } from '../contexts/NurseContext'
+import VideoCallWrapper from '../components/VideoCallWrapper'
+import AuthWrapper from '../components/AuthWrapper'
 
 export const metadata: Metadata = {
   title: 'Medical Dashboard',
@@ -23,13 +28,22 @@ export default function RootLayout({
         />
       </head>
       <body className="font-display bg-background-light dark:bg-background-dark">
-        <AuthProvider>
-          <AppointmentsProvider>
-            <ClientThemeWrapper>
-              {children}
-            </ClientThemeWrapper>
-          </AppointmentsProvider>
-        </AuthProvider>
+        <DoctorProvider>
+          <NurseProvider>
+            <AuthProvider>
+              <AppointmentsProvider>
+                <VideoCallProvider>
+                  <ClientThemeWrapper>
+                    <AuthWrapper>
+                      {children}
+                    </AuthWrapper>
+                    <VideoCallWrapper />
+                  </ClientThemeWrapper>
+                </VideoCallProvider>
+              </AppointmentsProvider>
+            </AuthProvider>
+          </NurseProvider>
+        </DoctorProvider>
       </body>
     </html>
   )

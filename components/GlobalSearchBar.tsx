@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { PatientDataManager } from '@/utils/PatientDataManager'
+import { useDoctor } from '@/contexts/DoctorContext'
+import { useNurse } from '@/contexts/NurseContext'
 
 interface Patient {
   id: string
@@ -9,13 +12,14 @@ interface Patient {
   email: string
   dob: string
   phone: string
+  doctorId?: string
 }
 
 interface SearchBarProps {
   placeholder?: string
 }
 
-export default function GlobalSearchBar({ placeholder = "Search patients, MRN, or appointments..." }: SearchBarProps) {
+export default function GlobalSearchBar({ placeholder = "Search patients, MRN, or DOB" }: SearchBarProps) {
   const [query, setQuery] = useState('')
   const [patients, setPatients] = useState<Patient[]>([])
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([])
@@ -24,11 +28,28 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const searchRef = useRef<HTMLDivElement>(null)
+  const { doctor } = useDoctor()
+  const { nurse } = useNurse()
+  
+  const currentUser = doctor || nurse
+  const userId = doctor?.id || nurse?.id
 
   useEffect(() => {
-    fetchPatients()
-    loadRecentPatients()
-  }, [])
+    if (currentUser) {
+      fetchPatients()
+      loadRecentPatients()
+    }
+    
+    // Refresh patients when page becomes visible (to catch new patients)
+    const handleVisibilityChange = () => {
+      if (!document.hidden && currentUser) {
+        fetchPatients()
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [currentUser])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -40,28 +61,55 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const fetchPatients = async () => {
+  const fetchPatients = () => {
+    if (!currentUser) return
+    
     try {
-      const response = await fetch('/api/patients')
-      const data = await response.json()
-      setPatients(data.patients)
+      // Get ALL hardcoded patients (not filtered by doctor)
+      const hardcodedPatients = [
+        { id: '1', name: 'Leslie Alexander', email: 'willie.jennings@example.com', dob: '12/05/1985', phone: '(555) 123-4567', doctorId: 'dr-001' },
+        { id: '2', name: 'Fasai Areyanukul', email: 'bill.sanders@example.com', dob: '03/15/1990', phone: '(555) 234-5678', doctorId: 'dr-001' },
+        { id: '3', name: 'Floyd Miles', email: 'michelle.rivera@example.com', dob: '07/22/1988', phone: '(555) 345-6789', doctorId: 'dr-002' },
+        { id: '4', name: 'Priscilla Watson', email: 'priscilla.watson@example.com', dob: '11/08/1992', phone: '(555) 456-7890', doctorId: 'dr-002' },
+        { id: '5', name: 'Kristin Cooper', email: 'kristin.cooper@example.com', dob: '09/14/1995', phone: '(555) 567-8901', doctorId: 'dr-003' },
+        { id: '6', name: 'Robert Johnson', email: 'robert.johnson@example.com', dob: '01/30/2001', phone: '(555) 678-9012', doctorId: 'dr-003' }
+      ]
+      
+      // Get ALL patients from PatientDataManager (not filtered by doctor)
+      const savedPatients = PatientDataManager.getAllPatients()
+        .map(p => ({
+          id: p.id,
+          name: p.name,
+          email: p.email,
+          dob: p.dob,
+          phone: p.phone,
+          doctorId: p.doctorId
+        }))
+      
+      // Combine all patients in the system
+      const allPatients = [...hardcodedPatients, ...savedPatients]
+      setPatients(allPatients)
     } catch (error) {
       console.error('Error fetching patients:', error)
     }
   }
 
   const loadRecentPatients = () => {
-    const recent = localStorage.getItem('recent-patients')
+    if (!userId) return
+    
+    const recent = localStorage.getItem(`recent-patients-${userId}`)
     if (recent) {
       setRecentPatients(JSON.parse(recent))
     }
   }
 
   const addToRecentPatients = (patient: Patient) => {
+    if (!userId) return
+    
     const recent = recentPatients.filter(p => p.id !== patient.id)
     const updated = [patient, ...recent].slice(0, 5) // Keep only 5 recent
     setRecentPatients(updated)
-    localStorage.setItem('recent-patients', JSON.stringify(updated))
+    localStorage.setItem(`recent-patients-${userId}`, JSON.stringify(updated))
   }
 
   const handleSearch = (value: string) => {
@@ -71,7 +119,8 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
         patient.name.toLowerCase().includes(value.toLowerCase()) ||
         patient.id.toLowerCase().includes(value.toLowerCase()) ||
         patient.email.toLowerCase().includes(value.toLowerCase()) ||
-        patient.phone.includes(value)
+        patient.phone.includes(value) ||
+        patient.dob.includes(value)
       )
       setFilteredPatients(filtered)
       setShowDropdown(true)
@@ -84,7 +133,13 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
     addToRecentPatients(patient)
     setQuery('')
     setShowDropdown(false)
-    router.push(`/patients/${patient.id}`)
+    
+    // Route to appropriate portal based on user type
+    if (nurse) {
+      router.push(`/nurse-portal/patients/${patient.id}`)
+    } else {
+      router.push(`/doctor/patients/${patient.id}`)
+    }
   }
 
   const handleFocus = () => {
@@ -98,6 +153,10 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
       setShowDropdown(false)
       setQuery('')
     }
+  }
+
+  if (!currentUser) {
+    return null
   }
 
   return (

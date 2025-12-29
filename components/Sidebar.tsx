@@ -1,12 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { useDoctor } from '@/contexts/DoctorContext'
 
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [isDark, setIsDark] = useState(false)
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(true)
   const pathname = usePathname()
+  const router = useRouter()
+  const { doctor, logout } = useDoctor()
 
   useEffect(() => {
     const stored = localStorage.getItem('theme')
@@ -27,19 +31,22 @@ const Sidebar = () => {
       localStorage.setItem('theme', 'light')
     }
   }
+
+  const handleLogout = () => {
+    logout()
+    router.push('/login')
+  }
+
   const navItems = [
-    { icon: 'dashboard', label: 'Dashboard', href: '/dashboard' },
-    { icon: 'groups', label: 'Patients', href: '/patients' },
-    { icon: 'calendar_month', label: 'Calendar', href: '/calendar' },
-    { icon: 'assignment', label: 'Orders', href: '/orders' },
-    { icon: 'medication', label: 'Medications', href: '/medications' },
-    { icon: 'monitor_heart', label: 'Diagnosis', href: '#' },
-    { icon: 'history', label: 'History', href: '/history' },
+    { icon: 'home', label: 'Home', href: '/doctor/dashboard' },
+    { icon: 'groups', label: 'My Patients', href: '/doctor/patients' },
+    { icon: 'calendar_month', label: 'Calendar', href: '/doctor/calendar' },
+    { icon: 'inbox', label: 'Provider Inbox', href: '/doctor/inbox' },
   ]
 
   const bottomItems = [
-    { icon: 'notifications', label: 'Notifications' },
-    { icon: 'settings', label: 'Settings' },
+    { icon: 'notifications', label: 'Notifications', href: '/notifications' },
+    { icon: 'settings', label: 'Settings', href: '/settings' },
   ]
 
   return (
@@ -59,7 +66,7 @@ const Sidebar = () => {
           className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
         >
           <span className="material-symbols-outlined text-gray-600 dark:text-gray-300">
-            {isCollapsed ? 'menu' : 'menu_open'}
+            menu
           </span>
         </button>
       </div>
@@ -67,7 +74,7 @@ const Sidebar = () => {
       <nav className="flex flex-col gap-2 flex-grow">
         {navItems.map((item) => {
           const isActive = pathname === item.href || 
-            (item.href === '/patients' && pathname.startsWith('/patients')) ||
+            (item.href === '/doctor/patients' && pathname.startsWith('/doctor/patients')) ||
             (item.href === '/medications' && pathname.startsWith('/medications'))
           return (
             <a
@@ -82,9 +89,14 @@ const Sidebar = () => {
               {isActive && (
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-red-500 to-blue-500 rounded-r"></div>
               )}
-              <span className={`material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center ${isActive ? 'fill' : ''}`}>
-                {item.icon}
-              </span>
+              <div className="relative">
+                <span className={`material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center ${isActive ? 'fill' : ''}`}>
+                  {item.icon}
+                </span>
+                {item.href === '/inbox' && hasUnreadMessages && (
+                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
+                )}
+              </div>
               {!isCollapsed && <p className="text-sm font-medium">{item.label}</p>}
             </a>
           )
@@ -97,7 +109,7 @@ const Sidebar = () => {
             <a
               key={item.label}
               className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800`}
-              href="#"
+              href={item.href}
             >
               <span className="material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center">{item.icon}</span>
               {!isCollapsed && <p className="text-sm font-medium">{item.label}</p>}
@@ -113,6 +125,14 @@ const Sidebar = () => {
             </span>
             {!isCollapsed && <p className="text-sm font-medium">{isDark ? 'Light Mode' : 'Dark Mode'}</p>}
           </button>
+          
+          <button
+            onClick={handleLogout}
+            className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800`}
+          >
+            <span className="material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center">logout</span>
+            {!isCollapsed && <p className="text-sm font-medium">Logout</p>}
+          </button>
         </div>
 
         <div className={`border-t border-gray-200 dark:border-gray-700 pt-4 ${isCollapsed ? 'hidden' : ''}`}>
@@ -120,12 +140,12 @@ const Sidebar = () => {
             <div 
               className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10"
               style={{
-                backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBevzzTiuFvj77hHgIQO-zsMGw3JH6wML3gRur0C6z0xrjqm75RCjxpea_yuq9YxdfbrSCVugctD9ckg66H_Es4AnRjNeKVKJN-3hhwq3uoZVX4xXctMFHvTAZDBz3PUNqzdAGDvX-raEXyNcmiBKZItUurchM50ZCy5v92O7NEIIYv1seAmACOaiGlWAfwACk8nZhn6Wvww3wdpeK0QrFBb8yGpQA7M9plB7puFkf9xxic63ekREoqqelmGMm-v3TzjOMdbL4291I")'
+                backgroundImage: doctor?.avatar ? `url("${doctor.avatar}")` : 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBevzzTiuFvj77hHgIQO-zsMGw3JH6wML3gRur0C6z0xrjqm75RCjxpea_yuq9YxdfbrSCVugctD9ckg66H_Es4AnRjNeKVKJN-3hhwq3uoZVX4xXctMFHvTAZDBz3PUNqzdAGDvX-raEXyNcmiBKZItUurchM50ZCy5v92O7NEIIYv1seAmACOaiGlWAfwACk8nZhn6Wvww3wdpeK0QrFBb8yGpQA7M9plB7puFkf9xxic63ekREoqqelmGMm-v3TzjOMdbL4291I")'
               }}
             />
             <div>
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">Dr. Alex Robin</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Surgeon</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">{doctor?.name || 'Doctor'}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{doctor?.specialty || 'Physician'}</p>
             </div>
           </div>
         </div>

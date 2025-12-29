@@ -28,21 +28,17 @@ const PatientDetailSidebar = ({ patientId }: PatientDetailSidebarProps) => {
 
   const menuItems = [
     { label: 'Overview', active: true, hasAlert: false },
+    { label: 'Visit History', active: false, hasAlert: false },
     { label: 'Vitals', active: false, hasAlert: false },
     { label: 'Allergies', active: false, hasAlert: true },
     { label: 'Medications', active: false, hasAlert: false },
     { label: 'Vaccines', active: false, hasAlert: false },
-    { label: 'Problems', active: false, hasAlert: false },
     { label: 'Family History', active: false, hasAlert: false },
     { label: 'Social History', active: false, hasAlert: false },
     { label: 'Surgical History', active: false, hasAlert: false },
     { label: 'Past Medical History', active: false, hasAlert: false },
     { label: 'Screening', active: false, hasAlert: false },
-    { label: 'Quality Measures (14)', active: false, hasAlert: false },
-    { label: 'Visit History', active: false, hasAlert: false },
-    { label: 'General', active: false, hasAlert: false },
     { label: 'Orders', active: false, hasAlert: false },
-    { label: 'Family', active: false, hasAlert: false },
     { label: 'Messages', active: false, hasAlert: false },
   ]
 
@@ -83,7 +79,7 @@ const PatientDetailSidebar = ({ patientId }: PatientDetailSidebarProps) => {
                 ? 'bg-white dark:bg-gray-700 border-l-4 border-primary text-primary font-medium shadow-sm'
                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border-l-4 border-transparent hover:border-gray-300'
             }`}
-            href={item.label === 'Visit History' ? `/patients/${patientId}/history` : item.label === 'Overview' ? `/patients/${patientId}` : item.label === 'Screening' ? `/patients/${patientId}/screening` : '#'}
+            href={item.label === 'Visit History' ? `/patients/${patientId}/history` : item.label === 'Overview' ? `/patients/${patientId}` : item.label === 'Screening' ? `/patients/${patientId}/screening` : item.label === 'Medications' ? `/patients/${patientId}/medications` : item.label === 'Vitals' ? `/patients/${patientId}/vitals` : item.label === 'Allergies' ? `/patients/${patientId}/allergies` : item.label === 'Family History' ? `/patients/${patientId}/family-history` : item.label === 'Vaccines' ? `/patients/${patientId}/vaccines` : item.label === 'Social History' ? `/patients/${patientId}/social-history` : item.label === 'Surgical History' ? `/patients/${patientId}/surgical-history` : item.label === 'Past Medical History' ? `/patients/${patientId}/past-medical-history` : item.label === 'Orders' ? `/patients/${patientId}/orders` : item.label === 'Messages' ? `/patients/${patientId}/messages` : '#'}
           >
             {item.hasAlert && (
               <div className="absolute left-1 top-1/2 -mt-4 w-0.5 h-8 bg-red-400 rounded" />

@@ -1,33 +1,67 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useVideoCall } from '../contexts/VideoCallContext'
+import { PatientDataManager } from '@/utils/PatientDataManager'
+import { useDoctor } from '@/contexts/DoctorContext'
+import { useNurse } from '@/contexts/NurseContext'
 
 const PatientsList = () => {
-  const startVideoCall = async (patientEmail: string, patientName: string) => {
-    try {
-      const response = await fetch('/api/video-call/start', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          patientEmail,
-          patientName,
-          doctorName: 'Dr. Alex Robin'
-        })
-      })
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        window.open(data.callUrl, '_blank')
-      } else {
-        alert('Failed to start video call')
-      }
-    } catch (error) {
-      console.error('Error starting video call:', error)
-      alert('Error starting video call')
+  const { startVideoCall } = useVideoCall()
+  const router = useRouter()
+  const [allPatients, setAllPatients] = useState<any[]>([])
+  const { doctor } = useDoctor()
+  const { nurse } = useNurse()
+  
+  const getPatientUrl = (patientId: string) => {
+    if (nurse) {
+      return `/nurse-portal/patients/${patientId}`
+    } else {
+      return `/doctor/patients/${patientId}`
     }
+  }
+  
+  const getNewVisitUrl = (patientId: string) => {
+    if (nurse) {
+      return `/nurse-portal/patients/${patientId}/new-visit`
+    } else {
+      return `/doctor/patients/${patientId}/new-visit`
+    }
+  }
+
+  useEffect(() => {
+    loadAllPatients()
+    
+    // Refresh patient list when page becomes visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadAllPatients()
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [])
+
+  const loadAllPatients = () => {
+    // Load patients using PatientDataManager for proper isolation
+    const savedPatients = PatientDataManager.getAllPatients()
+    
+    // Combine with hardcoded patients
+    const combinedPatients = [...patients, ...savedPatients]
+    setAllPatients(combinedPatients)
+  }
+
+  const handleVideoCall = (patientEmail: string, patientName: string) => {
+    startVideoCall(patientName, patientEmail)
+  }
+
+  const handleAddPatient = () => {
+    // Generate new patient ID
+    const newPatientId = Date.now().toString()
+    router.push(getNewVisitUrl(newPatientId))
   }
 
   const patients = [
@@ -112,17 +146,20 @@ const PatientsList = () => {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Patients List</h2>
           <p className="text-gray-600 dark:text-gray-400">Manage and view all patient information</p>
         </div>
-        <button className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg flex items-center gap-2 shadow-sm transition-colors">
+        <button 
+          onClick={handleAddPatient}
+          className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg flex items-center gap-2 shadow-sm transition-colors"
+        >
           <span className="material-symbols-outlined text-sm">add</span>
           Add Patient
         </button>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {patients.map((patient, index) => (
+        {allPatients.map((patient, index) => (
           <Link 
             key={index}
-            href={`/patients/${patient.id}`}
+            href={getPatientUrl(patient.id)}
             className="block bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-800"
           >
             <div className="flex items-start gap-4 mb-4">
@@ -139,7 +176,7 @@ const PatientsList = () => {
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
-                      startVideoCall(patient.email, patient.name)
+                      handleVideoCall(patient.email, patient.name)
                     }}
                     className="bg-green-500 hover:bg-green-600 text-white p-1 rounded flex items-center justify-center transition-colors"
                     title="Start Video Call"

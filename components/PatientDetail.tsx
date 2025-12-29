@@ -1,6 +1,9 @@
 'use client'
 
 import Link from 'next/link'
+import VitalsChart from './VitalsChart'
+import VisitHistory from './VisitHistory'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 interface PatientDetailProps {
   patientId: string
@@ -22,7 +25,11 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
     }
   ]
 
-  const patient = patients.find(p => p.id === patientId) || patients[0]
+  const patient = patients.find(p => p.id === patientId) || 
+    PatientDataManager.getPatient(patientId) || 
+    patients[0]
+
+  const isNewPatient = !patients.find(p => p.id === patientId) && PatientDataManager.getPatient(patientId)
 
   return (
     <main className="flex-1 p-8 overflow-y-auto">
@@ -96,6 +103,34 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
         </div>
 
         <div className="flex-1 flex flex-col gap-6">
+          {isNewPatient && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6 mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="material-symbols-outlined text-yellow-600 dark:text-yellow-400">info</span>
+                <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200">Complete Patient Profile</h3>
+              </div>
+              <p className="text-yellow-700 dark:text-yellow-300 mb-4">This is a new patient profile. Complete the following sections to provide comprehensive care:</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Link href={`/patients/${patientId}/vitals`} className="flex items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors">
+                  <span className="material-symbols-outlined text-yellow-600 dark:text-yellow-400 text-sm">monitor_heart</span>
+                  <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Add Vitals</span>
+                </Link>
+                <Link href={`/patients/${patientId}/allergies`} className="flex items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors">
+                  <span className="material-symbols-outlined text-yellow-600 dark:text-yellow-400 text-sm">warning</span>
+                  <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Add Allergies</span>
+                </Link>
+                <Link href={`/patients/${patientId}/medications`} className="flex items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors">
+                  <span className="material-symbols-outlined text-yellow-600 dark:text-yellow-400 text-sm">medication</span>
+                  <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Add Medications</span>
+                </Link>
+                <Link href={`/patients/${patientId}/past-medical-history`} className="flex items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors">
+                  <span className="material-symbols-outlined text-yellow-600 dark:text-yellow-400 text-sm">history</span>
+                  <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Add History</span>
+                </Link>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white dark:bg-gray-900 rounded-xl p-8 shadow-sm">
             <div className="mb-8">
               <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-6">Personal Details</h3>
@@ -152,6 +187,10 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
               </div>
             </div>
           </div>
+
+          <VisitHistory patientId={patientId} />
+
+          <VitalsChart patientId={patientId} patientAge={24} />
 
           <div className="bg-white dark:bg-gray-900 rounded-xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">

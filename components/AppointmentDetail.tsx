@@ -1,6 +1,9 @@
 'use client'
 
+import { useVideoCall } from '../contexts/VideoCallContext'
+
 const AppointmentDetail = () => {
+  const { startVideoCall } = useVideoCall()
   const appointmentDetails = {
     patientName: 'Amanda Kimber',
     patientEmail: 'amanda.kimber@email.com',
@@ -12,32 +15,8 @@ const AppointmentDetail = () => {
     comment: 'Patient recovering well.'
   }
 
-  const startVideoCall = async () => {
-    try {
-      const response = await fetch('/api/video-call/start', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          patientEmail: appointmentDetails.patientEmail,
-          patientName: appointmentDetails.patientName,
-          doctorName: 'Dr. Alex Robin'
-        })
-      })
-      
-      const data = await response.json()
-      
-      if (data.success) {
-        // Open video call in new window/tab
-        window.open(data.callUrl, '_blank')
-      } else {
-        alert('Failed to start video call')
-      }
-    } catch (error) {
-      console.error('Error starting video call:', error)
-      alert('Error starting video call')
-    }
+  const handleVideoCall = () => {
+    startVideoCall(appointmentDetails.patientName, appointmentDetails.patientEmail)
   }
 
   return (
@@ -93,7 +72,7 @@ const AppointmentDetail = () => {
         </button>
         
         <button 
-          onClick={startVideoCall}
+          onClick={handleVideoCall}
           className="bg-green-500 hover:bg-green-600 text-white p-3 rounded-lg flex items-center justify-center transition-colors"
           title="Start Video Call"
         >

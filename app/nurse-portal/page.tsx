@@ -1,84 +1,35 @@
 'use client'
 
 import Link from 'next/link'
+import NurseSidebar from '@/components/NurseSidebar'
+import GlobalSearchBar from '@/components/GlobalSearchBar'
 
 export default function NursePortalPage() {
   return (
-    <div className="flex min-h-screen w-full bg-background-light dark:bg-background-dark">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col justify-between shrink-0 h-full">
-        <div className="flex flex-col gap-6 p-4">
-          {/* User Profile */}
-          <div className="flex gap-3 items-center pb-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-12 shadow-sm" style={{backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBtTUoNyE4poaogEAj27B4De-_ieOdlaE-4cTgVW0ilrf8QUju5inUywjZhoBMRUujaYkCXQ7hoVTqWiWJApAkHgK6pCAwZ922gBKils5xkSTlWcBYcTDZkKJYN2q1xHxQyczsNQYNBHcD1sAPdi3R2rtnqrpyShkhnN4zK4TniBwMkXA2UCPjl6eJQZ_NbB6gCPMjrU20AaAjNKItmAXsGIPB6bnXfVQVol6Wgz8BCXPdUxkSgXqZN52oHE15pA25bLu0CNfjbeg")'}} />
-            <div className="flex flex-col">
-              <h1 className="text-gray-900 dark:text-white text-base font-bold">Nurse Sarah</h1>
-              <p className="text-gray-500 dark:text-gray-400 text-xs">Oncology Dept.</p>
-            </div>
-          </div>
-          
-          {/* Navigation */}
-          <nav className="flex flex-col gap-2">
-            <a className="flex items-center gap-3 px-3 py-3 rounded-lg bg-primary/10 text-primary" href="#">
-              <span className="material-symbols-outlined text-[24px]">grid_view</span>
-              <span className="text-sm font-bold">Dashboard</span>
-            </a>
-            <a className="flex items-center gap-3 px-3 py-3 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700" href="#">
-              <span className="material-symbols-outlined text-[24px]">group</span>
-              <span className="text-sm font-medium">Patients</span>
-            </a>
-            <a className="flex items-center gap-3 px-3 py-3 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700" href="#">
-              <span className="material-symbols-outlined text-[24px]">calendar_month</span>
-              <span className="text-sm font-medium">Schedule</span>
-            </a>
-            <a className="flex items-center gap-3 px-3 py-3 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700" href="#">
-              <span className="material-symbols-outlined text-[24px]">chat_bubble</span>
-              <span className="text-sm font-medium">Messages</span>
-            </a>
-            <a className="flex items-center gap-3 px-3 py-3 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700" href="#">
-              <span className="material-symbols-outlined text-[24px]">settings</span>
-              <span className="text-sm font-medium">Settings</span>
-            </a>
-          </nav>
-        </div>
-        
-        <div className="p-4">
-          <Link href="/" className="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:text-gray-400 dark:hover:bg-red-900/20 dark:hover:text-red-400">
-            <span className="material-symbols-outlined text-[20px]">logout</span>
-            <span className="text-sm font-medium">Log Out</span>
+    <div className="flex h-screen w-full overflow-hidden">
+      <NurseSidebar />
+      
+      <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
+        <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
+          <GlobalSearchBar />
+          <Link href="/nurse/new-patient" className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-blue-600 transition-all text-sm">
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            New Patient Intake
           </Link>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col h-full overflow-y-auto">
-        {/* Header */}
-        <header className="sticky top-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-8 py-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-col gap-1">
-              <h1 className="text-gray-900 dark:text-white text-3xl font-black">Nurse Dashboard</h1>
-              <p className="text-gray-500 dark:text-gray-400 text-base">Monday, Oct 24 • Shift A</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="hidden md:flex h-10 w-80 items-stretch rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div className="flex items-center justify-center pl-3 pr-2 text-gray-500 dark:text-gray-400">
-                  <span className="material-symbols-outlined text-[20px]">search</span>
-                </div>
-                <input className="w-full bg-transparent border-none text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0" placeholder="Search patients, doctors..." />
-              </div>
-              <Link href="/nurse/new-patient" className="flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-white shadow-lg hover:bg-blue-600">
-                <span className="material-symbols-outlined text-[20px]">add</span>
-                <span className="text-sm font-bold">New Patient Intake</span>
-              </Link>
-            </div>
-          </div>
         </header>
 
-        {/* Content Body */}
-        <div className="px-8 pb-10 flex flex-col gap-8">
-          {/* Doctors Status Section */}
-          <section>
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="w-full flex flex-col gap-6">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div>
+                <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Nurse Dashboard</h2>
+                <p className="text-slate-600 dark:text-gray-400">Monday, Oct 24 • Shift A</p>
+              </div>
+            </div>
+
+            {/* Doctors Status Section */}
+            <section>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
               {/* Available Doctors */}
               <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
@@ -153,11 +104,11 @@ export default function NursePortalPage() {
                   </div>
                 </div>
               </div>
-            </div>
-          </section>
+              </div>
+            </section>
 
-          {/* Recent Patients Table */}
-          <section className="flex flex-col gap-4 flex-1">
+            {/* Recent Patients Table */}
+            <section className="flex flex-col gap-4 flex-1">
             <div className="flex items-center justify-between">
               <h2 className="text-gray-900 dark:text-white text-xl font-bold">Recent Patients</h2>
               <div className="flex gap-2">
@@ -338,8 +289,9 @@ export default function NursePortalPage() {
                   <button className="px-3 py-1 rounded border border-gray-200 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-600">Next</button>
                 </div>
               </div>
-            </div>
-          </section>
+              </div>
+            </section>
+          </div>
         </div>
       </main>
     </div>
