@@ -1,25 +1,25 @@
-import Sidebar from '@/components/Sidebar'
+import NurseSidebar from '@/components/NurseSidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
-import VisitHistory from '@/components/VisitHistory'
+import SurgicalHistory from '@/components/SurgicalHistory'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
 
-interface HistoryPageProps {
+interface SurgicalHistoryPageProps {
   params: {
     id: string
   }
 }
 
-export default function HistoryPage({ params }: HistoryPageProps) {
+export default function SurgicalHistoryPage({ params }: SurgicalHistoryPageProps) {
   return (
     <div className="relative flex min-h-screen w-full">
-      <Sidebar />
+      <NurseSidebar />
       <PatientDetailSidebar patientId={params.id} />
       
       <main className="flex-1 p-8">
         <div className="mb-6">
           <GlobalSearchBar />
         </div>
-        <VisitHistory patientId={params.id} />
+        <SurgicalHistory patientId={params.id} />
       </main>
     </div>
   )

@@ -1,3 +1,5 @@
+import { seedPatients } from './patientSeed'
+
 // Patient Data Manager - Handles isolated patient data and audit logging
 export interface PatientData {
   id: string
@@ -40,6 +42,20 @@ export class PatientDataManager {
     return `patient-audit-${patientId}`
   }
 
+  private static ensureSeedPatients(): void {
+    try {
+      seedPatients.forEach((patient) => {
+        const patientKey = this.getPatientKey(patient.id)
+        const existing = localStorage.getItem(patientKey)
+        if (!existing) {
+          localStorage.setItem(patientKey, JSON.stringify(patient))
+        }
+      })
+    } catch (error) {
+      console.error('Error seeding patient data:', error)
+    }
+  }
+
   // Save patient data with audit logging
   static savePatient(patientData: PatientData, action: string = 'create', userId: string = 'current-user'): void {
     try {
@@ -67,6 +83,7 @@ export class PatientDataManager {
   // Get patient data from isolated container
   static getPatient(patientId: string): PatientData | null {
     try {
+      this.ensureSeedPatients()
       const patientKey = this.getPatientKey(patientId)
       const data = localStorage.getItem(patientKey)
       return data ? JSON.parse(data) : null
@@ -172,6 +189,7 @@ export class PatientDataManager {
   // Get all patients (for listing)
   static getAllPatients(): PatientData[] {
     try {
+      this.ensureSeedPatients()
       const patients: PatientData[] = []
       
       for (let i = 0; i < localStorage.length; i++) {

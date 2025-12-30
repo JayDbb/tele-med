@@ -4,35 +4,19 @@ import Link from 'next/link'
 import VitalsChart from './VitalsChart'
 import VisitHistory from './VisitHistory'
 import { PatientDataManager } from '@/utils/PatientDataManager'
+import { seedPatientIds } from '@/utils/patientSeed'
 
 interface PatientDetailProps {
   patientId: string
 }
 
 const PatientDetail = ({ patientId }: PatientDetailProps) => {
-  const patients = [
-    {
-      id: '1',
-      name: 'Leslie Alexander',
-      email: 'willie.jennings@example.com',
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBM3ICbZ8z0Efd_JndI0nxLf1xoPT9Qu5u7JOVQk1C4v9jvf9Imxxeihie4tzXRP0fxByp_jZ5-t8ZaRReubpV0Ot7RZKtjdd8nGeVTenCfxbFkmtAsfproneHcg9ObslryS-maUvfjOKzKMwNQty7FtvQQQxjA1isNwGRxWyk22ra2LTOLu7zUo-PaEREQDs7soTQIxrs7kYcD34Y4qyjxuDJhM3QFIVNUMAuKPbslsBc8K2Zv2KbHENeK-FlWUql8LUgxgSwU-4cl',
-      gender: 'Male, 24y',
-      physician: 'Ronald',
-      lastConsultation: 'May 12, 2019',
-      appointment: '15 May 2020 8:00 am',
-      status: 'Under Observation',
-      statusColor: 'text-purple-600 bg-purple-100 dark:bg-purple-900/40 dark:text-purple-300'
-    }
-  ]
-
-  const patient = patients.find(p => p.id === patientId) || 
-    PatientDataManager.getPatient(patientId) || 
-    patients[0]
-
-  const isNewPatient = !patients.find(p => p.id === patientId) && PatientDataManager.getPatient(patientId)
+  const allPatients = PatientDataManager.getAllPatients()
+  const patient = allPatients.find(p => p.id === patientId) || allPatients[0]
+  const isNewPatient = !seedPatientIds.includes(patientId) && PatientDataManager.getPatient(patientId)
 
   return (
-    <main className="flex-1 p-8 overflow-y-auto">
+    <>
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Patient Overview</h1>
         <Link href={`/patients/${patientId}/new-visit`} className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg flex items-center gap-2 shadow-sm transition-colors">
@@ -146,7 +130,12 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Birthdate</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">03/15/1990</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    {patientId === '7' ? '03/15/1965' : 
+                     patientId === '8' ? '07/22/1978' : 
+                     patientId === '9' ? '11/03/1952' : 
+                     patientId === '10' ? '05/18/1988' : '03/15/1990'}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Phone</label>
@@ -279,7 +268,7 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
           </div>
         </div>
       </div>
-    </main>
+    </>
   )
 }
 

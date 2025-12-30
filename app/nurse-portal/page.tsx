@@ -12,7 +12,7 @@ export default function NursePortalPage() {
       <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
         <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
           <GlobalSearchBar />
-          <Link href="/nurse/new-patient" className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-blue-600 transition-all text-sm">
+          <Link href={`/nurse-portal/patients/${Date.now()}/new-visit`} className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-blue-600 transition-all text-sm">
             <span className="material-symbols-outlined text-[18px]">add</span>
             New Patient Intake
           </Link>
@@ -107,188 +107,259 @@ export default function NursePortalPage() {
               </div>
             </section>
 
-            {/* Recent Patients Table */}
+            {/* Recent Patients Section */}
             <section className="flex flex-col gap-4 flex-1">
-            <div className="flex items-center justify-between">
-              <h2 className="text-gray-900 dark:text-white text-xl font-bold">Recent Patients</h2>
-              <div className="flex gap-2">
-                <button className="p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 rounded-lg">
-                  <span className="material-symbols-outlined">filter_list</span>
-                </button>
-                <button className="p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 rounded-lg">
-                  <span className="material-symbols-outlined">more_horiz</span>
-                </button>
-              </div>
-            </div>
-            
-            <div className="w-full overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                    <tr>
-                      <th className="px-6 py-4 font-bold text-gray-500 dark:text-gray-400 uppercase text-xs">Patient</th>
-                      <th className="px-6 py-4 font-bold text-gray-500 dark:text-gray-400 uppercase text-xs">Time In</th>
-                      <th className="px-6 py-4 font-bold text-gray-500 dark:text-gray-400 uppercase text-xs">Symptoms</th>
-                      <th className="px-6 py-4 font-bold text-gray-500 dark:text-gray-400 uppercase text-xs">Severity</th>
-                      <th className="px-6 py-4 font-bold text-gray-500 dark:text-gray-400 uppercase text-xs">Assigned To</th>
-                      <th className="px-6 py-4 font-bold text-gray-500 dark:text-gray-400 uppercase text-xs text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                    <tr className="group hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-center bg-no-repeat bg-cover rounded-full size-10" style={{backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuA_uU_6EW7lp02luTc4w49mVxu8-uT39xrYBdHCEbJTsi-6ph7S4cJ9SbvbbcIHv_jHdIHvXoUaKT6wW0hev_5U7bVZOyIB0T6KJBv7kUGpelIpqbIZtcPRBoVbhgvtsWdPNvq_2PvbLKK0X1g1aYb2QgfU8mfrht2NClJKkUAiq0C6ggY5i_8TBobwX0JwXd1EJ95DVUdS2ZoQ42U5ed91QuydTdkrAeuqAvXPEy1Ir3S6q1JFCoWUzrPQlCTsLgtawiUNYYJlSw")'}} />
-                          <div className="flex flex-col">
-                            <span className="font-bold text-gray-900 dark:text-white">Jane Doe</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">45 F • ID #9201</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-900 dark:text-gray-300 font-medium">10:42 AM</span>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Today</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-900 dark:text-gray-300">Severe Nausea, Dizziness</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                          <span className="size-1.5 rounded-full bg-red-600 dark:bg-red-400" />
-                          High
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="size-6 rounded-full bg-gray-200 bg-cover" style={{backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBBk58NG6pgu9iA8jstuD-3XWLoxlR4-CH6s9bwVM9GtIVKH8LwM5onhvhUPHuAFrHnKJfD4-mDs8p_pDAfqCU0EUNQG-uh-xUy8a2zajumwXsVlU0E4rH4RFWOke5AU_yVTT5qy4A-imToZ7Nu8xRA5vsYBh3S3J3mGgrABhOAoFquQN6BuS1enBwusFsPBEQf2LcUwIFSAIbOCbo5ull43sFc-wK-CjXe1uE1el44Bs4l9VVKSNF6ml557NZVQseNyB7HjImUnw")'}} />
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-300">Dr. Chen</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button className="text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary">
-                          <span className="material-symbols-outlined">more_vert</span>
-                        </button>
-                      </td>
-                    </tr>
-                    
-                    <tr className="group hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-center bg-no-repeat bg-cover rounded-full size-10" style={{backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCmFyoBAV8HYo-6hIQUlhxpdN4VoiBlaIZbR79qwH9MBpDilKlB4-pYlGN3vbrEhRe8aBvEzbT4AJhGyCWmyxu8j3loDCyCBcj0IkaVs_F61bDrn6jYIH3a7WBA0N1XHexz_DupPubcBTmeEEt3WFgfaC5lvfS9HrKO8Zu3T5UQp-X4UWaddMMmnpkvmD_dt_aDPpEWVaPDFXeUctnjkZrRwSJrgljjq6xQHN-HG-eqYBBFpasABQAdKjkoA1Z5anhxMA5Ea-jwWw")'}} />
-                          <div className="flex flex-col">
-                            <span className="font-bold text-gray-900 dark:text-white">John Smith</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">62 M • ID #8842</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-900 dark:text-gray-300 font-medium">10:15 AM</span>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Today</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-900 dark:text-gray-300">Routine Checkup, Fatigue</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                          <span className="size-1.5 rounded-full bg-green-600 dark:bg-green-400" />
-                          Stable
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="size-6 rounded-full bg-gray-200 bg-cover" style={{backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCBhojKY7rMx1vMjyp0oNaNKc2u0wW_4jhzOJdzC0hrfvP5hypOsBJS8kATNJj2lUk3sYuzy_J3VCWFAxHn8hUfXGoYFGGKR6YaLv2JCSvIkYGtuXBP50jY6j4sRj5KPBWyxpSS4AxLwjR_hK5Rk1Az4H8kcUgsv__4vq6XgCwIIYPWg7ehDOLJyCXC_R1rmLy19ECHP75RLHwmPQgXs-DFP-eO9NGHAQFEpTlE6fYE-2Ji-heOLM2Mp94Or2cBK2HENLpq6LEzIQ")'}} />
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-300">Dr. Ross</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button className="text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary">
-                          <span className="material-symbols-outlined">more_vert</span>
-                        </button>
-                      </td>
-                    </tr>
-                    
-                    <tr className="group hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-center bg-no-repeat bg-cover rounded-full size-10" style={{backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCwfgRjDRF0l-hBWzf8C2Eo8cnOAEt7tGxs-Nlhhq5i876gastjYfQ2oWRkiXP5SdfCxvaBOn81heoHP58q-SZU9aQaJoBPplpcM4iIxb8DHjxRjQP8AfT54fOMf0D165Cm6y29xT3RZ7liZ4-I_2ziL5q9YqUzw1AwvH9OtF7ZSin3CTI0M0HHVJeu9CZ9VxANId-33n6_ueS4913ui9CLCm3VRJcwIJQxMP4ehftkilyzm-Nbp09nypmSUjJr06FBiIB6MmhSwg")'}} />
-                          <div className="flex flex-col">
-                            <span className="font-bold text-gray-900 dark:text-white">Maria Garcia</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">55 F • ID #9321</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-900 dark:text-gray-300 font-medium">09:55 AM</span>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Today</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-900 dark:text-gray-300">Chemo Follow-up</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-                          <span className="size-1.5 rounded-full bg-orange-600 dark:bg-orange-400" />
-                          Moderate
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="size-6 rounded-full bg-gray-200 bg-cover" style={{backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuD2vw4u4a7Pp5XSYDZ69lrn5ecOn58oSBUKsndIEIUL4rytfbjdEzxZSb5iTFoLzbwCbb56XGiMZSAKdlyZ1tHSKOVNczueI17ufvJzl73mH5TjqwMvITUrPVEo-TgE3Lv_hzrxPTzm-tVFcSEByZVpy0zDl_Ki0oJkx6g9ZuY9DTgizKsDT_LRwz-ZK3tLMyLdPyEFz5tGUGJV_q0CHgZK8mP7LZ7MiY1LomvL_JVv03FS4cuuPPgm_zJw4f19ljOG886JGrkadQ")'}} />
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-300">Dr. Wu</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button className="text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary">
-                          <span className="material-symbols-outlined">more_vert</span>
-                        </button>
-                      </td>
-                    </tr>
-                    
-                    <tr className="group hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-center bg-no-repeat bg-cover rounded-full size-10" style={{backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDmOTeQh-tEyzw4zo9_sgwges11R8N464TTkVbXhgx0mt5RSVOIfcZkZTfAiVv2CHDTrV-J7lcf2BuFc9asbaHArsupYqXu9D7hKIfv1GeokeS3nDE49dnr20vP-iexgUQO0CIFpdi9R3WQqZ7a7C5AF0x7HViQW-sCVxYvfAzzHLUBxwNIZe9DSa8D5aynIWrAVO33PKIPExXiIXY5Zlduj1HFPWtKwyZTRltTlCp2RlNtLEUzL4XcaTgHqjkny0hdZQwL3V7U0w")'}} />
-                          <div className="flex flex-col">
-                            <span className="font-bold text-gray-900 dark:text-white">Robert Johnson</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">71 M • ID #7822</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-900 dark:text-gray-300 font-medium">09:30 AM</span>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Today</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-900 dark:text-gray-300">Joint Pain, Fever</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-                          <span className="size-1.5 rounded-full bg-orange-600 dark:bg-orange-400" />
-                          Moderate
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="size-6 rounded-full bg-gray-200 bg-cover" style={{backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAY-By0TC5E8s2LtDxstefKLYxeMUnEGNa3dBqMFrXd6JQtkqsEDZKy5h88NDx1sjRx6ijtFxiKmpYI_QDZbPac6tMVxSb7sB28JHwVNIqwm5koe4cnJKTnD3dbwcF4vELjtYyp3Meu3AJXH6n_tSRucLxOaUr2HW5wqc_infXoWkKDDN_yoNRQFL1VW5dSaTzHkn9un27958PzpeJc_yQpbGDRtZq1hsknJXB9hVhNnhFaCJulxSyd0MWXjkqMOUGQ-BkiwZ751A")'}} />
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-300">Dr. Chen</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button className="text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary">
-                          <span className="material-symbols-outlined">more_vert</span>
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              
-              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between bg-gray-50 dark:bg-gray-700">
-                <p className="text-xs text-gray-500 dark:text-gray-400">Showing 4 of 12 patients</p>
-                <div className="flex gap-2">
-                  <button className="px-3 py-1 rounded border border-gray-200 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-600">Previous</button>
-                  <button className="px-3 py-1 rounded border border-gray-200 dark:border-gray-600 text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-600">Next</button>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 dark:border-gray-700 mt-2">
+                <nav className="flex gap-6 -mb-px">
+                  <button className="pb-4 px-2 border-b-2 border-primary text-primary font-semibold text-sm flex items-center gap-2">
+                    My Tasks
+                    <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] font-bold">4</span>
+                  </button>
+                  <button className="pb-4 px-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 font-medium text-sm transition-all dark:text-gray-400 dark:hover:text-gray-200">
+                    All Patients
+                  </button>
+                  <button className="pb-4 px-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 font-medium text-sm transition-all dark:text-gray-400 dark:hover:text-gray-200">
+                    Completed
+                  </button>
+                </nav>
+                <div className="flex items-center gap-6 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-amber-500"></span>
+                    <span className="text-xs font-medium text-slate-600 dark:text-gray-400">Avg Wait: <span className="text-slate-900 dark:text-white font-bold">12m</span></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-primary"></span>
+                    <span className="text-xs font-medium text-slate-600 dark:text-gray-400">In Progress: <span className="text-slate-900 dark:text-white font-bold">5</span></span>
+                  </div>
                 </div>
               </div>
+              
+              <div className="flex flex-col gap-4">
+                <Link href="/nurse-portal/patients/7" className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 p-1 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/30 block">
+                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-4 gap-4 lg:gap-8">
+                    <div className="flex items-center gap-4 min-w-[240px]">
+                      <div className="size-12 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-lg border border-amber-100 dark:border-amber-800 shadow-sm">
+                        MJ
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">Johnson, Mary</h3>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                          <span className="material-symbols-outlined text-[14px] text-slate-400">cake</span>
+                          03/15/1965 (59y)
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex-1 grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Visit Reason</span>
+                        <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-gray-300">
+                          <span className="material-symbols-outlined text-primary text-[18px]">cardiology</span>
+                          BP Check
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Arrival</span>
+                        <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-gray-400">
+                          <span className="material-symbols-outlined text-slate-400 text-[18px]">schedule</span>
+                          09:15 AM
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-8 min-w-[280px] justify-between lg:justify-end border-t lg:border-t-0 border-slate-100 dark:border-gray-700 pt-3 lg:pt-0 w-full lg:w-auto">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                          <span className="material-symbols-outlined text-[18px] animate-pulse">timer</span>
+                          <span className="text-sm font-bold">Waiting 18 min</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 dark:text-gray-500 font-medium">Target: &lt;15 min</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800 uppercase tracking-wide shadow-sm">
+                          <span className="size-1.5 rounded-full bg-amber-500"></span>
+                          Waiting
+                        </span>
+                        <button className="size-8 rounded-lg flex items-center justify-center text-slate-400 dark:text-gray-500 hover:text-primary hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors">
+                          <span className="material-symbols-outlined">more_vert</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-slate-50/50 dark:bg-gray-700/50 border-t border-slate-100 dark:border-gray-700 px-4 py-2 flex justify-end gap-2 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity h-0 group-hover:h-auto overflow-hidden">
+                    <button className="text-xs font-medium text-slate-600 dark:text-gray-400 hover:text-primary px-3 py-1 hover:bg-white dark:hover:bg-gray-600 rounded border border-transparent hover:border-slate-200 dark:hover:border-gray-600 transition">View History</button>
+                    <button className="text-xs font-medium text-white bg-primary hover:bg-blue-600 px-3 py-1 rounded shadow-sm transition">Call Patient</button>
+                  </div>
+                </Link>
+
+                <Link href="/nurse-portal/patients/8" className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 p-1 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/30 block">
+                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-4 gap-4 lg:gap-8">
+                    <div className="flex items-center gap-4 min-w-[240px]">
+                      <div className="size-12 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg border border-blue-100 dark:border-blue-800 shadow-sm">
+                        SR
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">Smith, Robert</h3>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                          <span className="material-symbols-outlined text-[14px] text-slate-400">cake</span>
+                          07/22/1978 (45y)
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex-1 grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Visit Reason</span>
+                        <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-gray-300">
+                          <span className="material-symbols-outlined text-primary text-[18px]">medical_services</span>
+                          Screening
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Arrival</span>
+                        <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-gray-400">
+                          <span className="material-symbols-outlined text-slate-400 text-[18px]">schedule</span>
+                          09:25 AM
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-8 min-w-[280px] justify-between lg:justify-end border-t lg:border-t-0 border-slate-100 dark:border-gray-700 pt-3 lg:pt-0 w-full lg:w-auto">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                          <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
+                          <span className="text-sm font-bold">Wait: 8 min</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 dark:text-gray-500 font-medium">Vitals Room 2</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800 uppercase tracking-wide shadow-sm">
+                          <span className="size-1.5 rounded-full bg-blue-500"></span>
+                          In Progress
+                        </span>
+                        <button className="size-8 rounded-lg flex items-center justify-center text-slate-400 dark:text-gray-500 hover:text-primary hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors">
+                          <span className="material-symbols-outlined">more_vert</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+
+                <Link href="/nurse-portal/patients/9" className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 p-1 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/30 block">
+                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-4 gap-4 lg:gap-8">
+                    <div className="flex items-center gap-4 min-w-[240px]">
+                      <div className="size-12 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-lg border border-purple-100 dark:border-purple-800 shadow-sm">
+                        PD
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">Davis, Patricia</h3>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                          <span className="material-symbols-outlined text-[14px] text-slate-400">cake</span>
+                          11/03/1952 (71y)
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex-1 grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Visit Reason</span>
+                        <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-gray-300">
+                          <span className="material-symbols-outlined text-primary text-[18px]">assignment_turned_in</span>
+                          Follow-up
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Arrival</span>
+                        <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-gray-400">
+                          <span className="material-symbols-outlined text-slate-400 text-[18px]">schedule</span>
+                          09:30 AM
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-8 min-w-[280px] justify-between lg:justify-end border-t lg:border-t-0 border-slate-100 dark:border-gray-700 pt-3 lg:pt-0 w-full lg:w-auto">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <div className="flex items-center gap-1.5 text-slate-500 dark:text-gray-400">
+                          <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                          <span className="text-sm font-medium">Waited 3 min</span>
+                        </div>
+                        <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">On Schedule</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200/60 dark:border-purple-800 uppercase tracking-wide shadow-sm">
+                          <span className="size-1.5 rounded-full bg-purple-500"></span>
+                          With Provider
+                        </span>
+                        <button className="size-8 rounded-lg flex items-center justify-center text-slate-400 dark:text-gray-500 hover:text-primary hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors">
+                          <span className="material-symbols-outlined">more_vert</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+
+                <Link href="/nurse-portal/patients/10" className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 p-1 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/30 relative overflow-hidden block">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-600"></div>
+                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-4 gap-4 lg:gap-8 pl-5">
+                    <div className="flex items-center gap-4 min-w-[240px]">
+                      <div className="size-12 rounded-full bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-400 flex items-center justify-center font-bold text-lg border border-slate-200 dark:border-gray-600 shadow-sm">
+                        WJ
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">Wilson, James</h3>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                          <span className="material-symbols-outlined text-[14px] text-slate-400">cake</span>
+                          05/18/1988 (36y)
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex-1 grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Visit Reason</span>
+                        <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-gray-300">
+                          <span className="material-symbols-outlined text-primary text-[18px]">biotech</span>
+                          Lab Review
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Arrival</span>
+                        <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-gray-400">
+                          <span className="material-symbols-outlined text-slate-400 text-[18px]">schedule</span>
+                          09:35 AM
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-8 min-w-[280px] justify-between lg:justify-end border-t lg:border-t-0 border-slate-100 dark:border-gray-700 pt-3 lg:pt-0 w-full lg:w-auto">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
+                          <span className="material-symbols-outlined text-[18px]">new_releases</span>
+                          <span className="text-sm font-bold">Just Now</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 dark:text-gray-500 font-medium">Ready for Intake</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-400 border border-slate-200 dark:border-gray-600 uppercase tracking-wide shadow-sm">
+                          <span className="size-1.5 rounded-full bg-slate-400"></span>
+                          Waiting
+                        </span>
+                        <button className="size-8 rounded-lg flex items-center justify-center text-slate-400 dark:text-gray-500 hover:text-primary hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors">
+                          <span className="material-symbols-outlined">more_vert</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-slate-50/50 dark:bg-gray-700/50 border-t border-slate-100 dark:border-gray-700 px-4 py-2 flex justify-end gap-2 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity h-0 group-hover:h-auto overflow-hidden">
+                    <button className="text-xs font-medium text-white bg-green-600 hover:bg-green-700 px-3 py-1 rounded shadow-sm transition flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">play_arrow</span> Start Intake
+                    </button>
+                  </div>
+                </Link>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-slate-200 dark:border-gray-700 gap-4">
+                <p className="text-xs text-slate-500 dark:text-gray-400">Showing 1-4 of 24 active patients</p>
+                <div className="flex gap-2">
+                  <button className="px-3 py-1.5 border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-lg text-xs font-semibold text-slate-400 dark:text-gray-500 hover:bg-slate-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors" disabled>
+                    Previous
+                  </button>
+                  <button className="px-3 py-1.5 border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-lg text-xs font-semibold text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-700 hover:text-primary transition-colors">
+                    Next
+                  </button>
+                </div>
               </div>
             </section>
           </div>

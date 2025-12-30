@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useDoctor } from '@/contexts/DoctorContext'
 
 const Sidebar = () => {
@@ -77,7 +78,7 @@ const Sidebar = () => {
             (item.href === '/doctor/patients' && pathname.startsWith('/doctor/patients')) ||
             (item.href === '/medications' && pathname.startsWith('/medications'))
           return (
-            <a
+            <Link
               key={item.label}
               className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg relative ${
                 isActive
@@ -93,12 +94,12 @@ const Sidebar = () => {
                 <span className={`material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center ${isActive ? 'fill' : ''}`}>
                   {item.icon}
                 </span>
-                {item.href === '/inbox' && hasUnreadMessages && (
+                {item.href === '/doctor/inbox' && hasUnreadMessages && (
                   <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
                 )}
               </div>
               {!isCollapsed && <p className="text-sm font-medium">{item.label}</p>}
-            </a>
+            </Link>
           )
         })}
       </nav>
@@ -106,14 +107,14 @@ const Sidebar = () => {
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           {bottomItems.map((item) => (
-            <a
+            <Link
               key={item.label}
               className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800`}
               href={item.href}
             >
               <span className="material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center">{item.icon}</span>
               {!isCollapsed && <p className="text-sm font-medium">{item.label}</p>}
-            </a>
+            </Link>
           ))}
           
           <button

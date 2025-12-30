@@ -65,29 +65,14 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
     if (!currentUser) return
     
     try {
-      // Get ALL hardcoded patients (not filtered by doctor)
-      const hardcodedPatients = [
-        { id: '1', name: 'Leslie Alexander', email: 'willie.jennings@example.com', dob: '12/05/1985', phone: '(555) 123-4567', doctorId: 'dr-001' },
-        { id: '2', name: 'Fasai Areyanukul', email: 'bill.sanders@example.com', dob: '03/15/1990', phone: '(555) 234-5678', doctorId: 'dr-001' },
-        { id: '3', name: 'Floyd Miles', email: 'michelle.rivera@example.com', dob: '07/22/1988', phone: '(555) 345-6789', doctorId: 'dr-002' },
-        { id: '4', name: 'Priscilla Watson', email: 'priscilla.watson@example.com', dob: '11/08/1992', phone: '(555) 456-7890', doctorId: 'dr-002' },
-        { id: '5', name: 'Kristin Cooper', email: 'kristin.cooper@example.com', dob: '09/14/1995', phone: '(555) 567-8901', doctorId: 'dr-003' },
-        { id: '6', name: 'Robert Johnson', email: 'robert.johnson@example.com', dob: '01/30/2001', phone: '(555) 678-9012', doctorId: 'dr-003' }
-      ]
-      
-      // Get ALL patients from PatientDataManager (not filtered by doctor)
-      const savedPatients = PatientDataManager.getAllPatients()
-        .map(p => ({
-          id: p.id,
-          name: p.name,
-          email: p.email,
-          dob: p.dob,
-          phone: p.phone,
-          doctorId: p.doctorId
-        }))
-      
-      // Combine all patients in the system
-      const allPatients = [...hardcodedPatients, ...savedPatients]
+      const allPatients = PatientDataManager.getAllPatients().map(p => ({
+        id: p.id,
+        name: p.name,
+        email: p.email,
+        dob: p.dob,
+        phone: p.phone,
+        doctorId: p.doctorId
+      }))
       setPatients(allPatients)
     } catch (error) {
       console.error('Error fetching patients:', error)

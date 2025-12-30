@@ -9,96 +9,108 @@ interface VisitHistoryProps {
 const VisitHistory = ({ patientId }: VisitHistoryProps) => {
   const [selectedVisit, setSelectedVisit] = useState<string | null>(null)
 
-  const visits = [
-    {
-      id: '1',
-      date: '2024-01-15',
-      time: '09:30 AM',
-      type: 'Follow-up',
-      provider: 'Dr. Sarah Johnson',
-      chiefComplaint: 'Follow-up for hypertension management',
-      hpi: 'Patient reports good compliance with Lisinopril 10mg daily. No side effects noted. BP readings at home averaging 125-135/75-85.',
-      assessmentPlan: 'HTN well controlled. Continue current regimen. RTC in 3 months.',
-      vitals: {
-        bp: '130/80',
-        hr: '72',
-        temp: '98.6',
-        weight: '185',
-        height: '5\'8"',
-        bmi: '28.1'
-      },
-      ros: {
-        constitutional: 'No fever, chills, or weight loss',
-        cardiovascular: 'No chest pain, palpitations, or shortness of breath',
-        respiratory: 'No cough, dyspnea, or wheezing',
-        gastrointestinal: 'No nausea, vomiting, or abdominal pain',
-        genitourinary: 'No dysuria or frequency',
-        musculoskeletal: 'No joint pain or stiffness',
-        neurological: 'No headaches, dizziness, or weakness',
-        psychiatric: 'Mood stable, no depression or anxiety'
-      },
-      physicalExam: {
-        general: 'Well-appearing, no acute distress',
-        vitals: 'As noted above',
-        heent: 'PERRL, EOMI, no lymphadenopathy',
-        cardiovascular: 'RRR, no murmurs, rubs, or gallops',
-        respiratory: 'Clear to auscultation bilaterally',
-        abdomen: 'Soft, non-tender, no organomegaly',
-        extremities: 'No edema, pulses intact',
-        neurological: 'Alert and oriented x3, grossly intact'
-      },
-      signature: {
-        signedBy: 'Dr. Sarah Johnson, MD',
-        signedDate: '2024-01-15 10:45 AM',
-        status: 'Signed',
-        cosignRequired: false
-      }
-    },
-    {
-      id: '2',
-      date: '2023-10-12',
-      time: '02:15 PM',
-      type: 'Annual Physical',
-      provider: 'Dr. Sarah Johnson',
-      chiefComplaint: 'Annual physical examination',
-      hpi: 'Patient here for routine annual physical. No acute complaints.',
-      assessmentPlan: 'Overall good health. Start Lisinopril for elevated BP. Lab work ordered.',
-      vitals: {
-        bp: '145/90',
-        hr: '75',
-        temp: '98.4',
-        weight: '190',
-        height: '5\'8"',
-        bmi: '28.9'
-      },
-      ros: {
-        constitutional: 'No fever, chills, or unintentional weight loss',
-        cardiovascular: 'No chest pain or palpitations',
-        respiratory: 'No shortness of breath or cough',
-        gastrointestinal: 'No abdominal pain or changes in bowel habits',
-        genitourinary: 'No urinary symptoms',
-        musculoskeletal: 'Occasional back pain with heavy lifting',
-        neurological: 'No headaches or neurological symptoms',
-        psychiatric: 'Mood good, no depression'
-      },
-      physicalExam: {
-        general: 'Well-developed, well-nourished male in no distress',
-        vitals: 'As noted above',
-        heent: 'Normocephalic, PERRL, EOMI, TMs clear',
-        cardiovascular: 'Regular rate and rhythm, no murmurs',
-        respiratory: 'Clear to auscultation and percussion',
-        abdomen: 'Soft, non-distended, no masses or tenderness',
-        extremities: 'No clubbing, cyanosis, or edema',
-        neurological: 'Cranial nerves II-XII intact, DTRs 2+ throughout'
-      },
-      signature: {
-        signedBy: 'Dr. Sarah Johnson, MD',
-        signedDate: '2023-10-12 03:30 PM',
-        status: 'Signed',
-        cosignRequired: false
-      }
+  const getVisitsForPatient = (patientId: string) => {
+    const patientVisits = {
+      '7': [ // Mary Johnson
+        {
+          id: '1',
+          date: '2023-10-20',
+          time: '09:15 AM',
+          type: 'BP Check',
+          provider: 'Dr. Emily Chen',
+          chiefComplaint: 'Routine blood pressure monitoring',
+          hpi: 'Patient here for routine BP check. Reports taking medications as prescribed.',
+          assessmentPlan: 'BP elevated at 145/92. Increase Lisinopril to 15mg daily. RTC in 2 weeks.',
+          vitals: { bp: '145/92', hr: '78', temp: '98.4', weight: '165', height: '5\'4"', bmi: '28.3' },
+          signature: {
+            signedBy: 'Dr. Emily Chen, MD',
+            signedDate: '2023-10-20 10:30 AM',
+            status: 'Signed',
+            cosignRequired: false
+          }
+        }
+      ],
+      '8': [ // Robert Smith
+        {
+          id: '1',
+          date: '2023-10-18',
+          time: '09:25 AM',
+          type: 'Screening',
+          provider: 'Dr. Mark Ross',
+          chiefComplaint: 'Annual health screening',
+          hpi: 'Patient here for routine annual screening. No acute complaints.',
+          assessmentPlan: 'Overall good health. Continue current medications. Lab work ordered.',
+          vitals: { bp: '128/82', hr: '72', temp: '98.6', weight: '180', height: '5\'10"', bmi: '25.8' },
+          signature: {
+            signedBy: 'Dr. Mark Ross, MD',
+            signedDate: '2023-10-18 10:45 AM',
+            status: 'Signed',
+            cosignRequired: false
+          }
+        }
+      ],
+      '9': [ // Patricia Davis
+        {
+          id: '1',
+          date: '2023-10-15',
+          time: '09:30 AM',
+          type: 'Follow-up',
+          provider: 'Dr. Sarah Lee',
+          chiefComplaint: 'Follow-up for diabetes management',
+          hpi: 'Patient reports good glucose control. No hypoglycemic episodes.',
+          assessmentPlan: 'Diabetes well controlled. Continue Metformin. A1C in 3 months.',
+          vitals: { bp: '135/85', hr: '68', temp: '98.2', weight: '155', height: '5\'6"', bmi: '25.0' },
+          signature: {
+            signedBy: 'Dr. Sarah Lee, MD',
+            signedDate: '2023-10-15 11:15 AM',
+            status: 'Signed',
+            cosignRequired: false
+          }
+        }
+      ],
+      '10': [ // James Wilson
+        {
+          id: '1',
+          date: '2023-10-22',
+          time: '09:35 AM',
+          type: 'Lab Review',
+          provider: 'Dr. James Wu',
+          chiefComplaint: 'Review of recent laboratory results',
+          hpi: 'Patient here to review lab results from last week.',
+          assessmentPlan: 'Lab results within normal limits. Continue current regimen.',
+          vitals: { bp: '122/78', hr: '70', temp: '98.6', weight: '175', height: '5\'11"', bmi: '24.4' },
+          signature: {
+            signedBy: 'Dr. James Wu, MD',
+            signedDate: '2023-10-22 10:20 AM',
+            status: 'Signed',
+            cosignRequired: false
+          }
+        }
+      ]
     }
-  ]
+    
+    return patientVisits[patientId as keyof typeof patientVisits] || [
+      {
+        id: '1',
+        date: '2024-01-15',
+        time: '09:30 AM',
+        type: 'Follow-up',
+        provider: 'Dr. Sarah Johnson',
+        chiefComplaint: 'Follow-up for hypertension management',
+        hpi: 'Patient reports good compliance with Lisinopril 10mg daily. No side effects noted.',
+        assessmentPlan: 'HTN well controlled. Continue current regimen. RTC in 3 months.',
+        vitals: { bp: '130/80', hr: '72', temp: '98.6', weight: '185', height: '5\'8"', bmi: '28.1' },
+        signature: {
+          signedBy: 'Dr. Sarah Johnson, MD',
+          signedDate: '2024-01-15 10:45 AM',
+          status: 'Signed',
+          cosignRequired: false
+        }
+      }
+    ]
+  }
+
+  const visits = getVisitsForPatient(patientId)
 
   const selectedVisitData = visits.find(v => v.id === selectedVisit)
 
@@ -230,14 +242,16 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
               <div>
                 <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Review of Systems</h5>
                 <div className="space-y-2">
-                  {selectedVisitData?.ros && Object.entries(selectedVisitData.ros).map(([system, finding]) => (
+                  {(selectedVisitData as any)?.ros ? Object.entries((selectedVisitData as any).ros).map(([system, finding]) => (
                     <div key={system} className="flex gap-3">
                       <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[100px]">
                         {system}:
                       </span>
-                      <span className="text-xs text-gray-700 dark:text-gray-300">{finding}</span>
+                      <span className="text-xs text-gray-700 dark:text-gray-300">{String(finding)}</span>
                     </div>
-                  ))}
+                  )) : (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">No review of systems documented</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -248,14 +262,16 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
               <div>
                 <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Physical Examination</h5>
                 <div className="space-y-2">
-                  {selectedVisitData?.physicalExam && Object.entries(selectedVisitData.physicalExam).map(([system, finding]) => (
+                  {(selectedVisitData as any)?.physicalExam ? Object.entries((selectedVisitData as any).physicalExam).map(([system, finding]) => (
                     <div key={system} className="flex gap-3">
                       <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[100px]">
                         {system}:
                       </span>
-                      <span className="text-xs text-gray-700 dark:text-gray-300">{finding}</span>
+                      <span className="text-xs text-gray-700 dark:text-gray-300">{String(finding)}</span>
                     </div>
-                  ))}
+                  )) : (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">No physical exam documented</p>
+                  )}
                 </div>
               </div>
 

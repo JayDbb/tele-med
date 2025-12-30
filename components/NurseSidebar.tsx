@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useNurse } from '@/contexts/NurseContext'
 
 const NurseSidebar = () => {
@@ -76,7 +77,7 @@ const NurseSidebar = () => {
           const isActive = pathname === item.href || 
             (item.href === '/nurse-portal/patients' && pathname.startsWith('/nurse-portal/patients'))
           return (
-            <a
+            <Link
               key={item.label}
               className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg relative ${
                 isActive
@@ -97,7 +98,7 @@ const NurseSidebar = () => {
                 )}
               </div>
               {!isCollapsed && <p className="text-sm font-medium">{item.label}</p>}
-            </a>
+            </Link>
           )
         })}
       </nav>
@@ -105,14 +106,14 @@ const NurseSidebar = () => {
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           {bottomItems.map((item) => (
-            <a
+            <Link
               key={item.label}
               className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800`}
               href={item.href}
             >
               <span className="material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center">{item.icon}</span>
               {!isCollapsed && <p className="text-sm font-medium">{item.label}</p>}
-            </a>
+            </Link>
           ))}
           
           <button
