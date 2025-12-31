@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "../../../lib/auth";
-import { supabaseServer } from "../../../lib/supabaseServer";
+import { supabaseServerWithUser } from "../../../lib/supabaseServer";
 
 export async function GET(req: NextRequest) {
   const { userId, error } = await requireUser(req);
@@ -8,42 +8,65 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error }, { status: 401 });
   }
 
-  const supabase = supabaseServer();
-  const { data: owned, error: ownedError } = await supabase
-    .from("patients")
-    .select("*")
-    .eq("clinician_id", userId)
-    .order("created_at", { ascending: false });
+  // SECURITY: Use user's JWT token with RLS for defense in depth
+  // RLS policies enforce access control at the database level
+  try {
+    // Get the user's JWT token for RLS-aware operations
+    const authorization = req.headers.get("authorization");
+    if (!authorization) {
+      return NextResponse.json(
+        { error: "Missing Authorization header" },
+        { status: 401 }
+      );
+    }
 
-  const { data: sharedLinks, error: sharedError } = await supabase
-    .from("patient_shares")
-    .select("patient_id, patients(*)")
-    .eq("shared_user_id", userId);
+    const token = authorization.replace("Bearer ", "");
+    const supabase = supabaseServerWithUser(token);
 
-  if (ownedError || sharedError) {
+    // RLS will automatically filter to only patients the user owns or has shared access to
+    // No need to manually filter by userId - RLS does it for us
+    const { data: patients, error: patientsError } = await supabase
+      .from("patients")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (patientsError) {
+      console.error("Error fetching patients:", patientsError);
+      return NextResponse.json(
+        { error: patientsError.message },
+        { status: 500 }
+      );
+    }
+
+    // Get shared patient IDs to mark which patients are shared
+    const { data: sharedLinks, error: sharedError } = await supabase
+      .from("patient_shares")
+      .select("patient_id")
+      .eq("shared_user_id", userId);
+
+    if (sharedError) {
+      console.error("Error fetching shared links:", sharedError);
+      // Don't fail the whole request if shared patients fail
+    }
+
+    const sharedPatientIds = new Set(
+      sharedLinks?.map((link: any) => link.patient_id) || []
+    );
+
+    // Mark which patients are shared
+    const result = (patients || []).map((p: any) => ({
+      ...p,
+      is_shared: sharedPatientIds.has(p.id),
+    }));
+
+    return NextResponse.json(result);
+  } catch (err: any) {
+    console.error("Error in patients GET route:", err);
     return NextResponse.json(
-      { error: ownedError?.message || sharedError?.message },
+      { error: err?.message || "Internal server error" },
       { status: 500 }
     );
   }
-
-  const sharedPatients =
-    sharedLinks
-      ?.map((row: any) => row.patients)
-      .filter(Boolean) ?? [];
-
-  const merged = [...(owned ?? []), ...sharedPatients].reduce((acc: any[], p: any) => {
-    if (!acc.find((x) => x.id === p.id)) acc.push(p);
-    return acc;
-  }, []);
-
-  // Return with ownership info
-  const result = merged.map((p: any) => {
-    const isShared = sharedPatients.some((sp: any) => sp.id === p.id);
-    return { ...p, is_shared: isShared };
-  });
-
-  return NextResponse.json(result);
 }
 
 export async function POST(req: NextRequest) {
@@ -52,11 +75,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error }, { status: 401 });
   }
 
+  // SECURITY: Use user's JWT token with RLS for defense in depth
+  // RLS INSERT policy ensures clinician_id = auth.uid()
+  const authorization = req.headers.get("authorization");
+  if (!authorization) {
+    return NextResponse.json(
+      { error: "Missing Authorization header" },
+      { status: 401 }
+    );
+  }
+
+  const token = authorization.replace("Bearer ", "");
+  const supabase = supabaseServerWithUser(token);
+
   const payload = await req.json();
-  const supabase = supabaseServer();
+
+  // SECURITY: RLS policy will enforce that clinician_id = auth.uid()
+  // We still set it explicitly for clarity, but RLS provides defense in depth
   const { data, error: dbError } = await supabase
     .from("patients")
-    .insert({ ...payload, clinician_id: userId })
+    .insert({
+      ...payload,
+      clinician_id: userId, // RLS policy also checks this
+    })
     .select()
     .single();
 
@@ -66,4 +107,3 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json(data);
 }
-

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession, signIn } from 'next-auth/react'
+import Link from 'next/link'
 
 interface CalendarEvent {
   id: string
@@ -122,6 +123,13 @@ const Calendar = () => {
           {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
         </h3>
         <div className="flex gap-2">
+          <Link 
+            href="/calendar"
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400 hover:text-primary transition-colors"
+            title="Expand Calendar"
+          >
+            <span className="material-symbols-outlined text-sm">open_in_full</span>
+          </Link>
           {!session ? (
             <button
               onClick={connectGoogleCalendar}

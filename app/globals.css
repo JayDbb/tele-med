@@ -5,7 +5,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 .material-symbols-outlined, .material-icons-outlined {
   font-family: 'Material Symbols Outlined', 'Material Icons Outlined';
   font-weight: normal;

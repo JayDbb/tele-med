@@ -2,14 +2,33 @@ import { NextResponse } from 'next/server';
 import { requireUser } from '../../../../lib/auth';
 
 export async function GET(req: Request) {
-  const nextReq: any = req as any;
-  const { userId, error } = await requireUser(nextReq);
-  if (!userId) {
-    return NextResponse.json({ error: error ?? 'Unauthorized' }, { status: 401 });
+  const { searchParams } = new URL(req.url);
+  const room = searchParams.get('room');
+  
+  if (!room) {
+    return NextResponse.json({ error: 'Room parameter is required' }, { status: 400 });
   }
 
-  const { searchParams } = new URL(req.url);
-  const room = searchParams.get('room') || `room-${userId}`;
+  // Allow guest access for patient rooms (rooms starting with "patient-")
+  // Other rooms require authentication
+  const isPatientRoom = room.startsWith('patient-');
+  
+  let userId: string | null = null;
+  let identity: string;
+  
+  if (isPatientRoom) {
+    // Guest access for patient rooms - use a guest identity based on room name
+    identity = `guest-${room}-${Date.now()}`;
+  } else {
+    // Require authentication for other rooms
+    const nextReq: any = req as any;
+    const authResult = await requireUser(nextReq);
+    if (!authResult.userId) {
+      return NextResponse.json({ error: authResult.error ?? 'Unauthorized' }, { status: 401 });
+    }
+    userId = authResult.userId;
+    identity = userId;
+  }
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const apiKey = process.env.TWILIO_API_KEY;
@@ -33,7 +52,7 @@ export async function GET(req: Request) {
     const AccessToken = (twilio as any).jwt.AccessToken;
     const VideoGrant = AccessToken.VideoGrant;
 
-    const token = new AccessToken(accountSid, apiKey, apiSecret, { identity: userId });
+    const token = new AccessToken(accountSid, apiKey, apiSecret, { identity });
     token.addGrant(new VideoGrant({ room }));
     const jwt = token.toJwt();
     return NextResponse.json({ token: jwt, room });

@@ -345,18 +345,18 @@ async function executeQueuedItem(
             [mp3Blob],
             file.name.replace(/\.[^/.]+$/, ".mp3"),
             {
-              type: "audio/mp3",
+              type: "audio/mpeg",
             }
           );
 
           // Update stored file with MP3 version
           const arrayBuffer = await mp3File.arrayBuffer();
-          const blob = new Blob([arrayBuffer], { type: "audio/mp3" });
+          const blob = new Blob([arrayBuffer], { type: "audio/mpeg" });
 
           await db.files.update(item.fileId, {
             file: blob,
             fileName: mp3File.name,
-            fileType: "audio/mp3",
+            fileType: "audio/mpeg",
           });
 
           file = mp3File;
@@ -373,14 +373,14 @@ async function executeQueuedItem(
       const { createSignedUploadUrl } = await import("./api");
       const { path, token, bucket } = await createSignedUploadUrl({
         filename: item.fileName || file.name,
-        contentType: item.fileType || file.type || "audio/mp3",
+        contentType: item.fileType || file.type || "audio/mpeg",
       });
 
       // Upload file to Supabase
       const { error } = await supabase.storage
         .from(bucket)
         .uploadToSignedUrl(path, token, file, {
-          contentType: item.fileType || file.type || "audio/mp3",
+          contentType: item.fileType || file.type || "audio/mpeg",
         });
 
       if (error) {
