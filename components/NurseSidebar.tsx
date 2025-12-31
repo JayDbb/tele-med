@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useNurse } from '@/contexts/NurseContext'
+import MobileHamburgerMenu from './MobileHamburgerMenu'
 
-const NurseSidebar = () => {
+const NurseSidebar = memo(function NurseSidebar() {
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [isDark, setIsDark] = useState(false)
   const [hasUnreadMessages, setHasUnreadMessages] = useState(true)
@@ -50,8 +51,17 @@ const NurseSidebar = () => {
     { icon: 'settings', label: 'Settings', href: '/nurse-portal/settings' },
   ]
 
+  const allMenuItems = [...navItems, ...bottomItems]
+
   return (
-    <aside className={`flex h-screen ${isCollapsed ? 'w-16' : 'w-64'} flex-col bg-white dark:bg-gray-900 p-4 border-r border-gray-200 dark:border-gray-800 sticky top-0 transition-all duration-300`}>
+    <>
+      {/* Mobile Hamburger Menu */}
+      <div className="md:hidden fixed top-4 left-4 z-50">
+        <MobileHamburgerMenu items={allMenuItems} userType="nurse" />
+      </div>
+
+      {/* Desktop Sidebar */}
+      <aside className={`hidden md:flex h-screen ${isCollapsed ? 'w-16' : 'w-64'} flex-col bg-white dark:bg-gray-900 p-4 border-r border-gray-200 dark:border-gray-800 sticky top-0 transition-all duration-300`}>
       <div className="flex items-center justify-between mb-8">
         <div className={`flex items-center gap-3 ${isCollapsed ? 'hidden' : ''}`}>
           <div 
@@ -151,7 +161,8 @@ const NurseSidebar = () => {
         </div>
       </div>
     </aside>
+    </>
   )
-}
+})
 
 export default NurseSidebar

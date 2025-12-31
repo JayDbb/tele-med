@@ -1,11 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import { useSession } from 'next-auth/react'
 import Sidebar from '@/components/Sidebar'
 import NewAppointmentModal from '@/components/NewAppointmentModal'
 import { useAppointments } from '@/contexts/AppointmentsContext'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import MobileBottomNav from '@/components/MobileBottomNav'
+import OfflineIndicator from '@/components/OfflineIndicator'
+import SyncStatus from '@/components/SyncStatus'
 
 interface CalendarEvent {
   id: string
@@ -337,55 +340,72 @@ export default function CalendarPage() {
     )
   }
 
+  const mobileNavItems = [
+    { icon: 'home', label: 'Home', href: '/doctor/dashboard' },
+    { icon: 'groups', label: 'Patients', href: '/doctor/patients' },
+    { icon: 'calendar_month', label: 'Calendar', href: '/doctor/calendar' },
+    { icon: 'inbox', label: 'Inbox', href: '/doctor/inbox' },
+  ]
+
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex min-h-screen w-full overflow-hidden">
+      <OfflineIndicator />
       <Sidebar />
       
-      <main className="flex-1 flex flex-col h-full overflow-hidden bg-background-light dark:bg-background-dark relative">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-background-light dark:bg-background-dark relative pb-20 md:pb-0">
         {/* Header */}
-        <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
-          <GlobalSearchBar />
+        <header className="h-14 sm:h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-3 sm:px-6 shrink-0 z-10">
+          <div className="flex-1 min-w-0">
+            <GlobalSearchBar />
+          </div>
           
-          <div className="flex items-center gap-4">
-            <button className="relative p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></span>
-            </button>
-            <button className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
-              <span className="material-symbols-outlined">settings</span>
-            </button>
+          <div className="flex items-center gap-2 sm:gap-4 ml-2">
+            <div className="hidden sm:flex items-center gap-4">
+              <button className="relative touch-target p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors" aria-label="Notifications">
+                <span className="material-symbols-outlined">notifications</span>
+                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></span>
+              </button>
+              <button className="touch-target p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors" aria-label="Settings">
+                <span className="material-symbols-outlined">settings</span>
+              </button>
+            </div>
+            <div className="sm:hidden">
+              <SyncStatus showDetails={false} />
+            </div>
           </div>
         </header>
 
         {/* Calendar Toolbar */}
-        <div className="px-8 py-5 flex items-center justify-between shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Calendar</h1>
-            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-              <span className="text-sm font-medium">{formatDate(currentDate)}</span>
-              <span className="w-1 h-1 rounded-full bg-gray-500 dark:bg-gray-400"></span>
-              <span className="text-sm">{todaysEvents.length} Appointments today</span>
+        <div className="px-3 sm:px-6 md:px-8 py-3 sm:py-4 md:py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col gap-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight">Calendar</h1>
+            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
+              <span className="font-medium truncate">{formatDate(currentDate)}</span>
+              <span className="w-1 h-1 rounded-full bg-gray-500 dark:bg-gray-400 shrink-0"></span>
+              <span className="whitespace-nowrap">{todaysEvents.length} Appointments today</span>
             </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full sm:w-auto">
             {/* Date Navigation */}
             <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-1 shadow-sm">
               <button 
                 onClick={() => navigateWeek(-1)}
-                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400"
+                className="touch-target p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400"
+                aria-label="Previous week"
               >
                 <span className="material-symbols-outlined text-sm">chevron_left</span>
               </button>
               <button 
                 onClick={() => setCurrentDate(new Date())}
-                className="px-3 text-sm font-bold text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                className="touch-target px-2 sm:px-3 text-xs sm:text-sm font-bold text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
               >
                 Today
               </button>
               <button 
                 onClick={() => navigateWeek(1)}
-                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400"
+                className="touch-target p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500 dark:text-gray-400"
+                aria-label="Next week"
               >
                 <span className="material-symbols-outlined text-sm">chevron_right</span>
               </button>
@@ -397,13 +417,16 @@ export default function CalendarPage() {
                 <button
                   key={view}
                   onClick={() => setViewMode(view)}
-                  className={`px-4 h-full rounded flex items-center justify-center text-sm font-medium capitalize transition-colors ${
+                  className={`touch-target px-2 sm:px-4 h-full rounded flex items-center justify-center text-xs sm:text-sm font-medium capitalize transition-colors ${
                     viewMode === view
                       ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                   }`}
+                  aria-label={`Switch to ${view} view`}
+                  aria-pressed={viewMode === view}
                 >
-                  {view}
+                  <span className="hidden sm:inline">{view}</span>
+                  <span className="sm:hidden">{view.charAt(0).toUpperCase()}</span>
                 </button>
               ))}
             </div>
@@ -411,10 +434,12 @@ export default function CalendarPage() {
             {/* New Appointment Button */}
             <button 
               onClick={() => setShowNewAppointmentModal(true)}
-              className="flex items-center gap-2 bg-primary hover:bg-blue-600 text-white h-10 px-5 rounded-lg shadow-sm transition-colors"
+              className="touch-target flex items-center gap-2 bg-primary hover:bg-blue-600 text-white h-9 sm:h-10 px-3 sm:px-5 rounded-lg shadow-sm transition-colors text-xs sm:text-sm font-bold"
+              aria-label="Create new appointment"
             >
-              <span className="material-symbols-outlined text-[20px]">add</span>
-              <span className="text-sm font-bold">New Appointment</span>
+              <span className="material-symbols-outlined text-lg sm:text-[20px]">add</span>
+              <span className="hidden sm:inline">New Appointment</span>
+              <span className="sm:hidden">New</span>
             </button>
           </div>
         </div>
@@ -425,7 +450,7 @@ export default function CalendarPage() {
           {viewMode === 'month' && renderMonthView()}
           {viewMode === 'list' && renderListView()}
           {viewMode === 'week' && (
-            <div className="min-w-[800px] h-full flex flex-col">
+            <div className="min-w-full sm:min-w-[600px] md:min-w-[800px] h-full flex flex-col">
             {/* Week Header */}
             <div className="flex border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 sticky top-0 z-30">
               <div className="w-[60px] border-r border-gray-200 dark:border-gray-700 shrink-0"></div>
@@ -550,6 +575,9 @@ export default function CalendarPage() {
         onSubmit={createNewAppointment}
         selectedTimeSlot={selectedTimeSlot}
       />
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav items={mobileNavItems} />
     </div>
   )
 }

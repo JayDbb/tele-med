@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useDoctor } from '@/contexts/DoctorContext'
+import MobileHamburgerMenu from './MobileHamburgerMenu'
 
-const Sidebar = () => {
+const Sidebar = memo(function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [isDark, setIsDark] = useState(false)
   const [hasUnreadMessages, setHasUnreadMessages] = useState(true)
@@ -42,7 +43,7 @@ const Sidebar = () => {
     { icon: 'home', label: 'Home', href: '/doctor/dashboard' },
     { icon: 'groups', label: 'My Patients', href: '/doctor/patients' },
     { icon: 'calendar_month', label: 'Calendar', href: '/doctor/calendar' },
-    { icon: 'inbox', label: 'Provider Inbox', href: '/doctor/inbox' },
+    { icon: 'inbox', label: 'Provider Inbox', href: '/doctor/inbox', badge: hasUnreadMessages ? 1 : undefined },
   ]
 
   const bottomItems = [
@@ -50,8 +51,17 @@ const Sidebar = () => {
     { icon: 'settings', label: 'Settings', href: '/settings' },
   ]
 
+  const allMenuItems = [...navItems, ...bottomItems]
+
   return (
-    <aside className={`flex h-screen ${isCollapsed ? 'w-16' : 'w-64'} flex-col bg-white dark:bg-gray-900 p-4 border-r border-gray-200 dark:border-gray-800 sticky top-0 transition-all duration-300`}>
+    <>
+      {/* Mobile Hamburger Menu */}
+      <div className="md:hidden fixed top-4 left-4 z-50">
+        <MobileHamburgerMenu items={allMenuItems} userType="doctor" />
+      </div>
+
+      {/* Desktop Sidebar */}
+      <aside className={`hidden md:flex h-screen ${isCollapsed ? 'w-16' : 'w-64'} flex-col bg-white dark:bg-gray-900 p-4 border-r border-gray-200 dark:border-gray-800 sticky top-0 transition-all duration-300`}>
       <div className="flex items-center justify-between mb-8">
         <div className={`flex items-center gap-3 ${isCollapsed ? 'hidden' : ''}`}>
           <div 
@@ -152,7 +162,8 @@ const Sidebar = () => {
         </div>
       </div>
     </aside>
+    </>
   )
-}
+})
 
 export default Sidebar
