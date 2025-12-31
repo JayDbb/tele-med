@@ -1,30 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "../../../lib/auth";
-import { supabaseServer } from "../../../lib/supabaseServer";
-import Replicate from "replicate";
 
+/**
+ * Legacy route that combines dictation and parsing for backward compatibility.
+ * This route calls the modular dictate and parse endpoints internally.
+ *
+ * For new implementations, use:
+ * - POST /api/transcribe/dictate - for audio transcription
+ * - POST /api/transcribe/parse - for transcript parsing
+ */
 export async function POST(req: NextRequest) {
-  //   const { userId, error } = await requireUser(req);
-  //   if (!userId) {
-  //     return NextResponse.json({ error }, { status: 401 });
-  //   }
-
-  const replicateApiKey = process.env.REPLICATE_API_KEY;
-  if (!replicateApiKey) {
-    return NextResponse.json(
-      { error: "Missing REPLICATE_API_KEY environment variable" },
-      { status: 500 }
-    );
-  }
-
-  const bucket = process.env.STORAGE_BUCKET;
-  if (!bucket) {
-    return NextResponse.json(
-      { error: "Missing STORAGE_BUCKET environment variable" },
-      { status: 500 }
-    );
-  }
-
   try {
     // Receive the path/identifier for audio in Supabase storage and optional visit_id
     const { path: audioPath, visit_id } = await req.json();
@@ -36,69 +20,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = supabaseServer();
+    // Construct base URL from request
+    const baseUrl = req.nextUrl.origin;
 
-    // Get a signed URL for the audio file (valid for 1 hour)
-    // This is a direct download URL that Replicate can access
-    const { data: urlData, error: urlError } = await supabase.storage
-      .from(bucket)
-      .createSignedUrl(audioPath, 3600);
+    // Step 1: Transcribe audio using the dictate endpoint
+    const dictateResponse = await fetch(`${baseUrl}/api/transcribe/dictate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ path: audioPath }),
+    });
 
-    if (urlError || !urlData) {
-      console.error("URL error:", urlError);
+    if (!dictateResponse.ok) {
+      const errorData = await dictateResponse.json();
       return NextResponse.json(
-        { error: urlError?.message || "Failed to create signed URL for audio" },
+        { error: errorData.error || "Failed to transcribe audio" },
+        { status: dictateResponse.status }
+      );
+    }
+
+    const { transcript } = await dictateResponse.json();
+
+    if (!transcript) {
+      return NextResponse.json(
+        { error: "Transcription returned empty result" },
         { status: 500 }
       );
     }
 
-    const audioUrl = urlData.signedUrl;
-    console.log("Using Supabase signed URL for transcription");
-
-    // Initialize Replicate client
-    const replicate = new Replicate({
-      auth: replicateApiKey,
-    });
-
-    // Transcribe audio using Whisper via Replicate
-    const whisperModel =
-      "vaibhavs10/incredibly-fast-whisper:3ab86df6c8f54c11309d4d1f930ac292bad43ace52d10c80d87eb258b3c9f79c";
-
-    // Use the signed URL directly - it should be accessible to Replicate
-    const transcriptionInput = {
-      audio: audioUrl,
-    };
-
-    const transcriptionPrediction = await replicate.run(whisperModel, {
-      input: transcriptionInput,
-    });
-
-    console.log("Transcription prediction:", transcriptionPrediction);
-
-    // Handle different response formats from Whisper models
-    let transcript: string;
-    if (typeof transcriptionPrediction === "string") {
-      transcript = transcriptionPrediction;
-    } else if (
-      transcriptionPrediction &&
-      typeof transcriptionPrediction === "object"
-    ) {
-      // Some models return an object with text or transcription property
-      transcript =
-        (transcriptionPrediction as any).text ||
-        (transcriptionPrediction as any).transcription ||
-        (transcriptionPrediction as any).output ||
-        JSON.stringify(transcriptionPrediction);
-    } else {
-      return NextResponse.json(
-        { error: "Transcription failed or returned invalid result" },
-        { status: 500 }
-      );
-    }
-
-    // Parse transcript and generate summary using DeepSeek LLM via Replicate
-    const deepSeekModel = "deepseek-ai/deepseek-v3.1";
-    const combinedPrompt = `You are a medical transcription assistant. Parse the following medical consultation transcript into structured JSON format and create a summary.
+    // Step 2: Parse transcript using the parse endpoint with default medical prompt
+    const defaultMedicalPrompt = `You are a medical transcription assistant. Parse the following medical consultation transcript into structured JSON format and create a summary.
 
 Extract the following information:
 1. past_medical_history: Array of past medical conditions, surgeries, and relevant medical history
@@ -112,7 +64,7 @@ Extract the following information:
 Return ONLY valid JSON in this exact format (no markdown, no code blocks, no additional text):
 {
   "past_medical_history": [],
-  "current_symptoms": [{ symptom: string, characteristics: 'mild' | 'moderate' | 'severe' | 'unspecified' }],
+  "current_symptoms": [{ "symptom": "string", "characteristics": "mild | moderate | severe | unspecified" }],
   "physical_exam_findings": {},
   "diagnosis": "",
   "treatment_plan": [],
@@ -123,81 +75,34 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, no add
 If any field is not mentioned in the transcript, use an empty array [] or empty object {} or empty string "" as appropriate.
 
 Transcript:
-${transcript}`;
+`;
 
-    const combinedInput = {
-      prompt: combinedPrompt,
-      max_tokens: 8096,
-      response_format: "json",
-      temperature: 0.2,
-    };
-
-    const combinedPrediction = await replicate.run(deepSeekModel, {
-      input: combinedInput,
+    const parseResponse = await fetch(`${baseUrl}/api/transcribe/parse`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        transcript,
+        prompt: defaultMedicalPrompt,
+        visit_id,
+      }),
     });
 
-    // Extract the parsed JSON from the response
-    let parsedData: any;
-    const predictionStr =
-      typeof combinedPrediction === "string"
-        ? combinedPrediction
-        : Array.isArray(combinedPrediction)
-        ? combinedPrediction.join("")
-        : String(combinedPrediction);
-
-    try {
-      // Try to parse as JSON directly
-      parsedData = JSON.parse(predictionStr);
-      console.log("Parsed data:", parsedData);
-    } catch {
-      // If parsing fails, try to extract JSON from the response
-      const jsonMatch = predictionStr.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          parsedData = JSON.parse(jsonMatch[0]);
-        } catch {
-          parsedData = { raw: predictionStr };
-        }
-      } else {
-        parsedData = { raw: predictionStr };
-      }
+    if (!parseResponse.ok) {
+      const errorData = await parseResponse.json();
+      return NextResponse.json(
+        { error: errorData.error || "Failed to parse transcript" },
+        { status: parseResponse.status }
+      );
     }
 
-    // Extract summary from parsed data, default to empty string if not present
-    const summary = parsedData.summary || "";
+    const { structured, summary } = await parseResponse.json();
 
-    // Remove summary from structured data to keep them separate
-    const { summary: _, ...structuredData } = parsedData;
-
-    // Save transcription to database if visit_id is provided
-    if (visit_id) {
-      const { error: transcriptError } = await supabase
-        .from("transcripts")
-        .upsert(
-          {
-            visit_id,
-            raw_text: transcript,
-            segments: {
-              structured: structuredData,
-              summary: summary,
-            },
-          },
-          { onConflict: "visit_id" }
-        );
-
-      if (transcriptError) {
-        console.error("Error saving transcript:", transcriptError);
-        // Don't fail the request, just log the error
-      }
-    }
-
-    // console.log("Transcript:", transcript);
-    console.log("Structured data:", structuredData);
-    // console.log("Summary:", summary);
-
+    // Return combined result for backward compatibility
     return NextResponse.json({
       transcript, // Full transcript
-      structured: structuredData, // Structured JSON (without summary)
+      structured, // Structured JSON (without summary)
       summary, // Short readable summary for review
     });
   } catch (error: any) {

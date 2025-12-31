@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDoctor } from '@/contexts/DoctorContext'
 import { useNurse } from '@/contexts/NurseContext'
+import { supabaseBrowser } from '@/lib/supabaseBrowser'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -19,23 +20,44 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const result = await doctorLogin(email, password)
-    
-    if (result.success) {
-      if (result.role === 'doctor') {
-        router.push('/doctor/dashboard')
-      } else if (result.role === 'nurse') {
-        // Set nurse authentication
-        const nurseData = JSON.parse(localStorage.getItem('authenticated-nurse') || '{}')
-        setNurse(nurseData)
-        setIsAuthenticated(true)
-        router.push('/nurse-portal')
+    try {
+      const result = await doctorLogin(email, password)
+
+      if (result.success) {
+        // Get the user to determine role
+        const supabase = supabaseBrowser()
+        const { data: { session } } = await supabase.auth.getSession()
+        const userRole = session?.user.user_metadata?.role || 'doctor'
+
+        if (userRole === 'nurse') {
+          // Load nurse data
+          const user = session?.user
+          if (user) {
+            const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+            const department = user.user_metadata?.department || 'General'
+
+            setNurse({
+              id: user.id,
+              name: fullName,
+              email: user.email || '',
+              department: department,
+              avatar: user.user_metadata?.avatar
+            })
+            setIsAuthenticated(true)
+          }
+          router.push('/nurse-portal')
+        } else {
+          // Doctor login
+          router.push('/doctor/dashboard')
+        }
+      } else {
+        setError(result.error || 'Invalid email or password')
       }
-    } else {
-      setError('Invalid email or password')
+    } catch (err: any) {
+      setError(err?.message || 'An error occurred during login')
+    } finally {
+      setLoading(false)
     }
-    
-    setLoading(false)
   }
 
   return (
@@ -49,7 +71,7 @@ export default function LoginPage() {
             Sign in to your doctor account
           </p>
         </div>
-        
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -65,7 +87,7 @@ export default function LoginPage() {
               placeholder="doctor@telemedclinic.com"
             />
           </div>
-          
+
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Password
@@ -95,11 +117,8 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 text-sm text-gray-600 dark:text-gray-400">
-          <p className="font-medium">Demo Accounts:</p>
-          <p>sarah.johnson@telemedclinic.com (Doctor)</p>
-          <p>michael.chen@telemedclinic.com (Doctor)</p>
-          <p>emily.rodriguez@telemedclinic.com (Nurse)</p>
-          <p className="mt-1 text-xs">Password: password</p>
+          <p className="font-medium">Sign in with your Supabase account</p>
+          <p className="mt-1 text-xs">Make sure your user has a role set in user_metadata (doctor or nurse)</p>
         </div>
       </div>
     </div>

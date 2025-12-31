@@ -3,7 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "../../../../../lib/auth";
 import { supabaseServer } from "../../../../../lib/supabaseServer";
 
-async function assertAccess(supabase: ReturnType<typeof supabaseServer>, userId: string, visitId: string) {
+async function assertAccess(
+  supabase: ReturnType<typeof supabaseServer>,
+  userId: string,
+  visitId: string
+) {
   const { data: visit, error: visitError } = await supabase
     .from("visits")
     .select("patient_id")
@@ -30,53 +34,202 @@ async function assertAccess(supabase: ReturnType<typeof supabaseServer>, userId:
   return { allowed: !!shareRow, visit };
 }
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+// GET: Retrieve all note entries for a visit (append-only system)
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const { id } = await params;
   const { userId, error } = await requireUser(req);
   if (!userId) return NextResponse.json({ error }, { status: 401 });
 
   const supabase = supabaseServer();
   const access = await assertAccess(supabase, userId, id);
-  if (!access.allowed) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  if (!access.allowed)
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
 
-  const { data, error: dbError } = await supabase
+  // Get the note record for this visit
+  const { data: noteRecord, error: dbError } = await supabase
     .from("notes")
     .select("*")
     .eq("visit_id", id)
     .maybeSingle();
 
-  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 400 });
+  if (dbError)
+    return NextResponse.json({ error: dbError.message }, { status: 400 });
 
-  return NextResponse.json(data ?? null);
+  // If no note record exists, return empty array
+  if (!noteRecord) {
+    return NextResponse.json({
+      visit_id: id,
+      status: "draft",
+      entries: [],
+    });
+  }
+
+  // Parse entries from note field (should be array of entries)
+  let entries = [];
+  if (noteRecord.note) {
+    try {
+      entries = Array.isArray(noteRecord.note) ? noteRecord.note : [];
+    } catch {
+      entries = [];
+    }
+  }
+
+  return NextResponse.json({
+    visit_id: noteRecord.visit_id,
+    status: noteRecord.status,
+    entries: entries,
+  });
 }
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+// POST: Append a new note entry (append-only system)
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const { id } = await params;
   const { userId, error } = await requireUser(req);
   if (!userId) return NextResponse.json({ error }, { status: 401 });
 
   const supabase = supabaseServer();
   const access = await assertAccess(supabase, userId, id);
-  if (!access.allowed) return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  if (!access.allowed)
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
 
   const payload = await req.json();
-  const { note, status } = payload;
+  const { content, section, source = "manual" } = payload; // source: 'manual' | 'dictation'
 
+  if (!content || typeof content !== "string") {
+    return NextResponse.json(
+      { error: "Missing or invalid content" },
+      { status: 400 }
+    );
+  }
+
+  if (
+    !section ||
+    !["subjective", "objective", "assessment", "plan"].includes(section)
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Invalid section. Must be: subjective, objective, assessment, or plan",
+      },
+      { status: 400 }
+    );
+  }
+
+  // Create new entry
+  const newEntry = {
+    id: crypto.randomUUID(),
+    timestamp: new Date().toISOString(),
+    content: content.trim(),
+    section,
+    source,
+    author_id: userId,
+  };
+
+  // Get existing note record
+  const { data: existingNote, error: fetchError } = await supabase
+    .from("notes")
+    .select("*")
+    .eq("visit_id", id)
+    .maybeSingle();
+
+  let entries = [];
+  if (existingNote?.note) {
+    try {
+      entries = Array.isArray(existingNote.note) ? existingNote.note : [];
+    } catch {
+      entries = [];
+    }
+  }
+
+  // Append new entry
+  entries.push(newEntry);
+
+  // Upsert note with updated entries array
   const { data, error: dbError } = await supabase
     .from("notes")
     .upsert(
       {
         visit_id: id,
-        note,
-        status: status ?? "draft"
+        note: entries,
+        status: existingNote?.status ?? "draft",
       },
       { onConflict: "visit_id" }
     )
     .select()
     .maybeSingle();
 
-  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 400 });
+  if (dbError)
+    return NextResponse.json({ error: dbError.message }, { status: 400 });
+
+  return NextResponse.json({
+    entry: newEntry,
+    totalEntries: entries.length,
+  });
+}
+
+// PUT: Update note status (e.g., sign note)
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const { userId, error } = await requireUser(req);
+  if (!userId) return NextResponse.json({ error }, { status: 401 });
+
+  const supabase = supabaseServer();
+  const access = await assertAccess(supabase, userId, id);
+  if (!access.allowed)
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+
+  const payload = await req.json();
+  const { status } = payload;
+
+  if (!status || !["draft", "signed", "pending"].includes(status)) {
+    return NextResponse.json(
+      { error: "Invalid status. Must be: draft, signed, or pending" },
+      { status: 400 }
+    );
+  }
+
+  // Get existing note to preserve entries
+  const { data: existingNote } = await supabase
+    .from("notes")
+    .select("*")
+    .eq("visit_id", id)
+    .maybeSingle();
+
+  // Prepare update data
+  const updateData: any = {
+    visit_id: id,
+    note: existingNote?.note ?? [],
+    status,
+    updated_at: new Date().toISOString(),
+  };
+
+  // If signing the note, set finalized_by and finalized_at
+  if (status === "signed") {
+    updateData.finalized_by = userId;
+    updateData.finalized_at = new Date().toISOString();
+  } else if (status === "draft") {
+    // If reverting to draft, clear finalized fields
+    updateData.finalized_by = null;
+    updateData.finalized_at = null;
+  }
+
+  const { data, error: dbError } = await supabase
+    .from("notes")
+    .upsert(updateData, { onConflict: "visit_id" })
+    .select()
+    .maybeSingle();
+
+  if (dbError)
+    return NextResponse.json({ error: dbError.message }, { status: 400 });
 
   return NextResponse.json(data);
 }
-

@@ -63,16 +63,11 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
     router.push(`/patients/${newPatientId}`)
   }
 
-  const patient = isNewPatient ? {
+  const patient = {
     name: patientData.name || 'New Patient',
     dob: patientData.dob || 'Not provided',
     mrn: patientData.mrn,
     allergies: patientData.allergies || 'None'
-  } : {
-    name: 'Leslie Alexander',
-    dob: '12/05/1985 (38yo)',
-    mrn: '884210',
-    allergies: 'Penicillin'
   }
 
   return (

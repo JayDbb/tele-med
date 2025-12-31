@@ -1,6 +1,9 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { supabaseBrowser } from '@/lib/supabaseBrowser'
+import { login as supabaseLogin } from '@/lib/api'
+import type { User } from '@supabase/supabase-js'
 
 interface Doctor {
   id: string
@@ -12,83 +15,124 @@ interface Doctor {
 
 interface DoctorContextType {
   doctor: Doctor | null
-  login: (email: string, password: string) => Promise<{ success: boolean; role?: string }>
-  logout: () => void
+  login: (email: string, password: string) => Promise<{ success: boolean; role?: string; error?: string }>
+  logout: () => Promise<void>
   isAuthenticated: boolean
+  loading: boolean
 }
 
 const DoctorContext = createContext<DoctorContextType | undefined>(undefined)
 
-// Mock doctor data - in real app this would come from API
-const mockUsers = [
-  {
-    id: 'dr-001',
-    name: 'Dr. Sarah Johnson',
-    email: 'sarah.johnson@telemedclinic.com',
-    specialty: 'Internal Medicine',
-    avatar: '/avatars/dr-johnson.jpg',
-    role: 'doctor'
-  },
-  {
-    id: 'dr-002', 
-    name: 'Dr. Michael Chen',
-    email: 'michael.chen@telemedclinic.com',
-    specialty: 'Pediatrics',
-    avatar: '/avatars/dr-chen.jpg',
-    role: 'doctor'
-  },
-  {
-    id: 'nurse-001',
-    name: 'Emily Rodriguez',
-    email: 'emily.rodriguez@telemedclinic.com', 
-    specialty: 'Nursing',
-    avatar: '/avatars/nurse-rodriguez.jpg',
-    role: 'nurse'
-  }
-]
-
 export function DoctorProvider({ children }: { children: ReactNode }) {
   const [doctor, setDoctor] = useState<Doctor | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check for existing session
-    const savedDoctor = localStorage.getItem('authenticated-doctor')
-    if (savedDoctor) {
-      setDoctor(JSON.parse(savedDoctor))
-      setIsAuthenticated(true)
+    // Check for existing Supabase session
+    checkSession()
+
+    // Listen for auth changes
+    const supabase = supabaseBrowser()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        loadUserData(session.user)
+      } else if (event === 'SIGNED_OUT') {
+        setDoctor(null)
+        setIsAuthenticated(false)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
     }
   }, [])
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; role?: string }> => {
-    // Mock authentication - in real app this would be API call
-    const foundUser = mockUsers.find(u => u.email === email)
-    
-    if (foundUser && password === 'password') { // Mock password check
-      if (foundUser.role === 'doctor') {
-        setDoctor(foundUser)
-        setIsAuthenticated(true)
-        localStorage.setItem('authenticated-doctor', JSON.stringify(foundUser))
-        return { success: true, role: 'doctor' }
-      } else if (foundUser.role === 'nurse') {
-        // Store nurse data in nurse context
-        localStorage.setItem('authenticated-nurse', JSON.stringify(foundUser))
-        localStorage.setItem('nurse-authenticated', 'true')
-        return { success: true, role: 'nurse' }
+  const checkSession = async () => {
+    try {
+      setLoading(true)
+      const supabase = supabaseBrowser()
+      const { data: { session }, error } = await supabase.auth.getSession()
+      
+      if (error) {
+        console.error('Error checking session:', error)
+        setLoading(false)
+        return
       }
+
+      if (session?.user) {
+        await loadUserData(session.user)
+      } else {
+        setLoading(false)
+      }
+    } catch (error) {
+      console.error('Error in checkSession:', error)
+      setLoading(false)
     }
-    
-    return { success: false }
   }
 
-  const logout = () => {
-    setDoctor(null)
-    setIsAuthenticated(false)
-    localStorage.removeItem('authenticated-doctor')
+  const loadUserData = async (user: User) => {
+    try {
+      // Get user metadata to determine role
+      const role = user.user_metadata?.role || 'doctor' // Default to doctor
+      const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+      const specialty = user.user_metadata?.specialty || 'General Practice'
+
+      const doctorData: Doctor = {
+        id: user.id,
+        name: fullName,
+        email: user.email || '',
+        specialty: specialty,
+        avatar: user.user_metadata?.avatar
+      }
+
+      setDoctor(doctorData)
+      setIsAuthenticated(true)
+    } catch (error) {
+      console.error('Error loading user data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const login = async (email: string, password: string): Promise<{ success: boolean; role?: string; error?: string }> => {
+    try {
+      // Use Supabase auth
+      await supabaseLogin(email, password)
+      
+      // Get the session and user
+      const supabase = supabaseBrowser()
+      const { data: { session }, error } = await supabase.auth.getSession()
+      
+      if (error || !session?.user) {
+        return { success: false, error: error?.message || 'Failed to get session' }
+      }
+
+      const user = session.user
+      const role = user.user_metadata?.role || 'doctor' // Default to doctor
+      
+      // Load user data
+      await loadUserData(user)
+
+      return { success: true, role }
+    } catch (error: any) {
+      return { success: false, error: error?.message || 'Login failed' }
+    }
+  }
+
+  const logout = async () => {
+    try {
+      const supabase = supabaseBrowser()
+      await supabase.auth.signOut()
+      setDoctor(null)
+      setIsAuthenticated(false)
+    } catch (error) {
+      console.error('Error logging out:', error)
+    }
   }
 
   return (
-    <DoctorContext.Provider value={{ doctor, login, logout, isAuthenticated }}>
+    <DoctorContext.Provider value={{ doctor, login, logout, isAuthenticated, loading }}>
       {children}
     </DoctorContext.Provider>
   )

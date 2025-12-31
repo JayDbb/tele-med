@@ -1,6 +1,8 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { supabaseBrowser } from '@/lib/supabaseBrowser'
+import type { User } from '@supabase/supabase-js'
 
 interface Nurse {
   id: string
@@ -13,67 +15,111 @@ interface Nurse {
 interface NurseContextType {
   nurse: Nurse | null
   login: (email: string, password: string) => Promise<boolean>
-  logout: () => void
+  logout: () => Promise<void>
   isAuthenticated: boolean
   setNurse: (nurse: Nurse | null) => void
   setIsAuthenticated: (auth: boolean) => void
+  loading: boolean
 }
 
 const NurseContext = createContext<NurseContextType | undefined>(undefined)
 
-// Mock nurse data - in real app this would come from API
-const mockNurses: Nurse[] = [
-  {
-    id: 'nurse-001',
-    name: 'Sarah Williams',
-    email: 'sarah.williams@telemedclinic.com',
-    department: 'Emergency',
-    avatar: '/avatars/nurse-williams.jpg'
-  },
-  {
-    id: 'nurse-002', 
-    name: 'Maria Garcia',
-    email: 'maria.garcia@telemedclinic.com',
-    department: 'ICU',
-    avatar: '/avatars/nurse-garcia.jpg'
-  },
-  {
-    id: 'nurse-003',
-    name: 'Jennifer Lee',
-    email: 'jennifer.lee@telemedclinic.com', 
-    department: 'Pediatrics',
-    avatar: '/avatars/nurse-lee.jpg'
-  }
-]
-
 export function NurseProvider({ children }: { children: ReactNode }) {
   const [nurse, setNurse] = useState<Nurse | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check for existing session
-    const savedNurse = localStorage.getItem('authenticated-nurse')
-    const savedAuth = localStorage.getItem('nurse-authenticated')
-    if (savedNurse && savedAuth === 'true') {
-      setNurse(JSON.parse(savedNurse))
-      setIsAuthenticated(true)
+    // Check for existing Supabase session with nurse role
+    checkSession()
+
+    // Listen for auth changes
+    const supabase = supabaseBrowser()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const userRole = session.user.user_metadata?.role
+        if (userRole === 'nurse') {
+          loadUserData(session.user)
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setNurse(null)
+        setIsAuthenticated(false)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
     }
   }, [])
 
+  const checkSession = async () => {
+    try {
+      setLoading(true)
+      const supabase = supabaseBrowser()
+      const { data: { session }, error } = await supabase.auth.getSession()
+      
+      if (error) {
+        console.error('Error checking session:', error)
+        setLoading(false)
+        return
+      }
+
+      if (session?.user) {
+        const userRole = session.user.user_metadata?.role
+        if (userRole === 'nurse') {
+          await loadUserData(session.user)
+        } else {
+          setLoading(false)
+        }
+      } else {
+        setLoading(false)
+      }
+    } catch (error) {
+      console.error('Error in checkSession:', error)
+      setLoading(false)
+    }
+  }
+
+  const loadUserData = async (user: User) => {
+    try {
+      const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+      const department = user.user_metadata?.department || 'General'
+
+      const nurseData: Nurse = {
+        id: user.id,
+        name: fullName,
+        email: user.email || '',
+        department: department,
+        avatar: user.user_metadata?.avatar
+      }
+
+      setNurse(nurseData)
+      setIsAuthenticated(true)
+    } catch (error) {
+      console.error('Error loading user data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const login = async (email: string, password: string): Promise<boolean> => {
-    // This is handled by DoctorContext now
+    // This is handled by DoctorContext now, but we can load nurse data if role is nurse
     return false
   }
 
-  const logout = () => {
-    setNurse(null)
-    setIsAuthenticated(false)
-    localStorage.removeItem('authenticated-nurse')
-    localStorage.removeItem('nurse-authenticated')
+  const logout = async () => {
+    try {
+      const supabase = supabaseBrowser()
+      await supabase.auth.signOut()
+      setNurse(null)
+      setIsAuthenticated(false)
+    } catch (error) {
+      console.error('Error logging out:', error)
+    }
   }
 
   return (
-    <NurseContext.Provider value={{ nurse, login, logout, isAuthenticated, setNurse, setIsAuthenticated }}>
+    <NurseContext.Provider value={{ nurse, login, logout, isAuthenticated, setNurse, setIsAuthenticated, loading }}>
       {children}
     </NurseContext.Provider>
   )
