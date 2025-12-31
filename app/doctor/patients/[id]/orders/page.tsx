@@ -1,48 +1,87 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 export default function PatientOrdersPage() {
   const params = useParams()
+  const patientId = params.id as string
+  const patient = PatientDataManager.getPatient(patientId)
   const [showNewOrderModal, setShowNewOrderModal] = useState(false)
   const [activeFilter, setActiveFilter] = useState('All Types')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [orders, setOrders] = useState<any[]>([])
 
-  const orders = [
-    {
-      id: 1,
-      orderDetails: 'Cisplatin 50mg/m2 IV',
-      alert: 'Interaction Alert',
-      type: 'Medication',
-      priority: 'STAT',
-      status: 'Pending',
-      date: 'Today, 09:15 AM',
-      orderedBy: 'Dr. Alex Robin'
-    },
-    {
-      id: 2,
-      orderDetails: 'CBC with Differential',
-      alert: 'Routine monitoring',
-      type: 'Lab',
-      priority: 'Routine',
-      status: 'Completed',
-      date: 'Yesterday, 04:30 PM',
-      orderedBy: 'Dr. Alex Robin'
-    },
-    {
-      id: 3,
-      orderDetails: 'CT Scan Chest/Abd/Pelvis',
-      alert: 'Evaluate progression',
-      type: 'Imaging',
-      priority: 'Urgent',
-      status: 'In Progress',
-      date: 'Oct 24, 02:15 PM',
-      orderedBy: 'Dr. Sarah Chen'
+  useEffect(() => {
+    const savedOrders = PatientDataManager.getPatientSectionList(patientId, 'orders')
+    setOrders(savedOrders)
+  }, [patientId])
+
+  const handleAddOrder = (orderData: any) => {
+    const entry = {
+      id: Date.now().toString(),
+      orderDetails: orderData.orderDetails || orderData.medication || orderData.details || 'Order',
+      alert: orderData.alert || '',
+      type: orderData.type || orderData.orderType || 'Order',
+      priority: orderData.priority || 'Routine',
+      status: orderData.status || 'Pending',
+      date: new Date().toLocaleString(),
+      createdAt: new Date().toISOString(),
+      orderedBy: patient?.physician || 'Staff'
     }
-  ]
+    const nextOrders = [entry, ...orders]
+    setOrders(nextOrders)
+    PatientDataManager.savePatientSectionList(patientId, 'orders', nextOrders)
+  }
+
+  const handleRemoveOrder = (id: string) => {
+    const nextOrders = orders.filter((order) => order.id !== id)
+    setOrders(nextOrders)
+    PatientDataManager.savePatientSectionList(patientId, 'orders', nextOrders)
+  }
+
+  const filteredOrders = useMemo(() => {
+    const normalizedFilter = activeFilter.toLowerCase()
+    return orders.filter((order) => {
+      const matchesType = normalizedFilter === 'all types'
+        || (normalizedFilter === 'medications' && `${order.type}`.toLowerCase().includes('med'))
+        || (normalizedFilter === 'labs' && `${order.type}`.toLowerCase().includes('lab'))
+        || (normalizedFilter === 'imaging' && `${order.type}`.toLowerCase().includes('imag'))
+      const matchesSearch = !searchTerm
+        || `${order.orderDetails}`.toLowerCase().includes(searchTerm.toLowerCase())
+      return matchesType && matchesSearch
+    })
+  }, [activeFilter, orders, searchTerm])
+
+  const todayCount = useMemo(() => {
+    const today = new Date()
+    return orders.filter((order) => {
+      const createdAt = order.createdAt ? new Date(order.createdAt) : null
+      return createdAt
+        && createdAt.getFullYear() === today.getFullYear()
+        && createdAt.getMonth() === today.getMonth()
+        && createdAt.getDate() === today.getDate()
+    }).length
+  }, [orders])
+
+  const pendingCount = useMemo(
+    () => orders.filter((order) => `${order.status}`.toLowerCase() === 'pending').length,
+    [orders]
+  )
+
+  const statCount = useMemo(
+    () => orders.filter((order) => `${order.priority}`.toLowerCase() === 'stat').length,
+    [orders]
+  )
+
+  const completedCount = useMemo(
+    () => orders.filter((order) => `${order.status}`.toLowerCase() === 'completed').length,
+    [orders]
+  )
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -75,8 +114,8 @@ export default function PatientOrdersPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Orders Today</p>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-white">3</p>
-                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">+12%</p>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-white">{todayCount}</p>
+                    <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">Tracked from saved orders</p>
                   </div>
                   <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <span className="material-symbols-outlined text-blue-600 dark:text-blue-400">assignment</span>
@@ -87,7 +126,7 @@ export default function PatientOrdersPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Pending Approval</p>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-white">1</p>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-white">{pendingCount}</p>
                     <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">Needs Review</p>
                   </div>
                   <div className="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
@@ -99,7 +138,7 @@ export default function PatientOrdersPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-600 dark:text-gray-400">STAT Orders</p>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-white">1</p>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-white">{statCount}</p>
                     <p className="text-xs text-red-600 dark:text-red-400 font-medium">Action Req.</p>
                   </div>
                   <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
@@ -111,8 +150,8 @@ export default function PatientOrdersPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Completed</p>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-white">1</p>
-                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">+8%</p>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-white">{completedCount}</p>
+                    <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">From saved orders</p>
                   </div>
                   <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <span className="material-symbols-outlined text-green-600 dark:text-green-400">check_circle</span>
@@ -150,6 +189,8 @@ export default function PatientOrdersPage() {
                   <div className="flex items-center gap-2 bg-slate-100 dark:bg-gray-700 rounded-lg px-3 py-2">
                     <span className="material-symbols-outlined text-slate-500 dark:text-gray-400 text-sm">search</span>
                     <input 
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
                       className="bg-transparent border-none text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-gray-400 focus:ring-0 w-32"
                       placeholder="Search..."
                     />
@@ -171,7 +212,14 @@ export default function PatientOrdersPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-gray-700">
-                    {orders.map(order => (
+                    {filteredOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-6 px-6 text-sm text-slate-500 dark:text-gray-400">
+                          No orders recorded yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredOrders.map(order => (
                       <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-gray-700/50">
                         <td className="py-4 px-6">
                           <div>
@@ -210,12 +258,16 @@ export default function PatientOrdersPage() {
                         <td className="py-4 px-6 text-slate-600 dark:text-gray-300">{order.date}</td>
                         <td className="py-4 px-6 text-slate-600 dark:text-gray-300">{order.orderedBy}</td>
                         <td className="py-4 px-6">
-                          <button className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-gray-300 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700">
-                            <span className="material-symbols-outlined text-sm">more_vert</span>
+                          <button
+                            onClick={() => handleRemoveOrder(order.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+                          >
+                            <span className="material-symbols-outlined text-sm">delete</span>
                           </button>
                         </td>
                       </tr>
-                    ))}
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -226,13 +278,28 @@ export default function PatientOrdersPage() {
 
       {/* New Order Modal */}
       {showNewOrderModal && (
-        <NewOrderModal onClose={() => setShowNewOrderModal(false)} />
+        <NewOrderModal
+          onClose={() => setShowNewOrderModal(false)}
+          onSubmit={(orderData) => {
+            handleAddOrder(orderData)
+            setShowNewOrderModal(false)
+          }}
+          patientId={patientId}
+        />
       )}
     </div>
   )
 }
 
-function NewOrderModal({ onClose }: { onClose: () => void }) {
+function NewOrderModal({
+  onClose,
+  onSubmit,
+  patientId
+}: {
+  onClose: () => void
+  onSubmit: (data: any) => void
+  patientId: string
+}) {
   const [orderType, setOrderType] = useState('Medication')
   const [medication, setMedication] = useState('')
   const [dosage, setDosage] = useState('')
@@ -242,12 +309,57 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
   const [refills, setRefills] = useState('')
   const [instructions, setInstructions] = useState('')
   const [priority, setPriority] = useState('Routine')
+  const draftKey = 'orders-new'
 
-  const aiSuggestions = [
-    { code: 'J06.9', description: 'Acute upper respiratory infection, unspecified', confidence: 95 },
-    { code: 'K59.00', description: 'Constipation, unspecified', confidence: 87 },
-    { code: 'M79.3', description: 'Panniculitis, unspecified', confidence: 72 }
-  ]
+  useEffect(() => {
+    const draft = PatientDataManager.getDraft(patientId, draftKey)
+    if (!draft?.data) return
+    setOrderType(draft.data.orderType || 'Medication')
+    setMedication(draft.data.medication || '')
+    setDosage(draft.data.dosage || '')
+    setFrequency(draft.data.frequency || '')
+    setRoute(draft.data.route || '')
+    setDuration(draft.data.duration || '')
+    setRefills(draft.data.refills || '')
+    setInstructions(draft.data.instructions || '')
+    setPriority(draft.data.priority || 'Routine')
+  }, [patientId])
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      PatientDataManager.saveDraft(patientId, draftKey, {
+        orderType,
+        medication,
+        dosage,
+        frequency,
+        route,
+        duration,
+        refills,
+        instructions,
+        priority
+      })
+    }, 400)
+    return () => clearTimeout(timeout)
+  }, [patientId, orderType, medication, dosage, frequency, route, duration, refills, instructions, priority])
+
+  const handleCreate = () => {
+    const orderDetails = orderType === 'Medication'
+      ? [medication, dosage, frequency, route, duration].filter(Boolean).join(' • ')
+      : instructions || 'Order'
+    PatientDataManager.clearDraft(patientId, draftKey)
+    onSubmit({
+      orderType,
+      medication,
+      details: orderDetails,
+      dosage,
+      frequency,
+      route,
+      duration,
+      refills,
+      instructions,
+      priority
+    })
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -353,19 +465,8 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
             <label className="block text-sm font-medium text-slate-700 dark:text-gray-300 mb-2">
               Link to Diagnosis (AI Suggestions)
             </label>
-            <div className="space-y-2">
-              {aiSuggestions.map((suggestion, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-gray-700 rounded-lg">
-                  <div>
-                    <div className="font-medium text-slate-900 dark:text-white">{suggestion.code}</div>
-                    <div className="text-sm text-slate-600 dark:text-gray-300">{suggestion.description}</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-sm">psychology</span>
-                    <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{suggestion.confidence}%</span>
-                  </div>
-                </div>
-              ))}
+            <div className="p-3 bg-slate-50 dark:bg-gray-700 rounded-lg text-sm text-slate-600 dark:text-gray-300">
+              No diagnostic links saved yet.
             </div>
           </div>
 
@@ -402,7 +503,7 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
           >
             Cancel
           </button>
-          <button className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600">
+          <button onClick={handleCreate} className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600">
             Create Order
           </button>
         </div>

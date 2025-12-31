@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 interface Doctor {
   id: string
@@ -55,8 +56,15 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
     // Check for existing session
     const savedDoctor = localStorage.getItem('authenticated-doctor')
     if (savedDoctor) {
-      setDoctor(JSON.parse(savedDoctor))
+      const parsedDoctor = JSON.parse(savedDoctor)
+      setDoctor(parsedDoctor)
       setIsAuthenticated(true)
+      PatientDataManager.setCurrentUser({
+        id: parsedDoctor.id,
+        name: parsedDoctor.name,
+        email: parsedDoctor.email,
+        role: 'doctor'
+      })
     }
   }, [])
 
@@ -69,11 +77,23 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
         setDoctor(foundUser)
         setIsAuthenticated(true)
         localStorage.setItem('authenticated-doctor', JSON.stringify(foundUser))
+        PatientDataManager.setCurrentUser({
+          id: foundUser.id,
+          name: foundUser.name,
+          email: foundUser.email,
+          role: 'doctor'
+        })
         return { success: true, role: 'doctor' }
       } else if (foundUser.role === 'nurse') {
         // Store nurse data in nurse context
         localStorage.setItem('authenticated-nurse', JSON.stringify(foundUser))
         localStorage.setItem('nurse-authenticated', 'true')
+        PatientDataManager.setCurrentUser({
+          id: foundUser.id,
+          name: foundUser.name,
+          email: foundUser.email,
+          role: 'nurse'
+        })
         return { success: true, role: 'nurse' }
       }
     }
@@ -85,6 +105,7 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
     setDoctor(null)
     setIsAuthenticated(false)
     localStorage.removeItem('authenticated-doctor')
+    PatientDataManager.setCurrentUser(null)
   }
 
   return (

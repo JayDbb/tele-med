@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import VitalsChart from './VitalsChart'
 import VisitHistory from './VisitHistory'
 import { PatientDataManager } from '@/utils/PatientDataManager'
@@ -44,15 +45,145 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
 
   const tags = Array.isArray(patient.tags) ? patient.tags : []
   const patientAge = patient.dob ? Number(getAge(patient.dob)) : undefined
+  const [editMode, setEditMode] = useState(false)
+  const [draft, setDraft] = useState({
+    name: patient.name || '',
+    dob: patient.dob || '',
+    phone: patient.phone || '',
+    address: patient.address || '',
+    email: patient.email || '',
+    gender: patient.gender || '',
+    language: patient.language || '',
+    height: patient.height || '',
+    physician: patient.physician || '',
+    lastConsultation: patient.lastConsultation || '',
+    appointment: patient.appointment || '',
+    notes: patient.notes || '',
+    tags: tags.join(', ')
+  })
+
+  useEffect(() => {
+    setDraft({
+      name: patient.name || '',
+      dob: patient.dob || '',
+      phone: patient.phone || '',
+      address: patient.address || '',
+      email: patient.email || '',
+      gender: patient.gender || '',
+      language: patient.language || '',
+      height: patient.height || '',
+      physician: patient.physician || '',
+      lastConsultation: patient.lastConsultation || '',
+      appointment: patient.appointment || '',
+      notes: patient.notes || '',
+      tags: tags.join(', ')
+    })
+  }, [patientId, patient.name, patient.dob, patient.phone, patient.address, patient.email, patient.gender, patient.language, patient.height, patient.physician, patient.lastConsultation, patient.appointment, patient.notes, tags.join(', ')])
+
+  const getNameParts = () => {
+    const parts = draft.name.trim().split(' ')
+    return {
+      firstName: parts[0] || '',
+      lastName: parts.slice(1).join(' ')
+    }
+  }
+
+  const updateNamePart = (part: 'first' | 'last', value: string) => {
+    const { firstName, lastName } = getNameParts()
+    const nextFirst = part === 'first' ? value : firstName
+    const nextLast = part === 'last' ? value : lastName
+    setDraft({ ...draft, name: [nextFirst.trim(), nextLast.trim()].filter(Boolean).join(' ') })
+  }
+
+  const formatPhysician = (name?: string) => {
+    if (!name) return 'Not assigned'
+    if (name.toLowerCase().startsWith('dr.')) return name
+    if (name.toLowerCase().startsWith('dr ')) return name
+    return `Dr. ${name}`
+  }
+
+  const handleSaveProfile = () => {
+    const nextTags = draft.tags
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(Boolean)
+    PatientDataManager.savePatient(
+      {
+        ...patient,
+        name: draft.name,
+        dob: draft.dob,
+        phone: draft.phone,
+        address: draft.address,
+        email: draft.email,
+        gender: draft.gender,
+        language: draft.language,
+        height: draft.height,
+        physician: draft.physician,
+        lastConsultation: draft.lastConsultation,
+        appointment: draft.appointment,
+        notes: draft.notes,
+        tags: nextTags
+      },
+      'update',
+      patient.doctorId || patient.nurseId || 'current-user'
+    )
+    setEditMode(false)
+  }
 
   return (
     <>
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Patient Overview</h1>
-        <Link href={`/patients/${patientId}/new-visit`} className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg flex items-center gap-2 shadow-sm transition-colors">
-          <span className="material-symbols-outlined text-sm">edit_calendar</span>
-          Log New Visit
-        </Link>
+        <div className="flex items-center gap-3">
+          {editMode ? (
+            <>
+              <button
+                onClick={handleSaveProfile}
+                className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition-colors text-sm font-medium"
+              >
+                <span className="material-symbols-outlined text-sm">save</span>
+                Save Profile
+              </button>
+              <button
+                onClick={() => {
+                  setDraft({
+                    name: patient.name || '',
+                    dob: patient.dob || '',
+                    phone: patient.phone || '',
+                    address: patient.address || '',
+                    email: patient.email || '',
+                    gender: patient.gender || '',
+                    language: patient.language || '',
+                    height: patient.height || '',
+                    physician: patient.physician || '',
+                    lastConsultation: patient.lastConsultation || '',
+                    appointment: patient.appointment || '',
+                    notes: patient.notes || '',
+                    tags: tags.join(', ')
+                  })
+                  setEditMode(false)
+                }}
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setEditMode(true)}
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-sm">edit</span>
+                Edit Profile
+              </button>
+              <Link href={`/patients/${patientId}/new-visit`} className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg flex items-center gap-2 shadow-sm transition-colors">
+                <span className="material-symbols-outlined text-sm">edit_calendar</span>
+                Log New Visit
+              </Link>
+            </>
+          )}
+        </div>
       </div>
       <div className="flex flex-col xl:flex-row gap-6">
         <div className="w-full xl:w-1/4 flex flex-col gap-6">
@@ -75,28 +206,61 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
             
             <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm">
               <span className="text-gray-500 dark:text-gray-400">Gender</span>
-              <span className="font-medium text-right text-gray-900 dark:text-white">{patient.gender || 'Not provided'}</span>
+              {editMode ? (
+                <input
+                  value={draft.gender}
+                  onChange={(e) => setDraft({ ...draft, gender: e.target.value })}
+                  className="w-full text-right text-sm font-medium bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-gray-900 dark:text-white"
+                />
+              ) : (
+                <span className="font-medium text-right text-gray-900 dark:text-white">{patient.gender || 'Not provided'}</span>
+              )}
               <span className="text-gray-500 dark:text-gray-400">Age</span>
               <span className="font-medium text-right text-gray-900 dark:text-white">{getAge(patient.dob)}</span>
               <span className="text-gray-500 dark:text-gray-400">Language</span>
-              <span className="font-medium text-right text-gray-900 dark:text-white">{patient.language || 'Not provided'}</span>
+              {editMode ? (
+                <input
+                  value={draft.language}
+                  onChange={(e) => setDraft({ ...draft, language: e.target.value })}
+                  className="w-full text-right text-sm font-medium bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-gray-900 dark:text-white"
+                />
+              ) : (
+                <span className="font-medium text-right text-gray-900 dark:text-white">{patient.language || 'Not provided'}</span>
+              )}
               <span className="text-gray-500 dark:text-gray-400">Height</span>
-              <span className="font-medium text-right text-gray-900 dark:text-white">{patient.height || 'Not provided'}</span>
+              {editMode ? (
+                <input
+                  value={draft.height}
+                  onChange={(e) => setDraft({ ...draft, height: e.target.value })}
+                  className="w-full text-right text-sm font-medium bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-gray-900 dark:text-white"
+                />
+              ) : (
+                <span className="font-medium text-right text-gray-900 dark:text-white">{patient.height || 'Not provided'}</span>
+              )}
             </div>
 
             <div className="mt-6">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium uppercase tracking-wide">Tags</p>
-              <div className="flex flex-wrap gap-2">
-                {tags.length > 0 ? (
-                  tags.map((tag: string) => (
-                    <span key={tag} className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white text-xs rounded-md">
-                      {tag}
-                    </span>
-                  ))
-                ) : (
-                  <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-md">No tags</span>
-                )}
-              </div>
+              {editMode ? (
+                <input
+                  value={draft.tags}
+                  onChange={(e) => setDraft({ ...draft, tags: e.target.value })}
+                  className="w-full text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-gray-900 dark:text-white"
+                  placeholder="tag1, tag2"
+                />
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {tags.length > 0 ? (
+                    tags.map((tag: string) => (
+                      <span key={tag} className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white text-xs rounded-md">
+                        {tag}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-md">No tags</span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -120,7 +284,14 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
 
           <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm">
             <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Notes</h3>
-            {patient.notes ? (
+            {editMode ? (
+              <textarea
+                value={draft.notes}
+                onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
+                className="w-full text-sm bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-2 text-gray-900 dark:text-white resize-none"
+                rows={3}
+              />
+            ) : patient.notes ? (
               <>
                 <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-3">
                   {patient.notes}
@@ -175,32 +346,82 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Last name</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.name.split(' ')[1] || 'N/A'}</div>
+                  {editMode ? (
+                    <input
+                      value={getNameParts().lastName}
+                      onChange={(e) => updateNamePart('last', e.target.value)}
+                      className="w-full text-sm font-medium bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-gray-900 dark:text-white"
+                    />
+                  ) : (
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.name.split(' ')[1] || 'N/A'}</div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">First name</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.name.split(' ')[0]}</div>
+                  {editMode ? (
+                    <input
+                      value={getNameParts().firstName}
+                      onChange={(e) => updateNamePart('first', e.target.value)}
+                      className="w-full text-sm font-medium bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-gray-900 dark:text-white"
+                    />
+                  ) : (
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.name.split(' ')[0]}</div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Birthdate</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">
-                    {patient.dob || 'Not provided'}
-                  </div>
+                  {editMode ? (
+                    <input
+                      type="date"
+                      value={draft.dob}
+                      onChange={(e) => setDraft({ ...draft, dob: e.target.value })}
+                      className="w-full text-sm font-medium bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-gray-900 dark:text-white"
+                    />
+                  ) : (
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {patient.dob || 'Not provided'}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Phone</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.phone || 'Not provided'}</div>
+                  {editMode ? (
+                    <input
+                      value={draft.phone}
+                      onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
+                      className="w-full text-sm font-medium bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-gray-900 dark:text-white"
+                    />
+                  ) : (
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.phone || 'Not provided'}</div>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Address</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.address || 'Not provided'}</div>
+                  {editMode ? (
+                    <input
+                      value={draft.address}
+                      onChange={(e) => setDraft({ ...draft, address: e.target.value })}
+                      className="w-full text-sm font-medium bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-gray-900 dark:text-white"
+                    />
+                  ) : (
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.address || 'Not provided'}</div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Email</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.email || 'Not provided'}</div>
+                  {editMode ? (
+                    <input
+                      type="email"
+                      value={draft.email}
+                      onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+                      className="w-full text-sm font-medium bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-gray-900 dark:text-white"
+                    />
+                  ) : (
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.email || 'Not provided'}</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -213,17 +434,41 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Physician</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">
-                    {patient.physician ? `Dr. ${patient.physician}` : 'Not assigned'}
-                  </div>
+                  {editMode ? (
+                    <input
+                      value={draft.physician}
+                      onChange={(e) => setDraft({ ...draft, physician: e.target.value })}
+                      className="w-full text-sm font-medium bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-gray-900 dark:text-white"
+                    />
+                  ) : (
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {formatPhysician(patient.physician)}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Last Consultation</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.lastConsultation || 'Not recorded'}</div>
+                  {editMode ? (
+                    <input
+                      value={draft.lastConsultation}
+                      onChange={(e) => setDraft({ ...draft, lastConsultation: e.target.value })}
+                      className="w-full text-sm font-medium bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-gray-900 dark:text-white"
+                    />
+                  ) : (
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.lastConsultation || 'Not recorded'}</div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Next Appointment</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.appointment || 'Not scheduled'}</div>
+                  {editMode ? (
+                    <input
+                      value={draft.appointment}
+                      onChange={(e) => setDraft({ ...draft, appointment: e.target.value })}
+                      className="w-full text-sm font-medium bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-gray-900 dark:text-white"
+                    />
+                  ) : (
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.appointment || 'Not scheduled'}</div>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 interface Nurse {
   id: string
@@ -47,7 +48,7 @@ const mockNurses: Nurse[] = [
 ]
 
 export function NurseProvider({ children }: { children: ReactNode }) {
-  const [nurse, setNurse] = useState<Nurse | null>(null)
+  const [nurse, setNurseState] = useState<Nurse | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
@@ -55,8 +56,15 @@ export function NurseProvider({ children }: { children: ReactNode }) {
     const savedNurse = localStorage.getItem('authenticated-nurse')
     const savedAuth = localStorage.getItem('nurse-authenticated')
     if (savedNurse && savedAuth === 'true') {
-      setNurse(JSON.parse(savedNurse))
+      const parsedNurse = JSON.parse(savedNurse)
+      setNurseState(parsedNurse)
       setIsAuthenticated(true)
+      PatientDataManager.setCurrentUser({
+        id: parsedNurse.id,
+        name: parsedNurse.name,
+        email: parsedNurse.email,
+        role: 'nurse'
+      })
     }
   }, [])
 
@@ -65,11 +73,26 @@ export function NurseProvider({ children }: { children: ReactNode }) {
     return false
   }
 
+  const setNurse = (nextNurse: Nurse | null) => {
+    setNurseState(nextNurse)
+    if (nextNurse) {
+      PatientDataManager.setCurrentUser({
+        id: nextNurse.id,
+        name: nextNurse.name,
+        email: nextNurse.email,
+        role: 'nurse'
+      })
+    } else {
+      PatientDataManager.setCurrentUser(null)
+    }
+  }
+
   const logout = () => {
-    setNurse(null)
+    setNurseState(null)
     setIsAuthenticated(false)
     localStorage.removeItem('authenticated-nurse')
     localStorage.removeItem('nurse-authenticated')
+    PatientDataManager.setCurrentUser(null)
   }
 
   return (
