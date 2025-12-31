@@ -55,7 +55,7 @@ const Sidebar = () => {
               backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAIvhsI2mvBKXaHlCUz0PA5n5FW4lyFIJhxJpNXoPyBoHFL72A1graDo7-FmfcUdzvHyJAKBwcmxr83-yxj9STK928Og--F5_H0wNRQ_9VdAzZrxxk-eeBdZ8P8Xcsyp5jqHD2KCc3UBFPnoePLA69iZaeOKgxg5mRsGO14CqdGLak3vlMb-KYEDtX0z3re05rOcoV-vlF1Ky8Hn3MqrxdKFFhIT8pCiW3iMVgbHKKzpkRHw-741kfhXZ6RRnrsHalhB4WafkR6mKs")'
             }}
           />
-          <h1 className="text-gray-900 dark:text-white text-lg font-medium">Medical.</h1>
+          <h1 className="text-gray-900 dark:text-white text-lg font-medium">Intellibus Tele-Medicine</h1>
         </div>
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}

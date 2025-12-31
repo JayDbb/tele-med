@@ -1,4 +1,4 @@
-# Medical Dashboard
+# Intellibus Tele-Medicine
 
 A modern medical dashboard built with Next.js, TypeScript, and Tailwind CSS for healthcare professionals.
 
