@@ -3,19 +3,19 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import NurseSidebar from '@/components/NurseSidebar'
+import Sidebar from '@/components/Sidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
 import { PatientDataManager } from '@/utils/PatientDataManager'
-import { useNurse } from '@/contexts/NurseContext'
+import { useDoctor } from '@/contexts/DoctorContext'
 
-interface NurseNewVisitFormProps {
+interface DoctorNewVisitFormProps {
   patientId: string
 }
 
-const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
+const DoctorNewVisitForm = ({ patientId }: DoctorNewVisitFormProps) => {
   const router = useRouter()
-  const { nurse } = useNurse()
+  const { doctor } = useDoctor()
   const isNewPatient = patientId.length > 10
   const [activeTab, setActiveTab] = useState('record')
   const [expandedSections, setExpandedSections] = useState({
@@ -103,7 +103,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   })
 
   const savePatientData = () => {
-    if (!nurse) return
+    if (!doctor) return
 
     const newPatientId = patientId
     const hasValues = (section: Record<string, string>) =>
@@ -120,31 +120,31 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       allergies: patientData.allergies,
       address: patientData.address,
       image: '',
-      physician: 'To be assigned',
+      physician: doctor.name,
       lastConsultation: new Date().toLocaleDateString(),
       appointment: 'To be scheduled',
       status: 'New Patient',
       statusColor: 'text-blue-600 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300',
-      doctorId: '',
-      nurseId: nurse.id,
+      doctorId: doctor.id,
+      nurseId: '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
     
-    PatientDataManager.savePatient(newPatient, isNewPatient ? 'create' : 'update', nurse.id)
+    PatientDataManager.savePatient(newPatient, isNewPatient ? 'create' : 'update', doctor.id)
 
     const visits = PatientDataManager.getPatientSectionList(newPatientId, 'visits')
     const visitId = Date.now().toString()
     const visitRecord = {
       id: visitId,
       recordedAt: new Date().toISOString(),
-      providerId: nurse.id,
-      providerName: nurse.name,
+      providerId: doctor.id,
+      providerName: doctor.name,
       subjective: visitData.subjective,
       objective: visitData.objective,
       assessmentPlan: visitData.assessmentPlan
     }
-    PatientDataManager.savePatientSectionList(newPatientId, 'visits', [visitRecord, ...visits], nurse.id)
+    PatientDataManager.savePatientSectionList(newPatientId, 'visits', [visitRecord, ...visits], doctor.id)
 
     if (hasValues(visitData.objective)) {
       const vitals = PatientDataManager.getPatientSectionList(newPatientId, 'vitals')
@@ -155,7 +155,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
           ...visitData.objective
         },
         ...vitals
-      ], nurse.id)
+      ], doctor.id)
     }
 
     if (patientData.allergies.trim()) {
@@ -172,7 +172,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
           status: 'Active',
           recordedAt: new Date().toISOString()
         }))
-      PatientDataManager.savePatientSectionList(newPatientId, 'allergies', [...allergyItems, ...allergies], nurse.id)
+      PatientDataManager.savePatientSectionList(newPatientId, 'allergies', [...allergyItems, ...allergies], doctor.id)
     }
 
     if (hasValues(visitData.vaccines)) {
@@ -180,7 +180,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       PatientDataManager.savePatientSectionList(newPatientId, 'vaccines', [
         { id: visitId, ...visitData.vaccines, recordedAt: new Date().toISOString() },
         ...vaccines
-      ], nurse.id)
+      ], doctor.id)
     }
 
     if (hasValues(visitData.familyHistory)) {
@@ -188,7 +188,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       PatientDataManager.savePatientSectionList(newPatientId, 'family-history', [
         { id: visitId, ...visitData.familyHistory, recordedAt: new Date().toISOString() },
         ...familyHistory
-      ], nurse.id)
+      ], doctor.id)
     }
 
     if (hasValues(visitData.riskFlags)) {
@@ -196,7 +196,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       PatientDataManager.savePatientSectionList(newPatientId, 'social-history', [
         { id: visitId, ...visitData.riskFlags, recordedAt: new Date().toISOString() },
         ...socialHistory
-      ], nurse.id)
+      ], doctor.id)
     }
 
     if (hasValues(visitData.surgicalHistory)) {
@@ -204,7 +204,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       PatientDataManager.savePatientSectionList(newPatientId, 'surgical-history', [
         { id: visitId, ...visitData.surgicalHistory, recordedAt: new Date().toISOString() },
         ...surgicalHistory
-      ], nurse.id)
+      ], doctor.id)
     }
 
     if (hasValues(visitData.pastMedicalHistory)) {
@@ -212,7 +212,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       PatientDataManager.savePatientSectionList(newPatientId, 'past-medical-history', [
         { id: visitId, ...visitData.pastMedicalHistory, recordedAt: new Date().toISOString() },
         ...pastMedicalHistory
-      ], nurse.id)
+      ], doctor.id)
     }
 
     if (hasValues(visitData.orders)) {
@@ -220,7 +220,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       PatientDataManager.savePatientSectionList(newPatientId, 'orders', [
         { id: visitId, ...visitData.orders, recordedAt: new Date().toISOString() },
         ...orders
-      ], nurse.id)
+      ], doctor.id)
     }
 
     return newPatientId
@@ -229,20 +229,19 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   const handleSavePatientAndSchedule = () => {
     const newPatientId = savePatientData()
     if (!newPatientId) return
-    // TODO: Navigate to scheduling page
     console.log('Navigate to scheduling for patient:', newPatientId)
   }
 
   const handleSavePatientAndClose = () => {
     const newPatientId = savePatientData()
     if (!newPatientId) return
-    router.push('/nurse-portal')
+    router.push('/doctor')
   }
 
   const handleSavePatient = () => {
     const newPatientId = savePatientData()
     if (!newPatientId) return
-    router.push(`/nurse-portal/patients/${newPatientId}`)
+    router.push(`/doctor/patients/${newPatientId}`)
   }
 
   const patient = isNewPatient ? {
@@ -259,7 +258,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
-      <NurseSidebar />
+      <Sidebar />
       {!isNewPatient && <PatientDetailSidebar patientId={patientId} />}
       
       <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
@@ -291,7 +290,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                 </div>
               </div>
               <div className="flex flex-wrap gap-3">
-                <Link href="/nurse-portal" className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
+                <Link href="/doctor" className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
                   Cancel
                 </Link>
                 {isNewPatient ? (
@@ -433,55 +432,62 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                         <span className="text-sm font-medium">Record</span>
                       </button>
                       <button 
-                        onClick={() => setActiveTab('camera')}
+                        onClick={() => setActiveTab('upload')}
                         className={`flex flex-col items-center justify-center border-b-2 gap-1 pb-3 pt-4 px-2 ${
-                          activeTab === 'camera' 
+                          activeTab === 'upload' 
                             ? 'border-primary text-primary' 
                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                         }`}
                       >
-                        <span className="material-symbols-outlined">photo_camera</span>
-                        <span className="text-sm font-medium">Camera</span>
+                        <span className="material-symbols-outlined">cloud_upload</span>
+                        <span className="text-sm font-medium">Upload</span>
+                      </button>
+                      <button 
+                        onClick={() => setActiveTab('type')}
+                        className={`flex flex-col items-center justify-center border-b-2 gap-1 pb-3 pt-4 px-2 ${
+                          activeTab === 'type' 
+                            ? 'border-primary text-primary' 
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined">keyboard</span>
+                        <span className="text-sm font-medium">Type</span>
                       </button>
                     </div>
                   </div>
                   
                   <div className="p-6 flex flex-col items-center justify-center min-h-[300px]">
-                    {activeTab === 'record' ? (
-                      <div className="flex flex-col items-center justify-center w-full h-full border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/30 dark:bg-gray-800/30 p-8 text-center gap-6 hover:border-primary/40 transition-colors cursor-pointer">
-                        <div className="size-20 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary mb-2">
-                          <span className="material-symbols-outlined text-4xl">mic</span>
-                        </div>
-                        <div className="space-y-2">
-                          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Ready to Capture</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-300 max-w-[280px] mx-auto">
-                            Start recording the consultation to automatically generate clinical notes.
-                          </p>
-                        </div>
-                        <button className="flex items-center justify-center rounded-lg px-6 py-3 bg-primary hover:bg-primary/90 text-white text-sm font-medium shadow-sm transition-colors w-full max-w-[200px] gap-2">
-                          <span className="material-symbols-outlined text-sm">fiber_manual_record</span>
-                          <span>Start Recording</span>
-                        </button>
+                    <div className="flex flex-col items-center justify-center w-full h-full border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/30 dark:bg-gray-800/30 p-8 text-center gap-6 hover:border-primary/40 transition-colors cursor-pointer">
+                      <div className="size-20 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary mb-2">
+                        <span className="material-symbols-outlined text-4xl">
+                          {activeTab === 'record' ? 'mic' : activeTab === 'upload' ? 'cloud_upload' : 'keyboard'}
+                        </span>
                       </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center w-full h-full border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/30 dark:bg-gray-800/30 p-8 text-center gap-6 hover:border-primary/40 transition-colors cursor-pointer">
-                        <div className="size-20 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary mb-2">
-                          <span className="material-symbols-outlined text-4xl">photo_camera</span>
-                        </div>
-                        <div className="space-y-2">
-                          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Ready to Capture</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-300 max-w-[280px] mx-auto">
-                            Take photos of documents, insurance cards, or medical records.
-                          </p>
-                        </div>
-                        <button className="flex items-center justify-center rounded-lg px-6 py-3 bg-primary hover:bg-primary/90 text-white text-sm font-medium shadow-sm transition-colors w-full max-w-[200px] gap-2">
-                          <span className="material-symbols-outlined text-sm">camera_alt</span>
-                          <span>Take Photo</span>
-                        </button>
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                          {activeTab === 'record' ? 'Ready to Capture' : activeTab === 'upload' ? 'Upload Audio' : 'Type Notes'}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 max-w-[280px] mx-auto">
+                          {activeTab === 'record' 
+                            ? 'Start recording the consultation to automatically generate clinical notes.'
+                            : activeTab === 'upload'
+                            ? 'Upload an audio file to transcribe and generate clinical notes.'
+                            : 'Manually type your clinical notes and observations.'
+                          }
+                        </p>
                       </div>
-                    )}
+                      <button className="flex items-center justify-center rounded-lg px-6 py-3 bg-primary hover:bg-primary/90 text-white text-sm font-medium shadow-sm transition-colors w-full max-w-[200px] gap-2">
+                        <span className="material-symbols-outlined text-sm">
+                          {activeTab === 'record' ? 'fiber_manual_record' : activeTab === 'upload' ? 'upload_file' : 'edit'}
+                        </span>
+                        <span>
+                          {activeTab === 'record' ? 'Start Recording' : activeTab === 'upload' ? 'Choose File' : 'Start Typing'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
+
               </div>
 
               <div className="lg:col-span-8 flex flex-col">
@@ -1301,4 +1307,4 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   )
 }
 
-export default NurseNewVisitForm
+export default DoctorNewVisitForm

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 interface VitalsChartProps {
   patientId: string
@@ -10,6 +11,19 @@ interface VitalsChartProps {
 const VitalsChart = ({ patientId, patientAge = 25 }: VitalsChartProps) => {
   const [selectedTimeRange, setSelectedTimeRange] = useState('3m')
   const [selectedVital, setSelectedVital] = useState('bp')
+
+  const vitalsHistory = PatientDataManager.getPatientSectionList(patientId, 'vitals')
+  const latestVitals = vitalsHistory.reduce((latest: any, current: any) => {
+    if (!latest?.recordedAt) return current
+    if (!current?.recordedAt) return latest
+    return new Date(current.recordedAt).getTime() > new Date(latest.recordedAt).getTime() ? current : latest
+  }, vitalsHistory[0])
+  const formatTimestamp = (timestamp?: string) => {
+    if (!timestamp) return 'Not recorded'
+    const date = new Date(timestamp)
+    if (Number.isNaN(date.getTime())) return 'Not recorded'
+    return date.toLocaleString()
+  }
 
   const timeRanges = [
     { value: '1m', label: '1 Month' },
@@ -21,36 +35,36 @@ const VitalsChart = ({ patientId, patientAge = 25 }: VitalsChartProps) => {
     { 
       key: 'bp', 
       label: 'Blood Pressure', 
-      value: '130/80', 
+      value: latestVitals?.bp || '--', 
       unit: 'mmHg', 
-      lastMeasured: '2024-01-15 09:30 AM',
-      trend: 'down',
-      change: '↓15'
+      lastMeasured: formatTimestamp(latestVitals?.recordedAt),
+      trend: 'stable',
+      change: '—'
     },
     { 
       key: 'hr', 
       label: 'Heart Rate', 
-      value: '72', 
+      value: latestVitals?.hr || '--', 
       unit: 'bpm', 
-      lastMeasured: '2024-01-15 09:30 AM',
-      trend: 'down',
-      change: '↓3'
+      lastMeasured: formatTimestamp(latestVitals?.recordedAt),
+      trend: 'stable',
+      change: '—'
     },
     { 
       key: 'weight', 
       label: 'Weight', 
-      value: '185', 
+      value: latestVitals?.weight || '--', 
       unit: 'lbs', 
-      lastMeasured: '2024-01-10 08:15 AM',
-      trend: 'down',
-      change: '↓5lbs'
+      lastMeasured: formatTimestamp(latestVitals?.recordedAt),
+      trend: 'stable',
+      change: '—'
     },
     { 
       key: 'temp', 
       label: 'Temperature', 
-      value: '98.6', 
+      value: latestVitals?.temp || '--', 
       unit: '°F', 
-      lastMeasured: '2024-01-15 09:30 AM',
+      lastMeasured: formatTimestamp(latestVitals?.recordedAt),
       trend: 'stable',
       change: '—'
     }

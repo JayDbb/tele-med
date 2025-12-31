@@ -1,12 +1,22 @@
 'use client'
 
 import { useParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import NurseSidebar from '@/components/NurseSidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 export default function PatientAllergiesPage() {
   const params = useParams()
+  const patientId = params.id as string
+  const patient = PatientDataManager.getPatient(patientId)
+  const [allergies, setAllergies] = useState<any[]>([])
+
+  useEffect(() => {
+    const savedAllergies = PatientDataManager.getPatientSectionList(patientId, 'allergies')
+    setAllergies(savedAllergies)
+  }, [patientId])
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -25,7 +35,7 @@ export default function PatientAllergiesPage() {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-gray-400 dark:text-gray-500 text-sm font-medium">Patients</span>
                   <span className="material-symbols-outlined text-gray-400 dark:text-gray-500 text-sm">chevron_right</span>
-                  <span className="text-primary text-sm font-medium">Sarah Jenkins</span>
+                  <span className="text-primary text-sm font-medium">{patient?.name || 'Patient'}</span>
                 </div>
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Allergy Management</h2>
               </div>
@@ -59,7 +69,7 @@ export default function PatientAllergiesPage() {
                   </div>
                   <div className="flex flex-col sm:flex-row gap-6 items-start">
                     <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-100 dark:border-gray-700 flex-1 w-full">
-                      <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">3</div>
+                      <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">{allergies.length}</div>
                       <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Allergies Recorded</div>
                     </div>
                     <div className="flex-1 w-full">
@@ -74,7 +84,7 @@ export default function PatientAllergiesPage() {
                       </div>
                       <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 flex items-center gap-1">
                         <span className="material-symbols-outlined text-sm">schedule</span>
-                        Last reviewed by Dr. Sarah Jenkins on Oct 24, 2023
+                        Last reviewed not recorded
                       </p>
                     </div>
                   </div>
@@ -115,95 +125,48 @@ export default function PatientAllergiesPage() {
                     </div>
                   </div>
                   <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                    <div className="p-5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
-                      <div className="flex flex-col sm:flex-row gap-4 items-start">
-                        <div className="bg-red-50 dark:bg-red-900/30 p-3 rounded-full text-red-600 dark:text-red-400 shrink-0">
-                          <span className="material-symbols-outlined">nutrition</span>
-                        </div>
-                        <div className="flex-1 w-full">
-                          <div className="flex justify-between items-start mb-1">
-                            <h4 className="text-base font-bold text-gray-900 dark:text-white">Peanuts</h4>
-                            <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-[10px] font-bold uppercase rounded tracking-wide">Severe</span>
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 gap-x-4 mt-2">
-                            <div>
-                              <span className="text-xs text-gray-400 dark:text-gray-500 block mb-0.5">Type</span>
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Food</span>
-                            </div>
-                            <div>
-                              <span className="text-xs text-gray-400 dark:text-gray-500 block mb-0.5">Reaction</span>
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Anaphylaxis, Swelling</span>
-                            </div>
-                            <div className="col-span-2 sm:col-span-1">
-                              <span className="text-xs text-gray-400 dark:text-gray-500 block mb-0.5">Status</span>
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                                <span className="material-symbols-outlined text-sm text-green-600">check</span> Active
-                              </span>
-                            </div>
-                          </div>
-                        </div>
+                    {allergies.length === 0 ? (
+                      <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                        <span className="material-symbols-outlined text-4xl mb-2 block opacity-50">medical_services</span>
+                        <p>No allergies recorded</p>
                       </div>
-                    </div>
-
-                    <div className="p-5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
-                      <div className="flex flex-col sm:flex-row gap-4 items-start">
-                        <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-full text-primary shrink-0">
-                          <span className="material-symbols-outlined">medication</span>
-                        </div>
-                        <div className="flex-1 w-full">
-                          <div className="flex justify-between items-start mb-1">
-                            <h4 className="text-base font-bold text-gray-900 dark:text-white">Penicillin</h4>
-                            <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[10px] font-bold uppercase rounded tracking-wide">Moderate</span>
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 gap-x-4 mt-2">
-                            <div>
-                              <span className="text-xs text-gray-400 dark:text-gray-500 block mb-0.5">Type</span>
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Medication</span>
+                    ) : (
+                      allergies.map((allergy) => (
+                        <div key={allergy.id} className="p-5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
+                          <div className="flex flex-col sm:flex-row gap-4 items-start">
+                            <div className="bg-red-50 dark:bg-red-900/30 p-3 rounded-full text-red-600 dark:text-red-400 shrink-0">
+                              <span className="material-symbols-outlined">nutrition</span>
                             </div>
-                            <div>
-                              <span className="text-xs text-gray-400 dark:text-gray-500 block mb-0.5">Reaction</span>
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Hives, Skin Rash</span>
-                            </div>
-                            <div className="col-span-2 sm:col-span-1">
-                              <span className="text-xs text-gray-400 dark:text-gray-500 block mb-0.5">Status</span>
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                                <span className="material-symbols-outlined text-sm text-green-600">check</span> Active
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
-                      <div className="flex flex-col sm:flex-row gap-4 items-start">
-                        <div className="bg-green-50 dark:bg-green-900/30 p-3 rounded-full text-green-600 dark:text-green-400 shrink-0">
-                          <span className="material-symbols-outlined">grass</span>
-                        </div>
-                        <div className="flex-1 w-full">
-                          <div className="flex justify-between items-start mb-1">
-                            <h4 className="text-base font-bold text-gray-900 dark:text-white">Ragweed Pollen</h4>
-                            <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-[10px] font-bold uppercase rounded tracking-wide">Mild</span>
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 gap-x-4 mt-2">
-                            <div>
-                              <span className="text-xs text-gray-400 dark:text-gray-500 block mb-0.5">Type</span>
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Environmental</span>
-                            </div>
-                            <div>
-                              <span className="text-xs text-gray-400 dark:text-gray-500 block mb-0.5">Reaction</span>
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Sneezing, Itchy Eyes</span>
-                            </div>
-                            <div className="col-span-2 sm:col-span-1">
-                              <span className="text-xs text-gray-400 dark:text-gray-500 block mb-0.5">Status</span>
-                              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                                <span className="material-symbols-outlined text-sm text-green-600">check</span> Active
-                              </span>
+                            <div className="flex-1 w-full">
+                              <div className="flex justify-between items-start mb-1">
+                                <h4 className="text-base font-bold text-gray-900 dark:text-white">{allergy.name}</h4>
+                                <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded tracking-wide ${
+                                  allergy.severity === 'Severe' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                                  allergy.severity === 'Moderate' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
+                                  'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                                }`}>{allergy.severity}</span>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 gap-x-4 mt-2">
+                                <div>
+                                  <span className="text-xs text-gray-400 dark:text-gray-500 block mb-0.5">Type</span>
+                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{allergy.type || 'Unknown'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-xs text-gray-400 dark:text-gray-500 block mb-0.5">Reaction</span>
+                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{allergy.reactions || 'Not specified'}</span>
+                                </div>
+                                <div className="col-span-2 sm:col-span-1">
+                                  <span className="text-xs text-gray-400 dark:text-gray-500 block mb-0.5">Status</span>
+                                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-sm text-green-600">check</span> {allergy.status || 'Active'}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>

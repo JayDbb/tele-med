@@ -8,7 +8,6 @@ import { useNurse } from '@/contexts/NurseContext'
 const NurseSidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [isDark, setIsDark] = useState(false)
-  const [hasUnreadMessages, setHasUnreadMessages] = useState(true)
   const pathname = usePathname()
   const router = useRouter()
   const { nurse, logout } = useNurse()
@@ -35,20 +34,15 @@ const NurseSidebar = () => {
 
   const handleLogout = () => {
     logout()
-    router.push('/nurse-login')
+    router.push('/login')
   }
 
   const navItems = [
     { icon: 'home', label: 'Dashboard', href: '/nurse-portal' },
     { icon: 'groups', label: 'Patients', href: '/nurse-portal/patients' },
-    { icon: 'calendar_month', label: 'Schedule', href: '/nurse-portal/schedule' },
-    { icon: 'inbox', label: 'Messages', href: '/nurse-portal/messages' },
   ]
 
-  const bottomItems = [
-    { icon: 'notifications', label: 'Notifications', href: '/nurse-portal/notifications' },
-    { icon: 'settings', label: 'Settings', href: '/nurse-portal/settings' },
-  ]
+  const bottomItems = []
 
   return (
     <aside className={`flex h-screen ${isCollapsed ? 'w-16' : 'w-64'} flex-col bg-white dark:bg-gray-900 p-4 border-r border-gray-200 dark:border-gray-800 sticky top-0 transition-all duration-300`}>
@@ -93,9 +87,6 @@ const NurseSidebar = () => {
                 <span className={`material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center ${isActive ? 'fill' : ''}`}>
                   {item.icon}
                 </span>
-                {item.href === '/nurse-portal/messages' && hasUnreadMessages && (
-                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
-                )}
               </div>
               {!isCollapsed && <p className="text-sm font-medium">{item.label}</p>}
             </Link>

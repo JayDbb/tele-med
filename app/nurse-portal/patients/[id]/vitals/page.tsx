@@ -4,10 +4,19 @@ import { useParams, useRouter } from 'next/navigation'
 import NurseSidebar from '@/components/NurseSidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 export default function PatientVitalsPage() {
   const params = useParams()
   const router = useRouter()
+  const patientId = params.id as string
+  const patient = PatientDataManager.getPatient(patientId)
+  const vitalsHistory = PatientDataManager.getPatientSectionList(patientId, 'vitals')
+  const latestVitals = vitalsHistory[0]
+  const bpValue = latestVitals?.bp || '--'
+  const hrValue = latestVitals?.hr || '--'
+  const tempValue = latestVitals?.temp || '--'
+  const weightValue = latestVitals?.weight || '--'
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -31,7 +40,7 @@ export default function PatientVitalsPage() {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-gray-400 dark:text-gray-500 text-sm font-medium">Patients</span>
                   <span className="material-symbols-outlined text-gray-400 dark:text-gray-500 text-sm">chevron_right</span>
-                  <span className="text-primary text-sm font-medium">Sarah Jenkins</span>
+                  <span className="text-primary text-sm font-medium">{patient?.name || 'Patient'}</span>
                 </div>
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Vitals Management</h2>
               </div>
@@ -54,15 +63,17 @@ export default function PatientVitalsPage() {
                     <span className="material-symbols-outlined text-[18px]">favorite</span>
                     <span className="text-xs font-semibold uppercase tracking-wider">BP</span>
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">Normal</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    {latestVitals?.bp ? 'Recorded' : 'Not recorded'}
+                  </span>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white">120/80</span>
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{bpValue}</span>
                   <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">mmHg</span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500">
                   <span className="material-symbols-outlined text-[12px]">airline_seat_recline_normal</span>
-                  <span>Sitting (Left Arm)</span>
+                  <span>Not recorded</span>
                 </div>
               </div>
 
@@ -72,15 +83,17 @@ export default function PatientVitalsPage() {
                     <span className="material-symbols-outlined text-[18px]">ecg_heart</span>
                     <span className="text-xs font-semibold uppercase tracking-wider">HR</span>
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">Elevated</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    {latestVitals?.hr ? 'Recorded' : 'Not recorded'}
+                  </span>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white">92</span>
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{hrValue}</span>
                   <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">bpm</span>
                 </div>
-                <div className="flex items-center gap-1 text-red-500 dark:text-red-400 text-[11px] font-medium">
-                  <span className="material-symbols-outlined text-[12px]">trending_up</span>
-                  <span>+12 vs last visit</span>
+                <div className="flex items-center gap-1 text-gray-400 dark:text-gray-500 text-[11px] font-medium">
+                  <span className="material-symbols-outlined text-[12px]">trending_flat</span>
+                  <span>No trend data</span>
                 </div>
               </div>
 
@@ -90,14 +103,16 @@ export default function PatientVitalsPage() {
                     <span className="material-symbols-outlined text-[18px]">pulmonology</span>
                     <span className="text-xs font-semibold uppercase tracking-wider">Resp</span>
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">Normal</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    Not recorded
+                  </span>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white">16</span>
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">--</span>
                   <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">rpm</span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500">
-                  <span>Regular rhythm</span>
+                  <span>Not recorded</span>
                 </div>
               </div>
 
@@ -107,14 +122,16 @@ export default function PatientVitalsPage() {
                     <span className="material-symbols-outlined text-[18px]">spo2</span>
                     <span className="text-xs font-semibold uppercase tracking-wider">SpO₂</span>
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">Normal</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    Not recorded
+                  </span>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white">98</span>
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">--</span>
                   <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">%</span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500">
-                  <span>Room Air</span>
+                  <span>Not recorded</span>
                 </div>
               </div>
 
@@ -124,14 +141,16 @@ export default function PatientVitalsPage() {
                     <span className="material-symbols-outlined text-[18px]">thermometer</span>
                     <span className="text-xs font-semibold uppercase tracking-wider">Temp</span>
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">Normal</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    {latestVitals?.temp ? 'Recorded' : 'Not recorded'}
+                  </span>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white">36.6</span>
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{tempValue}</span>
                   <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">°C</span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500">
-                  <span>Oral</span>
+                  <span>Not recorded</span>
                 </div>
               </div>
 
@@ -141,14 +160,16 @@ export default function PatientVitalsPage() {
                     <span className="material-symbols-outlined text-[18px]">monitor_weight</span>
                     <span className="text-xs font-semibold uppercase tracking-wider">BMI</span>
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">Normal</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    Not recorded
+                  </span>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white">24.2</span>
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">--</span>
                   <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">kg/m²</span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500">
-                  <span>72kg • 172cm</span>
+                  <span>{weightValue !== '--' ? `${weightValue} lbs` : 'Not recorded'}</span>
                 </div>
               </div>
             </div>
@@ -160,10 +181,9 @@ export default function PatientVitalsPage() {
                     <span className="material-symbols-outlined text-xl">auto_awesome</span>
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">Clinical Insight Detected</h4>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">Clinical Insights</h4>
                     <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                      Patient's systolic BP has shown a consistent upward trend (+5 mmHg avg) over the last 3 visits. Consider evaluating for white coat hypertension or medication adjustment.
-                      <a className="text-primary font-semibold hover:underline ml-1" href="#">View Analysis</a>
+                      No automated insights available yet. Add more vitals to enable trend analysis.
                     </p>
                   </div>
                   <button className="ml-auto text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">

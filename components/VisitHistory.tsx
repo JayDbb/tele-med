@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 interface VisitHistoryProps {
   patientId: string
@@ -9,108 +10,38 @@ interface VisitHistoryProps {
 const VisitHistory = ({ patientId }: VisitHistoryProps) => {
   const [selectedVisit, setSelectedVisit] = useState<string | null>(null)
 
-  const getVisitsForPatient = (patientId: string) => {
-    const patientVisits = {
-      '7': [ // Mary Johnson
-        {
-          id: '1',
-          date: '2023-10-20',
-          time: '09:15 AM',
-          type: 'BP Check',
-          provider: 'Dr. Emily Chen',
-          chiefComplaint: 'Routine blood pressure monitoring',
-          hpi: 'Patient here for routine BP check. Reports taking medications as prescribed.',
-          assessmentPlan: 'BP elevated at 145/92. Increase Lisinopril to 15mg daily. RTC in 2 weeks.',
-          vitals: { bp: '145/92', hr: '78', temp: '98.4', weight: '165', height: '5\'4"', bmi: '28.3' },
-          signature: {
-            signedBy: 'Dr. Emily Chen, MD',
-            signedDate: '2023-10-20 10:30 AM',
-            status: 'Signed',
-            cosignRequired: false
-          }
-        }
-      ],
-      '8': [ // Robert Smith
-        {
-          id: '1',
-          date: '2023-10-18',
-          time: '09:25 AM',
-          type: 'Screening',
-          provider: 'Dr. Mark Ross',
-          chiefComplaint: 'Annual health screening',
-          hpi: 'Patient here for routine annual screening. No acute complaints.',
-          assessmentPlan: 'Overall good health. Continue current medications. Lab work ordered.',
-          vitals: { bp: '128/82', hr: '72', temp: '98.6', weight: '180', height: '5\'10"', bmi: '25.8' },
-          signature: {
-            signedBy: 'Dr. Mark Ross, MD',
-            signedDate: '2023-10-18 10:45 AM',
-            status: 'Signed',
-            cosignRequired: false
-          }
-        }
-      ],
-      '9': [ // Patricia Davis
-        {
-          id: '1',
-          date: '2023-10-15',
-          time: '09:30 AM',
-          type: 'Follow-up',
-          provider: 'Dr. Sarah Lee',
-          chiefComplaint: 'Follow-up for diabetes management',
-          hpi: 'Patient reports good glucose control. No hypoglycemic episodes.',
-          assessmentPlan: 'Diabetes well controlled. Continue Metformin. A1C in 3 months.',
-          vitals: { bp: '135/85', hr: '68', temp: '98.2', weight: '155', height: '5\'6"', bmi: '25.0' },
-          signature: {
-            signedBy: 'Dr. Sarah Lee, MD',
-            signedDate: '2023-10-15 11:15 AM',
-            status: 'Signed',
-            cosignRequired: false
-          }
-        }
-      ],
-      '10': [ // James Wilson
-        {
-          id: '1',
-          date: '2023-10-22',
-          time: '09:35 AM',
-          type: 'Lab Review',
-          provider: 'Dr. James Wu',
-          chiefComplaint: 'Review of recent laboratory results',
-          hpi: 'Patient here to review lab results from last week.',
-          assessmentPlan: 'Lab results within normal limits. Continue current regimen.',
-          vitals: { bp: '122/78', hr: '70', temp: '98.6', weight: '175', height: '5\'11"', bmi: '24.4' },
-          signature: {
-            signedBy: 'Dr. James Wu, MD',
-            signedDate: '2023-10-22 10:20 AM',
-            status: 'Signed',
-            cosignRequired: false
-          }
-        }
-      ]
-    }
-    
-    return patientVisits[patientId as keyof typeof patientVisits] || [
-      {
-        id: '1',
-        date: '2024-01-15',
-        time: '09:30 AM',
-        type: 'Follow-up',
-        provider: 'Dr. Sarah Johnson',
-        chiefComplaint: 'Follow-up for hypertension management',
-        hpi: 'Patient reports good compliance with Lisinopril 10mg daily. No side effects noted.',
-        assessmentPlan: 'HTN well controlled. Continue current regimen. RTC in 3 months.',
-        vitals: { bp: '130/80', hr: '72', temp: '98.6', weight: '185', height: '5\'8"', bmi: '28.1' },
-        signature: {
-          signedBy: 'Dr. Sarah Johnson, MD',
-          signedDate: '2024-01-15 10:45 AM',
-          status: 'Signed',
-          cosignRequired: false
-        }
-      }
-    ]
+  const formatDate = (timestamp?: string) => {
+    if (!timestamp) return 'Not recorded'
+    const date = new Date(timestamp)
+    if (Number.isNaN(date.getTime())) return 'Not recorded'
+    return date.toLocaleDateString()
   }
 
-  const visits = getVisitsForPatient(patientId)
+  const formatTime = (timestamp?: string) => {
+    if (!timestamp) return ''
+    const date = new Date(timestamp)
+    if (Number.isNaN(date.getTime())) return ''
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+
+  const rawVisits = PatientDataManager.getPatientSectionList(patientId, 'visits')
+  const visits = rawVisits.map((visit: any) => ({
+    id: visit.id,
+    date: formatDate(visit.recordedAt),
+    time: formatTime(visit.recordedAt),
+    type: visit.type || 'Visit',
+    provider: visit.providerName || 'Unknown provider',
+    chiefComplaint: visit.subjective?.chiefComplaint || 'No chief complaint recorded',
+    hpi: visit.subjective?.hpi || 'No HPI recorded',
+    assessmentPlan: visit.assessmentPlan?.assessment || visit.assessmentPlan?.plan || 'No assessment recorded',
+    vitals: visit.objective || {},
+    signature: {
+      signedBy: visit.signedBy || 'Unsigned',
+      signedDate: visit.signedAt || '',
+      status: visit.status || 'Draft',
+      cosignRequired: false
+    }
+  }))
 
   const selectedVisitData = visits.find(v => v.id === selectedVisit)
 
@@ -125,30 +56,38 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
 
       {!selectedVisit ? (
         <div className="space-y-3">
-          {visits.map((visit) => (
-            <div
-              key={visit.id}
-              onClick={() => setSelectedVisit(visit.id)}
-              className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {visit.date}
-                  </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {visit.time}
-                  </span>
-                  <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
-                    {visit.type}
-                  </span>
+          {visits.length > 0 ? (
+            visits.map((visit) => (
+              <div
+                key={visit.id}
+                onClick={() => setSelectedVisit(visit.id)}
+                className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {visit.date}
+                    </span>
+                    {visit.time && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {visit.time}
+                      </span>
+                    )}
+                    <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                      {visit.type}
+                    </span>
+                  </div>
+                  <span className="material-symbols-outlined text-gray-400">chevron_right</span>
                 </div>
-                <span className="material-symbols-outlined text-gray-400">chevron_right</span>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{visit.provider}</p>
+                <p className="text-sm text-gray-900 dark:text-white">{visit.chiefComplaint}</p>
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{visit.provider}</p>
-              <p className="text-sm text-gray-900 dark:text-white">{visit.chiefComplaint}</p>
+            ))
+          ) : (
+            <div className="p-6 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-center text-sm text-gray-500 dark:text-gray-400">
+              No visits recorded yet.
             </div>
-          ))}
+          )}
         </div>
       ) : (
         <div className="space-y-6">

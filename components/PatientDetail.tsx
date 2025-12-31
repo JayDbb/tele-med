@@ -4,16 +4,46 @@ import Link from 'next/link'
 import VitalsChart from './VitalsChart'
 import VisitHistory from './VisitHistory'
 import { PatientDataManager } from '@/utils/PatientDataManager'
-import { seedPatientIds } from '@/utils/patientSeed'
 
 interface PatientDetailProps {
   patientId: string
 }
 
 const PatientDetail = ({ patientId }: PatientDetailProps) => {
-  const allPatients = PatientDataManager.getAllPatients()
-  const patient = allPatients.find(p => p.id === patientId) || allPatients[0]
-  const isNewPatient = !seedPatientIds.includes(patientId) && PatientDataManager.getPatient(patientId)
+  const patient = PatientDataManager.getPatient(patientId)
+  
+  if (!patient) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Patient Not Found</h2>
+          <p className="text-gray-600 dark:text-gray-400">The requested patient could not be found.</p>
+        </div>
+      </div>
+    )
+  }
+  
+  const vitals = PatientDataManager.getPatientSectionList(patientId, 'vitals')
+  const allergies = PatientDataManager.getPatientSectionList(patientId, 'allergies')
+  const medications = PatientDataManager.getPatientSectionList(patientId, 'medications')
+  const history = PatientDataManager.getPatientSectionList(patientId, 'past-medical-history')
+  const isNewPatient = vitals.length === 0 && allergies.length === 0 && medications.length === 0 && history.length === 0
+
+  const getAge = (dob?: string) => {
+    if (!dob) return 'Not provided'
+    const birthDate = new Date(dob)
+    if (Number.isNaN(birthDate.getTime())) return 'Not provided'
+    const today = new Date()
+    let age = today.getFullYear() - birthDate.getFullYear()
+    const monthDiff = today.getMonth() - birthDate.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age -= 1
+    }
+    return `${age}`
+  }
+
+  const tags = Array.isArray(patient.tags) ? patient.tags : []
+  const patientAge = patient.dob ? Number(getAge(patient.dob)) : undefined
 
   return (
     <>
@@ -28,31 +58,44 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
         <div className="w-full xl:w-1/4 flex flex-col gap-6">
           <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm">
             <div className="mb-4">
-              <img 
-                alt={patient.name} 
-                className="w-24 h-24 rounded-xl object-cover mx-auto" 
-                src={patient.image}
-              />
+              {patient.image ? (
+                <img 
+                  alt={patient.name} 
+                  className="w-24 h-24 rounded-xl object-cover mx-auto" 
+                  src={patient.image}
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center text-xl font-semibold mx-auto">
+                  {(patient.name || 'P').slice(0, 1).toUpperCase()}
+                </div>
+              )}
             </div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">{patient.name}</h2>
             <p className="text-green-500 text-sm font-medium mb-4">{patient.status}</p>
             
             <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm">
               <span className="text-gray-500 dark:text-gray-400">Gender</span>
-              <span className="font-medium text-right text-gray-900 dark:text-white">{patient.gender.split(',')[0]}</span>
+              <span className="font-medium text-right text-gray-900 dark:text-white">{patient.gender || 'Not provided'}</span>
               <span className="text-gray-500 dark:text-gray-400">Age</span>
-              <span className="font-medium text-right text-gray-900 dark:text-white">{patient.gender.split(',')[1]}</span>
+              <span className="font-medium text-right text-gray-900 dark:text-white">{getAge(patient.dob)}</span>
               <span className="text-gray-500 dark:text-gray-400">Language</span>
-              <span className="font-medium text-right text-gray-900 dark:text-white">English</span>
+              <span className="font-medium text-right text-gray-900 dark:text-white">{patient.language || 'Not provided'}</span>
               <span className="text-gray-500 dark:text-gray-400">Height</span>
-              <span className="font-medium text-right text-gray-900 dark:text-white">5&apos; 8&quot;</span>
+              <span className="font-medium text-right text-gray-900 dark:text-white">{patient.height || 'Not provided'}</span>
             </div>
 
             <div className="mt-6">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium uppercase tracking-wide">Tags</p>
               <div className="flex flex-wrap gap-2">
-                <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white text-xs rounded-md">#patient</span>
-                <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white text-xs rounded-md">#active</span>
+                {tags.length > 0 ? (
+                  tags.map((tag: string) => (
+                    <span key={tag} className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white text-xs rounded-md">
+                      {tag}
+                    </span>
+                  ))
+                ) : (
+                  <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-md">No tags</span>
+                )}
               </div>
             </div>
           </div>
@@ -60,29 +103,39 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
           <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm">
             <h3 className="font-semibold mb-4 text-gray-900 dark:text-white">Allergies</h3>
             <div className="space-y-3">
-              <div className="flex justify-between items-center text-sm">
-                <span className="font-medium text-gray-900 dark:text-white">Penicillin</span>
-                <span className="text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded text-xs font-medium">High</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="font-medium text-gray-900 dark:text-white">Aspirin</span>
-                <span className="text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded text-xs font-medium">Medium</span>
-              </div>
+              {allergies.length > 0 ? (
+                allergies.slice(0, 3).map((allergy: any) => (
+                  <div key={allergy.id || allergy.name} className="flex justify-between items-center text-sm">
+                    <span className="font-medium text-gray-900 dark:text-white">{allergy.name || 'Unnamed allergy'}</span>
+                    <span className="text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded text-xs font-medium">
+                      {allergy.severity || 'Unknown'}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No known allergies</p>
+              )}
             </div>
           </div>
 
           <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm">
             <h3 className="font-semibold mb-2 text-gray-900 dark:text-white">Notes</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-3">
-              Regular checkups recommended. Patient shows good compliance with medication.
-            </p>
-            <Link 
-              href={`/patients/${patientId}/notes`}
-              className="text-primary hover:text-primary/80 text-sm font-medium transition-colors flex items-center gap-1"
-            >
-              View all notes
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </Link>
+            {patient.notes ? (
+              <>
+                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-3">
+                  {patient.notes}
+                </p>
+                <Link 
+                  href={`/patients/${patientId}/notes`}
+                  className="text-primary hover:text-primary/80 text-sm font-medium transition-colors flex items-center gap-1"
+                >
+                  View all notes
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </Link>
+              </>
+            ) : (
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">No notes yet.</p>
+            )}
           </div>
         </div>
 
@@ -131,26 +184,23 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Birthdate</label>
                   <div className="text-sm font-medium text-gray-900 dark:text-white">
-                    {patientId === '7' ? '03/15/1965' : 
-                     patientId === '8' ? '07/22/1978' : 
-                     patientId === '9' ? '11/03/1952' : 
-                     patientId === '10' ? '05/18/1988' : '03/15/1990'}
+                    {patient.dob || 'Not provided'}
                   </div>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Phone</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">+1 (555) 123-4567</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.phone || 'Not provided'}</div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Address</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">123 Main St, City, State 12345</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.address || 'Not provided'}</div>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Email</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.email}</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.email || 'Not provided'}</div>
                 </div>
               </div>
             </div>
@@ -163,15 +213,17 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Physician</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">Dr. {patient.physician}</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                    {patient.physician ? `Dr. ${patient.physician}` : 'Not assigned'}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Last Consultation</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.lastConsultation}</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.lastConsultation || 'Not recorded'}</div>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Next Appointment</label>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.appointment}</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">{patient.appointment || 'Not scheduled'}</div>
                 </div>
               </div>
             </div>
@@ -179,47 +231,47 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
 
           <VisitHistory patientId={patientId} />
 
-          <VitalsChart patientId={patientId} patientAge={24} />
+          <VitalsChart patientId={patientId} patientAge={Number.isFinite(patientAge) ? patientAge : undefined} />
 
           <div className="bg-white dark:bg-gray-900 rounded-xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-gray-900 dark:text-white">Health Trends & Analysis</h3>
-              <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full font-medium">AI Analysis</span>
+              <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full font-medium">Insights</span>
             </div>
             
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Latest: Follow-up • 2024-01-15 - Dr. Ilya</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Latest: No trend data yet</p>
             
             <div className="grid grid-cols-4 gap-3 mb-3">
               <Link href={`/patients/${patientId}/trends/blood-pressure`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                 <p className="text-xs text-gray-500 dark:text-gray-400">BP</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">130/80</p>
-                <span className="text-xs text-green-600 dark:text-green-400">↓15</span>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">--</p>
+                <span className="text-xs text-gray-500">—</span>
               </Link>
               <Link href={`/patients/${patientId}/trends/pulse`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                 <p className="text-xs text-gray-500 dark:text-gray-400">Pulse</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">72 bpm</p>
-                <span className="text-xs text-green-600 dark:text-green-400">↓3</span>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">--</p>
+                <span className="text-xs text-gray-500">—</span>
               </Link>
               <Link href={`/patients/${patientId}/trends/weight`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                 <p className="text-xs text-gray-500 dark:text-gray-400">Weight</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">185 lbs</p>
-                <span className="text-xs text-green-600 dark:text-green-400">↓5lbs</span>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">--</p>
+                <span className="text-xs text-gray-500">—</span>
               </Link>
               <Link href={`/patients/${patientId}/trends/temperature`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                 <p className="text-xs text-gray-500 dark:text-gray-400">Temp</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">98.6°F</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">--</p>
                 <span className="text-xs text-gray-500">—</span>
               </Link>
             </div>
             
             <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-3">
-              <p className="text-xs text-blue-800 dark:text-blue-200">🤖 BP trending down 15pts since starting Lisinopril. Weight loss of 5lbs indicates good compliance.</p>
+              <p className="text-xs text-blue-800 dark:text-blue-200">No automated insights yet.</p>
             </div>
             
             <div className="flex items-center justify-between text-xs">
               <div>
                 <span className="text-gray-500 dark:text-gray-400">Meds: </span>
-                <span className="text-gray-900 dark:text-white">Lisinopril 10mg, Aspirin 81mg</span>
+                <span className="text-gray-900 dark:text-white">None recorded</span>
               </div>
               <Link href="/medications" className="text-primary hover:text-primary/80 font-medium">View →</Link>
             </div>
@@ -245,22 +297,10 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
                 </tr>
               </thead>
               <tbody className="text-gray-900 dark:text-white">
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <td className="py-2 pr-3 font-medium">Lisinopril</td>
-                  <td className="py-2 pr-3">Lisinopril</td>
-                  <td className="py-2 pr-3">10mg</td>
-                  <td className="py-2 pr-3">Tab</td>
-                  <td className="py-2">
-                    <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded-full">Active</span>
-                  </td>
-                </tr>
                 <tr>
-                  <td className="py-2 pr-3 font-medium">Ibuprofen</td>
-                  <td className="py-2 pr-3">Ibuprofen</td>
-                  <td className="py-2 pr-3">400mg</td>
-                  <td className="py-2 pr-3">Tab</td>
-                  <td className="py-2">
-                    <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs rounded-full">Discontinued</span>
+                  <td colSpan={5} className="py-8 text-center text-gray-500 dark:text-gray-400">
+                    <span className="material-symbols-outlined text-4xl mb-2 block opacity-50">medication</span>
+                    <p>No medications recorded</p>
                   </td>
                 </tr>
               </tbody>

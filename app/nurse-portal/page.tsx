@@ -1,10 +1,31 @@
 'use client'
 
 import Link from 'next/link'
+import { useState, useEffect } from 'react'
 import NurseSidebar from '@/components/NurseSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 export default function NursePortalPage() {
+  const [patients, setPatients] = useState<any[]>([])
+
+  useEffect(() => {
+    const loadPatients = () => {
+      const allPatients = PatientDataManager.getAllPatients()
+      setPatients(allPatients)
+    }
+    
+    loadPatients()
+    
+    // Listen for patient updates
+    const handleStorageChange = () => {
+      loadPatients()
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
+
   return (
     <div className="flex h-screen w-full overflow-hidden">
       <NurseSidebar />
@@ -112,8 +133,8 @@ export default function NursePortalPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 dark:border-gray-700 mt-2">
                 <nav className="flex gap-6 -mb-px">
                   <button className="pb-4 px-2 border-b-2 border-primary text-primary font-semibold text-sm flex items-center gap-2">
-                    My Tasks
-                    <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] font-bold">4</span>
+                    My Patients
+                    <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] font-bold">{patients.length}</span>
                   </button>
                   <button className="pb-4 px-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 font-medium text-sm transition-all dark:text-gray-400 dark:hover:text-gray-200">
                     All Patients
@@ -122,245 +143,87 @@ export default function NursePortalPage() {
                     Completed
                   </button>
                 </nav>
-                <div className="flex items-center gap-6 py-2">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-amber-500"></span>
-                    <span className="text-xs font-medium text-slate-600 dark:text-gray-400">Avg Wait: <span className="text-slate-900 dark:text-white font-bold">12m</span></span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-primary"></span>
-                    <span className="text-xs font-medium text-slate-600 dark:text-gray-400">In Progress: <span className="text-slate-900 dark:text-white font-bold">5</span></span>
-                  </div>
-                </div>
               </div>
               
               <div className="flex flex-col gap-4">
-                <Link href="/nurse-portal/patients/7" className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 p-1 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/30 block">
-                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-4 gap-4 lg:gap-8">
-                    <div className="flex items-center gap-4 min-w-[240px]">
-                      <div className="size-12 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-lg border border-amber-100 dark:border-amber-800 shadow-sm">
-                        MJ
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">Johnson, Mary</h3>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
-                          <span className="material-symbols-outlined text-[14px] text-slate-400">cake</span>
-                          03/15/1965 (59y)
-                        </div>
-                      </div>
+                {patients.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="size-16 mx-auto mb-4 rounded-full bg-slate-100 dark:bg-gray-700 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-2xl text-slate-400 dark:text-gray-500">group</span>
                     </div>
-                    <div className="flex-1 grid grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Visit Reason</span>
-                        <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-gray-300">
-                          <span className="material-symbols-outlined text-primary text-[18px]">cardiology</span>
-                          BP Check
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Arrival</span>
-                        <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-gray-400">
-                          <span className="material-symbols-outlined text-slate-400 text-[18px]">schedule</span>
-                          09:15 AM
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-8 min-w-[280px] justify-between lg:justify-end border-t lg:border-t-0 border-slate-100 dark:border-gray-700 pt-3 lg:pt-0 w-full lg:w-auto">
-                      <div className="flex flex-col items-end gap-0.5">
-                        <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                          <span className="material-symbols-outlined text-[18px] animate-pulse">timer</span>
-                          <span className="text-sm font-bold">Waiting 18 min</span>
-                        </div>
-                        <span className="text-[10px] text-slate-400 dark:text-gray-500 font-medium">Target: &lt;15 min</span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800 uppercase tracking-wide shadow-sm">
-                          <span className="size-1.5 rounded-full bg-amber-500"></span>
-                          Waiting
-                        </span>
-                        <button className="size-8 rounded-lg flex items-center justify-center text-slate-400 dark:text-gray-500 hover:text-primary hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors">
-                          <span className="material-symbols-outlined">more_vert</span>
-                        </button>
-                      </div>
-                    </div>
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">No patients yet</h3>
+                    <p className="text-slate-500 dark:text-gray-400 mb-4">Start by adding a new patient intake</p>
+                    <Link href={`/nurse-portal/patients/${Date.now()}/new-visit`} className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-blue-600 transition-all text-sm">
+                      <span className="material-symbols-outlined text-[18px]">add</span>
+                      New Patient Intake
+                    </Link>
                   </div>
-                  <div className="bg-slate-50/50 dark:bg-gray-700/50 border-t border-slate-100 dark:border-gray-700 px-4 py-2 flex justify-end gap-2 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity h-0 group-hover:h-auto overflow-hidden">
-                    <button className="text-xs font-medium text-slate-600 dark:text-gray-400 hover:text-primary px-3 py-1 hover:bg-white dark:hover:bg-gray-600 rounded border border-transparent hover:border-slate-200 dark:hover:border-gray-600 transition">View History</button>
-                    <button className="text-xs font-medium text-white bg-primary hover:bg-blue-600 px-3 py-1 rounded shadow-sm transition">Call Patient</button>
-                  </div>
-                </Link>
-
-                <Link href="/nurse-portal/patients/8" className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 p-1 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/30 block">
-                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-4 gap-4 lg:gap-8">
-                    <div className="flex items-center gap-4 min-w-[240px]">
-                      <div className="size-12 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg border border-blue-100 dark:border-blue-800 shadow-sm">
-                        SR
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">Smith, Robert</h3>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
-                          <span className="material-symbols-outlined text-[14px] text-slate-400">cake</span>
-                          07/22/1978 (45y)
+                ) : (
+                  patients.map((patient) => {
+                    const initials = patient.name ? patient.name.split(' ').map((n: string) => n[0]).join('').toUpperCase() : 'P'
+                    const age = patient.dob ? new Date().getFullYear() - new Date(patient.dob).getFullYear() : 'Unknown'
+                    
+                    return (
+                      <Link key={patient.id} href={`/nurse-portal/patients/${patient.id}`} className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 p-1 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/30 block">
+                        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-4 gap-4 lg:gap-8">
+                          <div className="flex items-center gap-4 min-w-[240px]">
+                            <div className="size-12 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg border border-blue-100 dark:border-blue-800 shadow-sm">
+                              {initials}
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">{patient.name || 'Unnamed Patient'}</h3>
+                              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                                <span className="material-symbols-outlined text-[14px] text-slate-400">cake</span>
+                                {patient.dob ? new Date(patient.dob).toLocaleDateString() : 'DOB not provided'} ({age}y)
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex-1 grid grid-cols-2 gap-4">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Status</span>
+                              <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-gray-300">
+                                <span className="material-symbols-outlined text-primary text-[18px]">person</span>
+                                {patient.status || 'New Patient'}
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Created</span>
+                              <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-gray-400">
+                                <span className="material-symbols-outlined text-slate-400 text-[18px]">schedule</span>
+                                {patient.createdAt ? new Date(patient.createdAt).toLocaleDateString() : 'Today'}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-8 min-w-[280px] justify-between lg:justify-end border-t lg:border-t-0 border-slate-100 dark:border-gray-700 pt-3 lg:pt-0 w-full lg:w-auto">
+                            <div className="flex flex-col items-end gap-0.5">
+                              <div className="flex items-center gap-1.5 text-slate-500 dark:text-gray-400">
+                                <span className="material-symbols-outlined text-[18px]">medical_information</span>
+                                <span className="text-sm font-medium">Ready for Care</span>
+                              </div>
+                              <span className="text-[10px] text-slate-400 dark:text-gray-500 font-medium">MRN: {patient.mrn || 'Not assigned'}</span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200/60 dark:border-green-800 uppercase tracking-wide shadow-sm">
+                                <span className="size-1.5 rounded-full bg-green-500"></span>
+                                Active
+                              </span>
+                              <button className="size-8 rounded-lg flex items-center justify-center text-slate-400 dark:text-gray-500 hover:text-primary hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors">
+                                <span className="material-symbols-outlined">more_vert</span>
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    <div className="flex-1 grid grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Visit Reason</span>
-                        <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-gray-300">
-                          <span className="material-symbols-outlined text-primary text-[18px]">medical_services</span>
-                          Screening
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Arrival</span>
-                        <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-gray-400">
-                          <span className="material-symbols-outlined text-slate-400 text-[18px]">schedule</span>
-                          09:25 AM
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-8 min-w-[280px] justify-between lg:justify-end border-t lg:border-t-0 border-slate-100 dark:border-gray-700 pt-3 lg:pt-0 w-full lg:w-auto">
-                      <div className="flex flex-col items-end gap-0.5">
-                        <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
-                          <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
-                          <span className="text-sm font-bold">Wait: 8 min</span>
-                        </div>
-                        <span className="text-[10px] text-slate-400 dark:text-gray-500 font-medium">Vitals Room 2</span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800 uppercase tracking-wide shadow-sm">
-                          <span className="size-1.5 rounded-full bg-blue-500"></span>
-                          In Progress
-                        </span>
-                        <button className="size-8 rounded-lg flex items-center justify-center text-slate-400 dark:text-gray-500 hover:text-primary hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors">
-                          <span className="material-symbols-outlined">more_vert</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-
-                <Link href="/nurse-portal/patients/9" className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 p-1 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/30 block">
-                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-4 gap-4 lg:gap-8">
-                    <div className="flex items-center gap-4 min-w-[240px]">
-                      <div className="size-12 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-lg border border-purple-100 dark:border-purple-800 shadow-sm">
-                        PD
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">Davis, Patricia</h3>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
-                          <span className="material-symbols-outlined text-[14px] text-slate-400">cake</span>
-                          11/03/1952 (71y)
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex-1 grid grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Visit Reason</span>
-                        <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-gray-300">
-                          <span className="material-symbols-outlined text-primary text-[18px]">assignment_turned_in</span>
-                          Follow-up
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Arrival</span>
-                        <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-gray-400">
-                          <span className="material-symbols-outlined text-slate-400 text-[18px]">schedule</span>
-                          09:30 AM
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-8 min-w-[280px] justify-between lg:justify-end border-t lg:border-t-0 border-slate-100 dark:border-gray-700 pt-3 lg:pt-0 w-full lg:w-auto">
-                      <div className="flex flex-col items-end gap-0.5">
-                        <div className="flex items-center gap-1.5 text-slate-500 dark:text-gray-400">
-                          <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                          <span className="text-sm font-medium">Waited 3 min</span>
-                        </div>
-                        <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">On Schedule</span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200/60 dark:border-purple-800 uppercase tracking-wide shadow-sm">
-                          <span className="size-1.5 rounded-full bg-purple-500"></span>
-                          With Provider
-                        </span>
-                        <button className="size-8 rounded-lg flex items-center justify-center text-slate-400 dark:text-gray-500 hover:text-primary hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors">
-                          <span className="material-symbols-outlined">more_vert</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-
-                <Link href="/nurse-portal/patients/10" className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 p-1 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/30 relative overflow-hidden block">
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-600"></div>
-                  <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-4 gap-4 lg:gap-8 pl-5">
-                    <div className="flex items-center gap-4 min-w-[240px]">
-                      <div className="size-12 rounded-full bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-400 flex items-center justify-center font-bold text-lg border border-slate-200 dark:border-gray-600 shadow-sm">
-                        WJ
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">Wilson, James</h3>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
-                          <span className="material-symbols-outlined text-[14px] text-slate-400">cake</span>
-                          05/18/1988 (36y)
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex-1 grid grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Visit Reason</span>
-                        <div className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-gray-300">
-                          <span className="material-symbols-outlined text-primary text-[18px]">biotech</span>
-                          Lab Review
-                        </div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">Arrival</span>
-                        <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-gray-400">
-                          <span className="material-symbols-outlined text-slate-400 text-[18px]">schedule</span>
-                          09:35 AM
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-8 min-w-[280px] justify-between lg:justify-end border-t lg:border-t-0 border-slate-100 dark:border-gray-700 pt-3 lg:pt-0 w-full lg:w-auto">
-                      <div className="flex flex-col items-end gap-0.5">
-                        <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400">
-                          <span className="material-symbols-outlined text-[18px]">new_releases</span>
-                          <span className="text-sm font-bold">Just Now</span>
-                        </div>
-                        <span className="text-[10px] text-slate-400 dark:text-gray-500 font-medium">Ready for Intake</span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-400 border border-slate-200 dark:border-gray-600 uppercase tracking-wide shadow-sm">
-                          <span className="size-1.5 rounded-full bg-slate-400"></span>
-                          Waiting
-                        </span>
-                        <button className="size-8 rounded-lg flex items-center justify-center text-slate-400 dark:text-gray-500 hover:text-primary hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors">
-                          <span className="material-symbols-outlined">more_vert</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-slate-50/50 dark:bg-gray-700/50 border-t border-slate-100 dark:border-gray-700 px-4 py-2 flex justify-end gap-2 rounded-b-lg opacity-0 group-hover:opacity-100 transition-opacity h-0 group-hover:h-auto overflow-hidden">
-                    <button className="text-xs font-medium text-white bg-green-600 hover:bg-green-700 px-3 py-1 rounded shadow-sm transition flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[14px]">play_arrow</span> Start Intake
-                    </button>
-                  </div>
-                </Link>
+                      </Link>
+                    )
+                  })
+                )}
               </div>
               
-              <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-slate-200 dark:border-gray-700 gap-4">
-                <p className="text-xs text-slate-500 dark:text-gray-400">Showing 1-4 of 24 active patients</p>
-                <div className="flex gap-2">
-                  <button className="px-3 py-1.5 border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-lg text-xs font-semibold text-slate-400 dark:text-gray-500 hover:bg-slate-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors" disabled>
-                    Previous
-                  </button>
-                  <button className="px-3 py-1.5 border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-lg text-xs font-semibold text-slate-600 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-700 hover:text-primary transition-colors">
-                    Next
-                  </button>
+              {patients.length > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-slate-200 dark:border-gray-700 gap-4">
+                  <p className="text-xs text-slate-500 dark:text-gray-400">Showing {patients.length} patient{patients.length !== 1 ? 's' : ''}</p>
                 </div>
-              </div>
+              )}
             </section>
           </div>
         </div>

@@ -1,5 +1,5 @@
-import NewVisitForm from '@/components/NewVisitForm'
+import DoctorNewVisitForm from '@/components/DoctorNewVisitForm'
 
 export default function NewVisitPage({ params }: { params: { id: string } }) {
-  return <NewVisitForm patientId={params.id} />
+  return <DoctorNewVisitForm patientId={params.id} />
 }

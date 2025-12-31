@@ -1,5 +1,3 @@
-import { seedPatients } from './patientSeed'
-
 // Patient Data Manager - Handles isolated patient data and audit logging
 export interface PatientData {
   id: string
@@ -17,8 +15,12 @@ export interface PatientData {
   status: string
   statusColor: string
   doctorId: string
+  nurseId?: string
   createdAt: string
   updatedAt: string
+  address?: string
+  image?: string
+  [key: string]: any
 }
 
 export interface AuditLog {
@@ -42,18 +44,8 @@ export class PatientDataManager {
     return `patient-audit-${patientId}`
   }
 
-  private static ensureSeedPatients(): void {
-    try {
-      seedPatients.forEach((patient) => {
-        const patientKey = this.getPatientKey(patient.id)
-        const existing = localStorage.getItem(patientKey)
-        if (!existing) {
-          localStorage.setItem(patientKey, JSON.stringify(patient))
-        }
-      })
-    } catch (error) {
-      console.error('Error seeding patient data:', error)
-    }
+  private static getSectionKey(patientId: string, section: string): string {
+    return `patient-section-${patientId}-${section}`
   }
 
   // Save patient data with audit logging
@@ -83,7 +75,7 @@ export class PatientDataManager {
   // Get patient data from isolated container
   static getPatient(patientId: string): PatientData | null {
     try {
-      this.ensureSeedPatients()
+      // Don't seed patients anymore
       const patientKey = this.getPatientKey(patientId)
       const data = localStorage.getItem(patientKey)
       return data ? JSON.parse(data) : null
@@ -105,7 +97,7 @@ export class PatientDataManager {
       if (!patient) return
 
       // Update the specific section
-      const sectionKey = `patient-${patientId}-${section}`
+      const sectionKey = this.getSectionKey(patientId, section)
       localStorage.setItem(sectionKey, JSON.stringify({
         ...data,
         updatedAt: new Date().toISOString(),
@@ -126,13 +118,29 @@ export class PatientDataManager {
   // Get specific patient section data
   static getPatientSection(patientId: string, section: string): any {
     try {
-      const sectionKey = `patient-${patientId}-${section}`
+      const sectionKey = this.getSectionKey(patientId, section)
       const data = localStorage.getItem(sectionKey)
       return data ? JSON.parse(data) : null
     } catch (error) {
       console.error('Error loading patient section:', error)
       return null
     }
+  }
+
+  static getPatientSectionList<T = any>(patientId: string, section: string): T[] {
+    const data = this.getPatientSection(patientId, section)
+    if (Array.isArray(data)) return data
+    if (data?.items && Array.isArray(data.items)) return data.items
+    return []
+  }
+
+  static savePatientSectionList<T = any>(
+    patientId: string,
+    section: string,
+    items: T[],
+    userId: string = 'current-user'
+  ): void {
+    this.updatePatientSection(patientId, section, { items }, userId)
   }
 
   // Log actions for audit trail
@@ -186,15 +194,35 @@ export class PatientDataManager {
     }
   }
 
+  // Clear all patient data from localStorage
+  static clearAllPatients(): void {
+    try {
+      const keysToRemove: string[] = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && (key.startsWith('patient-') || key.startsWith('patient-section-') || key.startsWith('patient-audit-'))) {
+          keysToRemove.push(key)
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key))
+    } catch (error) {
+      console.error('Error clearing patient data:', error)
+    }
+  }
+
   // Get all patients (for listing)
   static getAllPatients(): PatientData[] {
     try {
-      this.ensureSeedPatients()
       const patients: PatientData[] = []
       
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
-        if (key && key.startsWith('patient-') && !key.includes('-audit-') && !key.includes('-vitals') && !key.includes('-allergies')) {
+        if (
+          key &&
+          key.startsWith('patient-') &&
+          !key.startsWith('patient-section-') &&
+          !key.startsWith('patient-audit-')
+        ) {
           const data = localStorage.getItem(key)
           if (data) {
             patients.push(JSON.parse(data))

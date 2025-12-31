@@ -4,9 +4,16 @@ import { useParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 export default function PatientVaccinesPage() {
   const params = useParams()
+  const patientId = params.id as string
+  const patient = PatientDataManager.getPatient(patientId)
+  const vaccines = PatientDataManager.getPatientSectionList(patientId, 'vaccines')
+  const latestVaccine = vaccines[0]
+  const allergies = PatientDataManager.getPatientSectionList(patientId, 'allergies')
+  const eggAllergy = allergies.find((allergy: any) => (allergy.name || '').toLowerCase().includes('egg'))
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -30,7 +37,9 @@ export default function PatientVaccinesPage() {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-gray-400 dark:text-gray-500 text-sm font-medium">Patients</span>
                   <span className="material-symbols-outlined text-gray-400 dark:text-gray-500 text-sm">chevron_right</span>
-                  <span className="text-primary text-sm font-medium">Sarah Jenkins (DOB: 04/12/1985)</span>
+                  <span className="text-primary text-sm font-medium">
+                    {patient?.name || 'Patient'} {patient?.dob ? `(DOB: ${patient.dob})` : ''}
+                  </span>
                 </div>
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Immunization Management</h2>
               </div>
@@ -53,13 +62,17 @@ export default function PatientVaccinesPage() {
                     <span className="material-symbols-outlined text-[18px]">verified_user</span>
                     <span className="text-xs font-semibold uppercase tracking-wider">Status</span>
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">Action Needed</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    {vaccines.length > 0 ? 'Recorded' : 'No Records'}
+                  </span>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-lg font-bold text-gray-900 dark:text-white leading-tight">Partially Up to Date</span>
+                  <span className="text-lg font-bold text-gray-900 dark:text-white leading-tight">
+                    {vaccines.length > 0 ? `${vaccines.length} vaccine${vaccines.length > 1 ? 's' : ''}` : 'No vaccines recorded'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500">
-                  <span>2 Recommended Today</span>
+                  <span>Recommendations not available</span>
                 </div>
               </div>
 
@@ -71,10 +84,12 @@ export default function PatientVaccinesPage() {
                   </div>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-lg font-bold text-red-700 dark:text-red-300 leading-tight">Egg Allergy</span>
+                  <span className="text-lg font-bold text-red-700 dark:text-red-300 leading-tight">
+                    {eggAllergy ? eggAllergy.name : 'None recorded'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-red-600 dark:text-red-400 font-medium">
-                  <span>Use Egg-Free Flu Vax</span>
+                  <span>{eggAllergy ? 'Review before vaccination' : 'No contraindications noted'}</span>
                 </div>
               </div>
 
@@ -87,10 +102,10 @@ export default function PatientVaccinesPage() {
                   <span className="size-2 rounded-full bg-red-500 animate-pulse"></span>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-xl font-bold text-gray-900 dark:text-white">Tdap</span>
+                  <span className="text-xl font-bold text-gray-900 dark:text-white">Not tracked</span>
                 </div>
                 <div className="flex items-center gap-1 text-red-500 dark:text-red-400 text-[11px] font-medium">
-                  <span>Due since Feb 2024</span>
+                  <span>No overdue schedule data</span>
                 </div>
               </div>
 
@@ -102,10 +117,10 @@ export default function PatientVaccinesPage() {
                   </div>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-xl font-bold text-gray-900 dark:text-white">Influenza</span>
+                  <span className="text-xl font-bold text-gray-900 dark:text-white">Not scheduled</span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-primary font-medium">
-                  <span>Seasonal (Oct 1)</span>
+                  <span>No next due date</span>
                 </div>
               </div>
 
@@ -117,10 +132,10 @@ export default function PatientVaccinesPage() {
                   </div>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-xl font-bold text-gray-900 dark:text-white">COVID-19</span>
+                  <span className="text-xl font-bold text-gray-900 dark:text-white">{latestVaccine?.name || 'No records'}</span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500">
-                  <span>Nov 12, 2023</span>
+                  <span>{latestVaccine?.date || 'No date recorded'}</span>
                 </div>
               </div>
 
@@ -150,7 +165,7 @@ export default function PatientVaccinesPage() {
                   <div>
                     <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">Decision Support: Recommended Today</h4>
                     <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                      Based on age (39y) and risk factors, <strong>Tdap Booster</strong> and <strong>Influenza (Egg-free)</strong> are recommended. Patient has no record of Hep B series; consider screening.
+                      No automated recommendations available yet. Add immunization data to enable decision support.
                     </p>
                   </div>
                   <button className="ml-auto text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">

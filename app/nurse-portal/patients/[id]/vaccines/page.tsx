@@ -4,9 +4,12 @@ import { useParams } from 'next/navigation'
 import NurseSidebar from '@/components/NurseSidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 export default function PatientVaccinesPage() {
   const params = useParams()
+  const patientId = params.id as string
+  const patient = PatientDataManager.getPatient(patientId)
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -30,7 +33,9 @@ export default function PatientVaccinesPage() {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-gray-400 dark:text-gray-500 text-sm font-medium">Patients</span>
                   <span className="material-symbols-outlined text-gray-400 dark:text-gray-500 text-sm">chevron_right</span>
-                  <span className="text-primary text-sm font-medium">Sarah Jenkins (DOB: 04/12/1985)</span>
+                  <span className="text-primary text-sm font-medium">
+                    {patient?.name || 'Patient'} {patient?.dob ? `(DOB: ${patient.dob})` : ''}
+                  </span>
                 </div>
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Immunization Management</h2>
               </div>
