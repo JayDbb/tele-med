@@ -3,8 +3,8 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getVisit, updateVisit } from "../../../lib/api";
-import { uploadToPrivateBucket } from "../../../lib/storage";
+import { getVisit, updateVisit, createRecordingCacheUpload, enqueueTranscriptionWithCache } from "../../../lib/api";
+import { supabaseBrowser } from "../../../lib/supabaseBrowser";
 import { useAudioRecorder } from "../../../lib/useAudioRecorder";
 import { useAuthGuard } from "../../../lib/useAuthGuard";
 import type { Patient, Visit } from "../../../lib/types";
@@ -60,8 +60,19 @@ export default function VisitDetailPage() {
       const file = new File([blob], `recording-${params.id}-${Date.now()}.webm`, {
         type: "audio/webm;codecs=opus"
       });
-      const { path } = await uploadToPrivateBucket(file);
+
+      // Create cache entry and get signed upload URL
+      const { cache, path, token, bucket } = await createRecordingCacheUpload({ filename: file.name, contentType: file.type, size: file.size });
+
+      // Upload the file to the signed URL using the browser client
+      const supabase = supabaseBrowser();
+      const { error: uploadErr } = await supabase.storage.from(bucket).uploadToSignedUrl(path, token, file, { contentType: file.type });
+      if (uploadErr) throw new Error(uploadErr.message);
+
+      // Update visit to include audio URL and enqueue a transcription job referencing the cache
       await updateVisit(params.id, { audio_url: path });
+      await enqueueTranscriptionWithCache(params.id, cache && cache[0] ? cache[0].id : cache.id, path);
+
       setRecording(false);
       await loadVisit();
     } catch (err) {

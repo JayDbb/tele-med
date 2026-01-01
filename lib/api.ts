@@ -134,6 +134,23 @@ export async function createSignedUploadUrl(params: {
   }>;
 }
 
+// Create a cache entry and return a signed upload URL for uploading a recording
+export async function createRecordingCacheUpload(params: { filename?: string; contentType?: string; size?: number; metadata?: any; }) {
+  const res = await authFetch('/api/transcribe/cache', { method: 'POST', body: JSON.stringify(params) });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json() as Promise<{ cache: any; path: string; signedUrl: string; token: string; bucket: string }>;
+}
+
+// Enqueue a transcription job referencing a previously cached recording
+export async function enqueueTranscriptionWithCache(visitId: string, cacheId: string, path?: string) {
+  const res = await authFetch('/api/transcribe/enqueue', {
+    method: 'POST',
+    body: JSON.stringify({ visit_id: visitId, cache_id: cacheId, path }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json() as Promise<{ job: any }>;
+}
+
 // Get all note entries for a visit (append-only system)
 export async function getVisitNotes(visitId: string) {
   const res = await authFetch(`/api/visits/${visitId}/note`);

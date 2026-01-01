@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "worker:transcribe": "node scripts/worker-transcribe.js"
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",
