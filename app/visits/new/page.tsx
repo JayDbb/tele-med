@@ -3,10 +3,10 @@
 
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createVisit, getPatients, transcribeVisitAudio, updateVisit } from "../../../lib/api";
+import { createVisit, getPatients, updateVisit, createRecordingCacheUpload, enqueueTranscriptionWithCache, getCurrentLocation } from "../../../lib/api";
 import type { Patient } from "../../../lib/types";
 import { useAuthGuard } from "../../../lib/useAuthGuard";
-import { uploadToPrivateBucket } from "../../../lib/storage";
+import { supabaseBrowser } from "../../../lib/supabaseBrowser";
 import { useAudioRecorder } from "../../../lib/useAudioRecorder";
 import { convertToMP3 } from "../../../lib/audioConverter";
 
@@ -15,7 +15,8 @@ function NewVisitPageContent() {
   const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientId, setPatientId] = useState("");
-  const [status, setStatus] = useState("draft");
+  const [status, setStatus] = useState<'draft'|'registered'|'in_progress'|'completed'|'pending_review'|'finalized'>("draft");
+  const [visitType, setVisitType] = useState<string>('telehealth');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -109,25 +110,38 @@ function NewVisitPageContent() {
 
   const processAudioFile = async (mp3File: File) => {
     // Create visit first to get the visit_id
-    const visit = await createVisit({ patient_id: patientId, status });
+    const location = await getCurrentLocation();
+    const visitPayload: any = { patient_id: patientId, status, type: visitType };
+    if (location) {
+      visitPayload.location_lat = location.latitude;
+      visitPayload.location_lng = location.longitude;
+      if (location.accuracy) visitPayload.location_accuracy = Math.round(location.accuracy);
+      if (location.timestamp) visitPayload.location_recorded_at = location.timestamp;
+    }
+
+    const visit = await createVisit(visitPayload);
     const visitId = visit.id;
 
-    // Upload MP3 file to Supabase storage
-    const upload = await uploadToPrivateBucket(mp3File);
+    // Create a cache entry and get a signed upload URL
+    const { cache, path, token, bucket } = await createRecordingCacheUpload({ filename: mp3File.name, contentType: mp3File.type, size: mp3File.size });
 
-    // Update visit with audio URL
-    await updateVisit(visitId, { audio_url: upload.path });
+    // Upload file to the signed URL
+    const supabase = supabaseBrowser();
+    const { error: uploadErr } = await supabase.storage.from(bucket).uploadToSignedUrl(path, token, mp3File, { contentType: mp3File.type });
+    if (uploadErr) throw new Error(uploadErr.message);
 
-    // Transcribe the audio with visit_id so it gets saved to database
+    // Update visit with audio URL and enqueue transcription referencing the cache
+    await updateVisit(visitId, { audio_url: path });
+
     setTranscribing(true);
     try {
-      const transcriptionResult = await transcribeVisitAudio(upload.path, visitId);
-      setTranscription(transcriptionResult);
-      console.log("Transcription completed:", transcriptionResult);
-    } catch (transcribeError) {
-      console.error("Transcription error:", transcribeError);
-      setError((transcribeError as Error).message);
-      // Don't fail the visit creation if transcription fails
+      const cacheId = cache && cache[0] ? cache[0].id : cache.id;
+      await enqueueTranscriptionWithCache(visitId, cacheId, path);
+      // Inform the user that transcription was queued
+      setTranscription({ transcript: '', structured: null, summary: 'Transcription has been queued and will complete shortly.' });
+    } catch (e) {
+      console.error('Failed to enqueue transcription', e);
+      setError((e as Error).message || String(e));
     } finally {
       setTranscribing(false);
       setSaving(false);
@@ -180,7 +194,7 @@ function NewVisitPageContent() {
               <select
                 className="input"
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
+                onChange={(e) => { const v = e.target.value as 'draft'|'registered'|'in_progress'|'completed'|'pending_review'|'finalized'; setStatus(v); }}
                 disabled={recording || saving || transcribing}
               >
                 <option value="draft">Draft</option>

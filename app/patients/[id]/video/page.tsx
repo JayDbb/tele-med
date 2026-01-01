@@ -5,8 +5,7 @@ import { useParams } from "next/navigation";
 import { supabaseBrowser } from "../../../../lib/supabaseBrowser";
 import * as Video from "twilio-video";
 import { Header } from "../../../../components/Header";
-import { getPatient, createVisit, updateVisit, transcribeVisitAudio } from "../../../../lib/api";
-import { uploadToPrivateBucket } from "../../../../lib/storage";
+import { getPatient, createVisit, updateVisit, createRecordingCacheUpload, enqueueTranscriptionWithCache, getCurrentLocation } from "../../../../lib/api";
 import { convertToMP3 } from "../../../../lib/audioConverter";
 
 export default function PatientVideoPage() {
@@ -45,6 +44,7 @@ export default function PatientVideoPage() {
   const [recordingTime, setRecordingTime] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [visitType, setVisitType] = useState<string>('telehealth');
   const [recordingError, setRecordingError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
@@ -875,28 +875,37 @@ export default function PatientVideoPage() {
       }
       const mp3File = new File([mp3Blob], `video-call-${patientId}-${Date.now()}.mp3`, { type: 'audio/mpeg' });
 
-      // Create visit
+      // Capture optional geolocation and create visit
       console.log('Creating visit...');
-      const newVisit = await createVisit({ patient_id: patientId, status: 'draft' });
+      const location = await getCurrentLocation();
+      const payload: any = { patient_id: patientId, status: 'draft', type: visitType };
+      if (location) {
+        payload.location_lat = location.latitude;
+        payload.location_lng = location.longitude;
+        if (location.accuracy) payload.location_accuracy = Math.round(location.accuracy);
+        if (location.timestamp) payload.location_recorded_at = location.timestamp;
+      }
+      const newVisit = await createVisit(payload);
 
-      // Upload audio
-      console.log(`Uploading audio: ${mp3File.name}, ${mp3File.size} bytes, type: ${mp3File.type}`);
-      const upload = await uploadToPrivateBucket(mp3File);
-      console.log(`Upload complete: path=${upload.path}, bucket=${upload.bucket}`);
-      await updateVisit(newVisit.id, { audio_url: upload.path });
-      console.log(`Visit updated with audio_url: ${upload.path}`);
+      // Create cache entry and get signed upload URL
+      const { cache, path, token, bucket } = await createRecordingCacheUpload({ filename: mp3File.name, contentType: mp3File.type, size: mp3File.size });
 
-      // Transcribe
-      console.log('Transcribing audio...');
+      // Upload to signed URL
+      const supabaseClient = supabaseBrowser();
+      const { error: uploadErr } = await supabaseClient.storage.from(bucket).uploadToSignedUrl(path, token, mp3File, { contentType: mp3File.type });
+      if (uploadErr) throw new Error(uploadErr.message);
+
+      await updateVisit(newVisit.id, { audio_url: path });
+
+      // Enqueue transcription job referencing cache
       setIsTranscribing(true);
       try {
-        const transcriptionResult = await transcribeVisitAudio(upload.path, newVisit.id);
-        console.log('Transcription completed');
-        showToast('Recording saved and transcribed successfully');
-      } catch (transcribeErr) {
-        console.error('Transcription error:', transcribeErr);
-        console.error('Transcription failed: ' + (transcribeErr as Error).message);
-        showToast('Recording saved but transcription failed');
+        const cacheId = cache && cache[0] ? cache[0].id : cache.id;
+        await enqueueTranscriptionWithCache(newVisit.id, cacheId, path);
+        showToast('Recording saved and queued for transcription');
+      } catch (e) {
+        console.error('Failed to enqueue transcription', e);
+        showToast('Recording saved but failed to queue transcription');
       } finally {
         setIsTranscribing(false);
         setIsSaving(false);

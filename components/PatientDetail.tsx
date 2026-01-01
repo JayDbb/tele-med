@@ -131,7 +131,10 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
               )}
             </div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">{patient.name}</h2>
-            <p className="text-green-500 text-sm font-medium mb-4">{patient.status}</p>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {patient.mrn && <div className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-md text-gray-600 dark:text-gray-300">MRN: {patient.mrn}</div>}
+              <p className="text-green-500 text-sm font-medium mb-4">{patient.status}</p>
+            </div>
             
             <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm">
               <span className="text-gray-500 dark:text-gray-400">Gender</span>

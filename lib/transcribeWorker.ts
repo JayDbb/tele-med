@@ -3,8 +3,9 @@ import { supabaseServer } from './supabaseServer'
 
 const WHISPER_MODEL = 'vaibhavs10/incredibly-fast-whisper:3ab86df6c8f54c11309d4d1f930ac292bad43ace52d10c80d87eb258b3c9f79c'
 
-export async function processJob(jobId: string, options?: { simulate?: boolean, replicateApiKey?: string }) {
-  const supabase = supabaseServer()
+export async function processJob(jobId: string, options?: { simulate?: boolean, replicateApiKey?: string, supabaseClient?: any }) {
+  // allow caller to provide a supabase client (useful for script runners); otherwise use the server client
+  const supabase = (options as any)?.supabaseClient ?? supabaseServer()
   const simulate = options?.simulate ?? false
   const replicateApiKey = options?.replicateApiKey ?? process.env.REPLICATE_API_KEY
   try {

@@ -27,6 +27,26 @@ const Sidebar = () => {
       setIsDark(true)
       document.documentElement.classList.add('dark')
     }
+
+    // Fetch unread message count and poll periodically
+    let mounted = true
+    async function fetchUnread() {
+      try {
+        const supabase = (await import('@/lib/supabaseBrowser')).supabaseBrowser()
+        const token = (await supabase.auth.getSession()).data.session?.access_token
+        if (!token) return
+        const res = await fetch('/api/messages/unread', { headers: { Authorization: `Bearer ${token}` } })
+        if (!res.ok) return
+        const json = await res.json()
+        if (mounted) setHasUnreadMessages((json.unread || 0) > 0)
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    fetchUnread()
+    const iv = setInterval(fetchUnread, 30_000)
+    return () => { mounted = false; clearInterval(iv) }
   }, [])
 
   const toggleTheme = () => {

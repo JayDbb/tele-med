@@ -58,6 +58,7 @@ const PatientsList = () => {
       const mappedPatients = patients.map((patient: Patient) => ({
         id: patient.id,
         name: patient.full_name || 'Unknown',
+        mrn: patient.mrn || null,
         email: patient.email || '',
         dob: patient.dob || '',
         phone: patient.phone || '',
@@ -89,9 +90,7 @@ const PatientsList = () => {
   }
 
   const handleAddPatient = () => {
-    // Generate new patient ID
-    const newPatientId = Date.now().toString()
-    router.push(getNewVisitUrl(newPatientId))
+    router.push('/patients/new')
   }
 
   return (
@@ -177,6 +176,7 @@ const PatientsList = () => {
                   <div className="flex-1 min-w-0">
                     <h4 className="font-semibold text-gray-900 dark:text-white truncate">{patient.name}</h4>
                     <div className="flex items-center gap-2">
+                      {patient.mrn && <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-md text-gray-600 dark:text-gray-300">MRN: {patient.mrn}</span>}
                       <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{patient.email}</p>
                     </div>
                   </div>

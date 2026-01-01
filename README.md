@@ -149,3 +149,28 @@ The dashboard uses a custom color palette defined in `tailwind.config.ts`:
 ## License
 
 This project is for educational and demonstration purposes.
+
+## Dev admin endpoints & CI secrets
+
+For development and CI convenience there are *dev-only* admin endpoints under `/api/dev-admin/*`. These endpoints use the Supabase service-role key and are explicitly disabled in production.
+
+- DEV_ADMIN_TOKEN (env) — required to call the dev-admin endpoints (header `x-dev-admin-token`) and should be set only in development/CI secrets.
+- In CI, provide `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `STORAGE_BUCKET`, and optionally `REPLICATE_API_KEY` and `DEV_ADMIN_TOKEN`. The `verify-migrations` workflow will build the worker and run the E2E transcription test when those secrets are present.
+- If you want CI to apply database migrations automatically, set `DATABASE_URL` (connection string for the Postgres database) as a secret; the `verify-migrations` workflow will run `npm run apply:migrations` when `DATABASE_URL` is present.
+
+Note: If you cannot or prefer not to provide `DATABASE_URL` in CI, the workflow will skip applying migrations automatically — apply migrations manually or via your preferred CI method before running E2E tests.
+Using Supabase CLI locally
+
+- Install the Supabase CLI (local): `npm i -g supabase`
+- Ensure `DATABASE_URL` (your Postgres connection string) is set in your environment.
+- Run `npm run apply:migrations:cli` to push the `supabase/migrations` SQL to the target database (the same command is used in CI when `DATABASE_URL` is present).
+
+New option: Use the JS dispatcher (after one-time setup)
+- `npm run apply:migrations:supabase-js` — read local `supabase/migrations/*.sql` and apply them by calling a server-side `public.run_sql(text)` RPC using your `SUPABASE_SERVICE_ROLE_KEY`.
+  - Important: The initial migration `0000_create_run_sql_and_applied_migrations.sql` must be applied once (use `npm run apply:migrations:cli` or a direct DB connection) before using this dispatcher.
+  - This is useful when the Supabase CLI is not available locally or when you prefer to use the service-role key to apply migrations via the Supabase REST/RPC API.
+
+Local helper scripts:
+- `npm run apply:migrations:cli-auto` — checks for `DATABASE_URL` in your environment (or `.env.local`) and runs the Supabase CLI (`npx supabase db push`) automatically when present.
+- `npm run env:check` — verifies required environment variables are present in your `.env.local` and prints the detected Supabase project ref for convenience.
+Use the dev-admin endpoints for local E2E workflows when you prefer interacting over HTTP instead of direct DB RPCs.

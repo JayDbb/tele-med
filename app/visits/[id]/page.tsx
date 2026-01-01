@@ -114,7 +114,19 @@ export default function VisitDetailPage() {
       <div className="card stack">
         <div className="header" style={{ padding: 0 }}>
           <div>
-            <div className="pill">Visit</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="pill">Visit</div>
+              {visit?.status && (
+                <div className="pill" style={{ background: visit.status === 'in_progress' ? '#FEF3C7' : visit.status === 'completed' ? '#D1FAE5' : '#E8F1FF', color: visit.status === 'completed' ? '#065F46' : '#92400E' }}>
+                  {visit.status.replace('_', ' ').toUpperCase()}
+                </div>
+              )}
+              {visit?.type && (
+                <div className="pill" style={{ background: '#f0f9ff', color: '#0369a1' }}>
+                  {visit.type.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                </div>
+              )}
+            </div>
             <h1 style={{ margin: "4px 0 0" }}>
               {patient?.full_name ? `Visit with ${patient.full_name}` : "Visit"}
             </h1>
@@ -123,6 +135,21 @@ export default function VisitDetailPage() {
                 {new Date(visit.created_at).toLocaleString()}
               </div>
             )}
+
+            <div style={{ marginTop: 8 }}>
+              {/* Status action buttons */}
+              {visit?.status !== 'in_progress' && visit?.status !== 'completed' && (
+                <button className="button" onClick={async () => { try { await updateVisit(params.id, { status: 'in_progress' }); await loadVisit(); } catch (e) { console.error(e); } }}>
+                  Start Visit
+                </button>
+              )}
+
+              {visit?.status === 'in_progress' && (
+                <button className="button" style={{ marginLeft: 8, background: '#10B981', color: 'white' }} onClick={async () => { try { await updateVisit(params.id, { status: 'completed' }); await loadVisit(); } catch (e) { console.error(e); } }}>
+                  Complete Visit
+                </button>
+              )}
+            </div>
           </div>
           <Link className="button secondary" href={patient ? `/patients/${patient.id}` : "/dashboard"}>
             Back

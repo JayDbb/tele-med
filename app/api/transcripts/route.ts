@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       if (fs.existsSync(outPath)) {
         const raw = fs.readFileSync(outPath, 'utf8')
         const arr = JSON.parse(raw)
-        const filtered = arr.filter(e => e.visit_id === visitId).map(e => ({ id: e.id, visit_id: e.visit_id, text: e.text, fallback: true }))
+        const filtered = arr.filter((e: any) => e.visit_id === visitId).map((e: any) => ({ id: e.id, visit_id: e.visit_id, text: e.text, fallback: true }))
         if (filtered.length > 0) return NextResponse.json({ transcripts: filtered })
       }
     } catch (e) {
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
     if (fs.existsSync(outPath)) {
       const raw = fs.readFileSync(outPath, 'utf8')
       const arr = JSON.parse(raw)
-      const filtered = arr.filter(e => !visitId || e.visit_id === visitId).map(e => ({ id: e.id, visit_id: e.visit_id, text: e.text, fallback: true }))
+      const filtered = arr.filter((e: any) => !visitId || e.visit_id === visitId).map((e: any) => ({ id: e.id, visit_id: e.visit_id, text: e.text, fallback: true }))
       return NextResponse.json({ transcripts: filtered })
     }
   } catch (e) {

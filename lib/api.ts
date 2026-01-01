@@ -76,6 +76,35 @@ export async function deletePatient(id: string) {
   return res.json()
 }
 
+export async function getCurrentLocation(timeoutMs = 8000): Promise<{ latitude: number; longitude: number; accuracy?: number; timestamp?: string } | null> {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) return null;
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(null);
+      }
+    }, timeoutMs);
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy, timestamp: new Date(pos.timestamp).toISOString() });
+      },
+      (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(null);
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: timeoutMs }
+    );
+  });
+}
+
 export async function createVisit(payload: Partial<Visit>) {
   const res = await authFetch("/api/visits", {
     method: "POST",

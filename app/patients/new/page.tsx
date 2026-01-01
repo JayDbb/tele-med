@@ -202,6 +202,72 @@ export default function NewPatientPage() {
                 >
                   Cancel
                 </button>
+
+                <div className="flex gap-3 w-full sm:w-auto">
+                  <button 
+                    className="px-4 h-11 rounded-xl bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors" 
+                    type="button"
+                    onClick={async () => {
+                      // Save & Close
+                      setLoading(true);
+                      setError(null);
+                      try {
+                        const patient = await createPatient({ full_name: fullName, sex_at_birth: sex || null, phone: phone || null });
+                        router.push('/patients');
+                      } catch (err) {
+                        setError((err as Error).message);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    disabled={loading}
+                  >
+                    Save & Close
+                  </button>
+
+                  <button 
+                    className="px-4 h-11 rounded-xl bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors" 
+                    type="button"
+                    onClick={async () => {
+                      // Save & New Visit
+                      setLoading(true);
+                      setError(null);
+                      try {
+                        const patient = await createPatient({ full_name: fullName, sex_at_birth: sex || null, phone: phone || null });
+                        router.push(`/visits/new?patient_id=${patient.id}`);
+                      } catch (err) {
+                        setError((err as Error).message);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    disabled={loading}
+                  >
+                    Save & New Visit
+                  </button>
+
+                  <button 
+                    className="px-4 h-11 rounded-xl bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors" 
+                    type="button"
+                    onClick={async () => {
+                      // Save & Schedule Doctor
+                      setLoading(true);
+                      setError(null);
+                      try {
+                        const patient = await createPatient({ full_name: fullName, sex_at_birth: sex || null, phone: phone || null });
+                        router.push(`/calendar?patient_id=${patient.id}`);
+                      } catch (err) {
+                        setError((err as Error).message);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    disabled={loading}
+                  >
+                    Save & Schedule
+                  </button>
+                </div>
+
                 <button 
                   className="w-full sm:w-auto px-6 h-11 rounded-xl bg-[#5BB5E8] text-white font-medium hover:bg-blue-600 transition-colors shadow-sm flex items-center justify-center gap-2" 
                   type="submit"

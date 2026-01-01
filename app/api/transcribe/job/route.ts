@@ -33,9 +33,9 @@ export async function POST(req: NextRequest) {
     if (replicateApiKey && bucket) {
       try {
         // Create signed URL for the audio file
-        const { data: urlData, error: urlError } = await supabase.storage.from(bucket).createSignedUrl(path, 3600)
+        const { data: urlData, error: urlError } = await supabase.storage.from(String(bucket)).createSignedUrl(String(path), 3600)
         if (urlError || !urlData) throw new Error(urlError?.message || 'Failed to create signed URL')
-        const audioUrl = urlData.signedUrl
+        const audioUrl = urlData!.signedUrl
 
         // Transcribe using Replicate Whisper model
         const replicate = new Replicate({ auth: replicateApiKey })
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
         const transcriptionPrediction = await replicate.run(WHISPER_MODEL, { input: transcriptionInput })
 
         if (typeof transcriptionPrediction === 'string') {
-          transcriptText = transcriptionPrediction
+          transcriptText = String(transcriptionPrediction)
         } else if (transcriptionPrediction && typeof transcriptionPrediction === 'object') {
           transcriptText = (transcriptionPrediction as any).text || (transcriptionPrediction as any).transcription || (transcriptionPrediction as any).output || JSON.stringify(transcriptionPrediction)
         }
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
       }
       const { data: notesData, error: notesErr } = await supabase.from('visit_notes').insert(toInsert).select()
       if (notesErr) throw notesErr
-      if (notesData) notesCreated.push(...notesData)
+      if (notesData) notesCreated.push(...(notesData as any[]))
     } catch (e: any) {
       console.warn('Could not insert visit_notes; saving to local fallback file:', e.message || e)
       try {

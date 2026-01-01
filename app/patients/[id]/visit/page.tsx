@@ -1,13 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { createVisit, getPatient, transcribeVisitAudio, updateVisit, upsertVisitNote } from "../../../../lib/api";
+import { createVisit, getPatient, getVisit, updateVisit, upsertVisitNote, createRecordingCacheUpload, enqueueTranscriptionWithCache, getVisitNotes, getCurrentLocation } from "../../../../lib/api";
 import type { Patient, Visit } from "../../../../lib/types";
 import { useAuthGuard } from "../../../../lib/useAuthGuard";
 import { supabaseBrowser } from "../../../../lib/supabaseBrowser";
-import { uploadToPrivateBucket } from "../../../../lib/storage";
 import { useAudioRecorder } from "../../../../lib/useAudioRecorder";
 import { convertToMP3 } from "../../../../lib/audioConverter";
 import { Header } from "../../../../components/Header";
@@ -25,7 +24,15 @@ export default function PatientVisitPage() {
   const [transcribing, setTranscribing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("record");
+  const [visitType, setVisitType] = useState<string>('telehealth');
   const [transcription, setTranscription] = useState<any>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
+
+  // for small toast render helper
+  const Toast = () => toast ? (
+    <div className="fixed bottom-6 right-6 bg-gray-900 text-white px-4 py-2 rounded-md shadow-md">{toast}</div>
+  ) : null;
 
   // SOAP Note fields
   const [chiefComplaint, setChiefComplaint] = useState("");
@@ -39,6 +46,8 @@ export default function PatientVisitPage() {
   const [treatmentPlan, setTreatmentPlan] = useState("");
 
   const recorder = useAudioRecorder();
+
+  const transcriptionPollRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!ready) return;
@@ -56,6 +65,12 @@ export default function PatientVisitPage() {
         setLoading(false);
       }
     })();
+
+    return () => {
+      if (transcriptionPollRef.current) {
+        clearInterval(transcriptionPollRef.current);
+      }
+    };
   }, [ready, params.id]);
 
   const getUserDisplayName = () => {
@@ -71,6 +86,30 @@ export default function PatientVisitPage() {
     setError(null);
     setTranscription(null);
     try {
+      // Capture geolocation at recording start and persist to visit if we have a visit
+      if (visit?.id) {
+        try {
+          const loc = await getCurrentLocation(7000);
+          if (loc) {
+            await updateVisit(visit.id, {
+              location_lat: loc.latitude,
+              location_lng: loc.longitude,
+              location_accuracy: loc.accuracy ? Math.round(loc.accuracy) : undefined,
+              location_recorded_at: loc.timestamp,
+            });
+            try {
+              const { visit: refreshed } = await getVisit(visit.id);
+              setVisit(refreshed);
+            } catch (e) {
+              // ignore refresh error
+            }
+          }
+        } catch (e) {
+          // non-fatal - location optional
+          console.warn('Could not capture location at recording start', e);
+        }
+      }
+
       await recorder.startRecording();
       setRecording(true);
     } catch (err) {
@@ -99,56 +138,56 @@ export default function PatientVisitPage() {
 
   const processAudioFile = async (mp3File: File) => {
     // Create visit first
-    const newVisit = await createVisit({ patient_id: params.id, status: "draft" });
+    const location = await getCurrentLocation();
+    const payload: any = { patient_id: params.id, status: "draft", type: visitType };
+    if (location) {
+      payload.location_lat = location.latitude;
+      payload.location_lng = location.longitude;
+      if (location.accuracy) payload.location_accuracy = Math.round(location.accuracy);
+      if (location.timestamp) payload.location_recorded_at = location.timestamp;
+    }
+    const newVisit = await createVisit(payload);
     setVisit(newVisit);
 
-    // Upload MP3 file
-    const upload = await uploadToPrivateBucket(mp3File);
-    await updateVisit(newVisit.id, { audio_url: upload.path });
+    // Create cache entry and signed upload
+    const { cache, path, token, bucket } = await createRecordingCacheUpload({ filename: mp3File.name, contentType: mp3File.type, size: mp3File.size });
 
-    // Transcribe the audio
+    // Upload to signed URL
+    const supabase = supabaseBrowser();
+    const { error: uploadErr } = await supabase.storage.from(bucket).uploadToSignedUrl(path, token, mp3File, { contentType: mp3File.type });
+    if (uploadErr) throw new Error(uploadErr.message);
+
+    // Update visit with audio url
+    await updateVisit(newVisit.id, { audio_url: path });
+
+    // Enqueue transcription job referencing cache
     setTranscribing(true);
     try {
-      const transcriptionResult = await transcribeVisitAudio(upload.path, newVisit.id);
-      setTranscription(transcriptionResult);
+      const cacheId = cache && cache[0] ? cache[0].id : cache.id;
+      await enqueueTranscriptionWithCache(newVisit.id, cacheId, path);
+      showToast('Recording saved and queued for transcription');
 
-      // Auto-populate SOAP fields from transcription
-      if (transcriptionResult.structured) {
-        const structured = transcriptionResult.structured;
-
-        // Handle current symptoms - extract symptom names only
-        if (structured.current_symptoms && Array.isArray(structured.current_symptoms)) {
-          const symptomsText = structured.current_symptoms
-            .map((s: any) => s.symptom)
-            .filter((symptom: string) => symptom && symptom !== 'undefined')
-            .join(', ');
-          setChiefComplaint(symptomsText);
+      // Poll for visit notes (worker will append dictation/parsed notes when finished)
+      if (transcriptionPollRef.current) clearInterval(transcriptionPollRef.current);
+      transcriptionPollRef.current = window.setInterval(async () => {
+        try {
+          const notes = await getVisitNotes(newVisit.id);
+          if (notes && notes.entries && notes.entries.length > 0) {
+            // Prefer most recent dictation/structured entry
+            const latest = notes.entries[notes.entries.length - 1];
+            setTranscription({ transcript: latest.content });
+            if (latest.section === 'subjective') setChiefComplaint(latest.content);
+            // Stop polling
+            if (transcriptionPollRef.current) { clearInterval(transcriptionPollRef.current); transcriptionPollRef.current = null; }
+          }
+        } catch (e) {
+          // ignore polling errors
         }
+      }, 3000);
 
-        if (structured.physical_exam_findings) {
-          const examFindings = Object.entries(structured.physical_exam_findings)
-            .map(([key, value]) => `${key.replace(/_/g, ' ')}: ${typeof value === 'object' ? JSON.stringify(value) : value}`)
-            .join('\n');
-          setPhysicalExam(examFindings);
-        }
-
-        if (structured.past_medical_history && Array.isArray(structured.past_medical_history)) {
-          setHpi(structured.past_medical_history.join('\n'));
-        }
-
-        if (structured.diagnosis) {
-          const diagnosis = Array.isArray(structured.diagnosis)
-            ? structured.diagnosis.join(', ')
-            : structured.diagnosis;
-          setAssessment(diagnosis);
-        }
-
-        if (structured.treatment_plan && Array.isArray(structured.treatment_plan)) {
-          setTreatmentPlan(structured.treatment_plan.join('\n'));
-        }
-      }
-    } catch (transcribeError) {
-      setError((transcribeError as Error).message);
+    } catch (e) {
+      console.error('Failed to enqueue transcription', e);
+      showToast('Recording saved but failed to queue transcription');
     } finally {
       setTranscribing(false);
       setSaving(false);
@@ -184,7 +223,7 @@ export default function PatientVisitPage() {
   const handleContinueToVisit = async () => {
     if (!visit) {
       // Create visit without recording
-      const newVisit = await createVisit({ patient_id: params.id, status: "draft" });
+      const newVisit = await createVisit({ patient_id: params.id, status: "draft", type: visitType });
       setVisit(newVisit);
     }
     // Continue with current form data
@@ -278,14 +317,26 @@ export default function PatientVisitPage() {
                         </p>
                       </div>
                       {!recording && !recorder.isRecording && !transcription && (
-                        <button
-                          onClick={handleStartRecording}
-                          className="mt-2 flex items-center justify-center rounded-lg h-11 px-6 bg-[#137fec] hover:bg-[#0b5ec2] text-white text-sm font-bold shadow-lg shadow-[#137fec]/25 transition-all w-full max-w-[200px] gap-2"
-                          disabled={saving || transcribing}
-                        >
-                          <span className="text-[20px]">⏺</span>
-                          <span>Start Recording</span>
-                        </button>
+                        <>
+                          <label className="w-full text-left mb-2">
+                            <span className="text-xs text-gray-600 block mb-1">Visit Type</span>
+                            <select className="input" value={visitType} onChange={(e) => setVisitType(e.target.value)}>
+                              <option value="telehealth">Telehealth</option>
+                              <option value="mobile_acute">Mobile Acute Care</option>
+                              <option value="triage">Triage</option>
+                              <option value="nurse_visit">Nurse Visit</option>
+                              <option value="doctor_visit">Doctor Visit</option>
+                            </select>
+                          </label>
+                          <button
+                            onClick={handleStartRecording}
+                            className="mt-2 flex items-center justify-center rounded-lg h-11 px-6 bg-[#137fec] hover:bg-[#0b5ec2] text-white text-sm font-bold shadow-lg shadow-[#137fec]/25 transition-all w-full max-w-[200px] gap-2"
+                            disabled={saving || transcribing}
+                          >
+                            <span className="text-[20px]">⏺</span>
+                            <span>Start Recording</span>
+                          </button>
+                        </>
                       )}
                       {recording && recorder.isRecording && (
                         <div className="flex flex-col items-center gap-4">
@@ -313,6 +364,7 @@ export default function PatientVisitPage() {
               </div>
 
               {/* Previous Visit Info */}
+            <Toast />
               <div className="bg-white rounded-xl border border-[#e7edf3] shadow-sm p-5 space-y-4 mt-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-[#4c739a]">Previous Visit</h3>

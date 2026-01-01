@@ -9,10 +9,11 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url)
   const patientId = url.searchParams.get('patient_id')
-  if (!patientId) return NextResponse.json({ error: 'Missing patient_id' }, { status: 400 })
 
   const supabase = supabaseServer()
-  const { data, error: dbError } = await supabase.from('medications').select('*').eq('patient_id', patientId).order('created_at', { ascending: false })
+  let query = supabase.from('medications').select('*').order('created_at', { ascending: false })
+  if (patientId) query = query.eq('patient_id', patientId)
+  const { data, error: dbError } = await query
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 400 })
   return NextResponse.json({ medications: data })
 }
