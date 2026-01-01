@@ -9,7 +9,7 @@ import GlobalSearchBar from '@/components/GlobalSearchBar'
 export default function PatientMedicationsPage() {
   const params = useParams()
   const [showAddForm, setShowAddForm] = useState(false)
-  const [medications, setMedications] = useState<Array<{
+  interface Medication {
     id: number
     brandName: string
     generic: string
@@ -18,8 +18,9 @@ export default function PatientMedicationsPage() {
     dosage: string
     frequency: string
     status: string
-  }>>([])
-  const [newMedication, setNewMedication] = useState({
+  }
+
+  const [newMedication, setNewMedication] = useState<Omit<Medication,'id'|'status'>>({
     brandName: '',
     generic: '',
     strength: '',
@@ -27,6 +28,7 @@ export default function PatientMedicationsPage() {
     dosage: '',
     frequency: ''
   })
+  const [medications, setMedications] = useState<Medication[]>([])
 
   const handleAddMedication = () => {
     if (newMedication.brandName && newMedication.strength) {

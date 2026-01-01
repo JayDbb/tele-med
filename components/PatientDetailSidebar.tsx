@@ -1,9 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { PatientDataManager } from '@/utils/PatientDataManager'
 
 interface PatientDetailSidebarProps {
   patientId: string
@@ -13,7 +12,6 @@ const PatientDetailSidebar = ({ patientId }: PatientDetailSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const pathname = usePathname()
   const isNursePortal = pathname.startsWith('/nurse-portal')
-  const lastLoggedPath = useRef<string | null>(null)
 
   const baseUrl = isNursePortal ? '/nurse-portal/patients' : '/doctor/patients'
   
@@ -28,26 +26,13 @@ const PatientDetailSidebar = ({ patientId }: PatientDetailSidebarProps) => {
     { label: 'Social History', href: `${baseUrl}/${patientId}/social-history`, hasAlert: false },
     { label: 'Surgical History', href: `${baseUrl}/${patientId}/surgical-history`, hasAlert: false },
     { label: 'Past Medical History', href: `${baseUrl}/${patientId}/past-medical-history`, hasAlert: false },
+    { label: 'Screening', href: `${baseUrl}/${patientId}/screening`, hasAlert: false },
     { label: 'Orders', href: `${baseUrl}/${patientId}/orders`, hasAlert: false },
-    { label: 'Documents', href: `${baseUrl}/${patientId}/documents`, hasAlert: false },
-    { label: 'Log History', href: `${baseUrl}/${patientId}/log-history`, hasAlert: false },
+    { label: 'Messages', href: `${baseUrl}/${patientId}/messages`, hasAlert: false },
   ]
 
-  useEffect(() => {
-    if (!patientId || !pathname.includes(`/patients/${patientId}`)) return
-    if (lastLoggedPath.current === pathname) return
-    lastLoggedPath.current = pathname
-
-    const segments = pathname.split(`/patients/${patientId}`)[1]?.split('/').filter(Boolean) || []
-    const sectionSegment = segments[0] || 'overview'
-    const section = sectionSegment === 'history' ? 'visit-history' : sectionSegment
-    PatientDataManager.logActionAuto(patientId, 'view', section, {
-      notes: `Viewed ${section}`
-    })
-  }, [patientId, pathname])
-
   return (
-    <aside className={`${isCollapsed ? 'w-16' : 'w-64'} bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 overflow-y-auto transition-all duration-300`}>
+    <aside className={`hidden lg:flex ${isCollapsed ? 'w-16' : 'w-64'} bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 overflow-y-auto transition-all duration-300`}>
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-2">
           <Link href={isNursePortal ? "/nurse-portal/patients" : "/doctor/patients"} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
@@ -85,7 +70,7 @@ const PatientDetailSidebar = ({ patientId }: PatientDetailSidebarProps) => {
                   ? 'bg-white dark:bg-gray-700 border-l-4 border-primary text-primary font-medium shadow-sm'
                   : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border-l-4 border-transparent hover:border-gray-300'
               }`}
-              href={item.href}
+              href={item.href ?? '#'}
             >
               {item.hasAlert && (
                 <div className="absolute left-1 top-1/2 -mt-4 w-0.5 h-8 bg-red-400 rounded" />

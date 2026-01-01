@@ -3,7 +3,7 @@
 
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createVisit, getPatients, transcribeAudio, updateVisit } from "../../lib/api";
+import { createVisit, getPatients, transcribeVisitAudio, updateVisit } from "../../lib/api";
 import type { Patient } from "../../lib/types";
 import { useAuthGuard } from "../../lib/useAuthGuard";
 import { uploadToPrivateBucket } from "../../lib/storage";
@@ -63,7 +63,7 @@ function NewVisitPageContent() {
         // Transcribe the audio with visit_id so it gets saved to database
         setTranscribing(true);
         try {
-          const transcriptionResult = await transcribeAudio(upload.path, visitId);
+          const transcriptionResult = await transcribeVisitAudio(upload.path, visitId);
           setTranscription(transcriptionResult);
           console.log("Transcription completed:", transcriptionResult);
         } catch (transcribeError) {

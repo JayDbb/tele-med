@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { PatientDataManager } from '@/utils/PatientDataManager'
+import { getPatients } from '@/lib/api'
 import { useDoctor } from '@/contexts/DoctorContext'
 import { useNurse } from '@/contexts/NurseContext'
+import type { Patient as PatientType } from '@/lib/types'
 
-interface Patient {
+interface PatientSearchResult {
   id: string
   name: string
   email: string
@@ -21,9 +22,9 @@ interface SearchBarProps {
 
 export default function GlobalSearchBar({ placeholder = "Search patients, MRN, or DOB" }: SearchBarProps) {
   const [query, setQuery] = useState('')
-  const [patients, setPatients] = useState<Patient[]>([])
-  const [filteredPatients, setFilteredPatients] = useState<Patient[]>([])
-  const [recentPatients, setRecentPatients] = useState<Patient[]>([])
+  const [patients, setPatients] = useState<PatientSearchResult[]>([])
+  const [filteredPatients, setFilteredPatients] = useState<PatientSearchResult[]>([])
+  const [recentPatients, setRecentPatients] = useState<PatientSearchResult[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -61,21 +62,26 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const fetchPatients = () => {
+  const fetchPatients = async () => {
     if (!currentUser) return
     
     try {
-      const allPatients = PatientDataManager.getAllPatients().map(p => ({
+      setLoading(true)
+      const apiPatients = await getPatients()
+      
+      const allPatients = apiPatients.map((p: PatientType) => ({
         id: p.id,
-        name: p.name,
-        email: p.email,
-        dob: p.dob,
-        phone: p.phone,
-        doctorId: p.doctorId
+        name: p.full_name || 'Unknown',
+        email: p.email || '',
+        dob: p.dob || '',
+        phone: p.phone || '',
+        doctorId: p.clinician_id || ''
       }))
       setPatients(allPatients)
     } catch (error) {
       console.error('Error fetching patients:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -88,7 +94,7 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
     }
   }
 
-  const addToRecentPatients = (patient: Patient) => {
+  const addToRecentPatients = (patient: PatientSearchResult) => {
     if (!userId) return
     
     const recent = recentPatients.filter(p => p.id !== patient.id)
@@ -114,7 +120,7 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
     }
   }
 
-  const handlePatientSelect = (patient: Patient) => {
+  const handlePatientSelect = (patient: PatientSearchResult) => {
     addToRecentPatients(patient)
     setQuery('')
     setShowDropdown(false)
@@ -145,7 +151,12 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
   }
 
   return (
-    <div ref={searchRef} className="relative w-full max-w-md">
+    <div ref={searchRef} className="relative w-full max-w-md flex items-center gap-2">
+      {/* Mobile menu button - toggles sidebar */}
+      <button onClick={() => window.dispatchEvent(new CustomEvent('toggleSidebar'))} className="lg:hidden inline-flex items-center p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800">
+        <span className="material-symbols-outlined text-gray-600 dark:text-gray-300">menu</span>
+      </button>
+
       <label className="flex w-full items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg px-3 h-10 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
         <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">search</span>
         <input 

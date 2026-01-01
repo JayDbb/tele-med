@@ -12,9 +12,7 @@ export default function PatientVitalsPage() {
   const router = useRouter()
   const patientId = params.id as string
   const patient = PatientDataManager.getPatient(patientId)
-  const [vitalsHistory, setVitalsHistory] = useState<any[]>(
-    () => PatientDataManager.getPatientSectionList(patientId, 'vitals')
-  )
+  const vitalsHistory = PatientDataManager.getPatientSectionList(patientId, 'vitals')
   const latestVitals = vitalsHistory[0]
   const bpValue = latestVitals?.bp || '--'
   const hrValue = latestVitals?.hr || '--'
@@ -30,17 +28,8 @@ export default function PatientVitalsPage() {
 
   const handleSaveVitals = () => {
     if (vitals.systolic && vitals.diastolic && vitals.heartRate) {
-      const entry = {
-        id: Date.now().toString(),
-        recordedAt: new Date().toISOString(),
-        bp: `${vitals.systolic}/${vitals.diastolic}`,
-        hr: vitals.heartRate,
-        spo2: vitals.spo2,
-        notes: vitals.notes
-      }
-      const nextVitals = [entry, ...vitalsHistory]
-      PatientDataManager.savePatientSectionList(patientId, 'vitals', nextVitals)
-      setVitalsHistory(nextVitals)
+      console.log('Saving vitals:', vitals)
+      // Reset form
       setVitals({ systolic: '', diastolic: '', heartRate: '', spo2: '', notes: '' })
     }
   }

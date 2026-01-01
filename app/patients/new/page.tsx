@@ -3,6 +3,7 @@
 import { FormEvent, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import BackButton from '@/components/BackButton'
 import { createPatient } from "../../../lib/api";
 import { useAuthGuard } from "../../../lib/useAuthGuard";
 import { supabaseBrowser } from "../../../lib/supabaseBrowser";
@@ -67,17 +68,14 @@ export default function NewPatientPage() {
           <div className="w-full lg:w-auto">
             <div className="flex items-center space-x-2 mb-1">
               <span className="bg-blue-100 text-[#5BB5E8] text-xs font-semibold px-2 py-0.5 rounded-md">Phase 1</span>
-              <h2 className="text-sm text-[#718096] font-medium">Intellibus Tele-Medicine</h2>
+              <h2 className="text-sm text-[#718096] font-medium">Intellibus</h2>
             </div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#2D3748] mt-4">Ready to help your patients today?</h1>
             <p className="text-sm text-[#718096] mt-1">Enter patient details below to create a new record and start managing their health progress</p>
           </div>
           <div className="flex justify-end w-full lg:w-auto">
             <div className="relative w-full sm:w-auto max-w-sm">
-              <Link href="/dashboard" className="pl-10 pr-4 py-2 rounded-xl border-none bg-white shadow-sm text-sm focus:ring-2 focus:ring-[#5BB5E8] w-full block text-center hover:bg-gray-50 transition">
-                Back to Dashboard
-              </Link>
-              <span className="absolute left-3 top-2 text-gray-400 text-lg">←</span>
+              <BackButton>Back to Dashboard</BackButton>
             </div>
           </div>
         </header>
@@ -242,3 +240,4 @@ export default function NewPatientPage() {
     </div>
   );
 }
+

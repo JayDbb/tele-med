@@ -4,291 +4,220 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
-import ClinicalSections from '@/components/ClinicalSections'
 import AITransparency from '@/components/AITransparency'
+import { getPatient, createVisit, appendVisitNote, getVisitNotes, updateVisitNoteStatus, dictateAudio } from '@/lib/api'
+import { useAudioRecorder } from '@/lib/useAudioRecorder'
+import { uploadToPrivateBucket } from '@/lib/storage'
+import type { Visit } from '@/lib/types'
 
-interface Note {
+interface NoteEntry {
   id: string
-  date: string
-  type: string
-  status: 'draft' | 'signed' | 'pending'
-  author: string
-  content: {
-    subjective: string
-    objective: string
-    assessment: string
-    plan: string
-  }
-  lastModified: string
+  timestamp: string
+  content: string
+  section: 'subjective' | 'objective' | 'assessment' | 'plan'
+  source: 'manual' | 'dictation'
+  author_id: string
 }
+
+interface VisitNote {
+  visit_id: string
+  status: 'draft' | 'signed' | 'pending'
+  entries: NoteEntry[]
+}
+
+type Section = 'subjective' | 'objective' | 'assessment' | 'plan'
 
 export default function PatientNotesPage() {
   const params = useParams()
   const router = useRouter()
-  const [notes, setNotes] = useState<Note[]>([])
-  const [currentNote, setCurrentNote] = useState<Note | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
-  const [isListening, setIsListening] = useState(false)
+  const patientId = params.id as string
+
+  const [visits, setVisits] = useState<(Visit & { created_at: string })[]>([])
+  const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null)
+  const [visitNotes, setVisitNotes] = useState<VisitNote | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [isRecording, setIsRecording] = useState(false)
+  const [currentSection, setCurrentSection] = useState<Section>('subjective')
+  const [newEntryText, setNewEntryText] = useState('')
+  const [saving, setSaving] = useState(false)
   const [showSignModal, setShowSignModal] = useState(false)
-  const autoSaveTimer = useRef<NodeJS.Timeout>()
-  const recognitionRef = useRef<any>()
 
-  // Mock notes data
-  const mockNotes: Note[] = [
-    {
-      id: '1',
-      date: '2024-01-15',
-      type: 'Progress Note',
-      status: 'signed',
-      author: 'Dr. Alex Robin',
-      content: {
-        subjective: 'Patient reports feeling well. No new complaints. Medication compliance good.',
-        objective: 'Vital signs stable. BP 120/80, HR 72, Temp 98.6°F. Physical exam unremarkable.',
-        assessment: 'Stable condition. Hypertension well controlled.',
-        plan: 'Continue current medications. Follow up in 3 months. Regular checkups recommended.'
-      },
-      lastModified: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: '2',
-      date: '2024-01-10',
-      type: 'Initial Consultation',
-      status: 'draft',
-      author: 'Dr. Alex Robin',
-      content: {
-        subjective: 'New patient presenting with...',
-        objective: '',
-        assessment: '',
-        plan: ''
-      },
-      lastModified: '2024-01-10T14:20:00Z'
-    }
-  ]
-
-  // Macro templates
-  const macroTemplates: { [key: string]: any } = {
-    '.dia': {
-      assessment: 'Type 2 Diabetes Mellitus, well controlled',
-      plan: '1. Continue metformin 500mg BID\n2. HbA1c in 3 months\n3. Diabetic diet counseling\n4. Regular exercise'
-    },
-    '.htn': {
-      assessment: 'Essential Hypertension, well controlled',
-      plan: '1. Continue lisinopril 10mg daily\n2. Monitor BP at home\n3. Low sodium diet\n4. Follow up in 3 months'
-    },
-    '.fu': {
-      plan: 'Follow up in clinic as needed\nReturn if symptoms worsen\nPatient education provided'
-    },
-    '.pe': {
-      objective: 'General: Well-appearing, no acute distress\nVitals: BP ___, HR ___, Temp ___°F, RR ___\nHEENT: Normocephalic, atraumatic\nCardiac: RRR, no murmurs\nPulmonary: Clear to auscultation bilaterally\nAbdomen: Soft, non-tender, non-distended\nExtremities: No edema'
-    }
+  const recorder = useAudioRecorder()
+  const newEntryRefs = {
+    subjective: useRef<HTMLTextAreaElement>(null),
+    objective: useRef<HTMLTextAreaElement>(null),
+    assessment: useRef<HTMLTextAreaElement>(null),
+    plan: useRef<HTMLTextAreaElement>(null),
   }
 
+  // Load patient and visits
   useEffect(() => {
-    setNotes(mockNotes)
-    if (mockNotes.length > 0) {
-      setCurrentNote(mockNotes[0])
-    }
-  }, [])
+    loadData()
+  }, [patientId])
 
-  // Auto-save functionality
+  // Load visit notes when visit is selected
   useEffect(() => {
-    if (currentNote && isEditing) {
-      setAutoSaveStatus('unsaved')
-      
-      if (autoSaveTimer.current) {
-        clearTimeout(autoSaveTimer.current)
+    if (selectedVisitId) {
+      loadVisitNotes(selectedVisitId)
+    }
+  }, [selectedVisitId])
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      const data = await getPatient(patientId)
+      const visitsWithDate = (data.visits || []).map(v => ({
+        ...v,
+        created_at: v.created_at || new Date().toISOString()
+      }))
+      setVisits(visitsWithDate)
+      if (visitsWithDate.length > 0) {
+        setSelectedVisitId(visitsWithDate[0].id)
       }
-      
-      autoSaveTimer.current = setTimeout(() => {
-        setAutoSaveStatus('saving')
-        // Simulate API call
-        setTimeout(() => {
-          setAutoSaveStatus('saved')
-          console.log('Note auto-saved:', currentNote)
-        }, 500)
-      }, 2000)
+    } catch (error) {
+      console.error('Failed to load patient data:', error)
+    } finally {
+      setLoading(false)
     }
-    
-    return () => {
-      if (autoSaveTimer.current) {
-        clearTimeout(autoSaveTimer.current)
+  }
+
+  const loadVisitNotes = async (visitId: string) => {
+    try {
+      const notes = await getVisitNotes(visitId)
+      setVisitNotes(notes)
+    } catch (error) {
+      console.error('Failed to load visit notes:', error)
+      setVisitNotes({ visit_id: visitId, status: 'draft', entries: [] })
+    }
+  }
+
+  const createNewVisit = async () => {
+    try {
+      setSaving(true)
+      const newVisit = await createVisit({ patient_id: patientId, status: 'draft' })
+      setVisits([newVisit, ...visits])
+      setSelectedVisitId(newVisit.id)
+    } catch (error) {
+      console.error('Failed to create visit:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAppendEntry = async (section: Section, content: string, source: 'manual' | 'dictation' = 'manual') => {
+    if (!selectedVisitId || !content.trim()) return
+
+    try {
+      setSaving(true)
+      await appendVisitNote(selectedVisitId, content.trim(), section, source)
+      await loadVisitNotes(selectedVisitId)
+      // Clear the input
+      if (newEntryRefs[section].current) {
+        newEntryRefs[section].current!.value = ''
       }
+      setNewEntryText('')
+    } catch (error) {
+      console.error('Failed to append note:', error)
+      alert('Failed to save note entry')
+    } finally {
+      setSaving(false)
     }
-  }, [currentNote, isEditing])
+  }
 
-  // Voice dictation setup
-  useEffect(() => {
-    if ('webkitSpeechRecognition' in window) {
-      const recognition = new (window as any).webkitSpeechRecognition()
-      recognition.continuous = true
-      recognition.interimResults = true
-      recognition.lang = 'en-US'
-      
-      recognition.onresult = (event: any) => {
-        let finalTranscript = ''
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript
-          }
-        }
-        
-        if (finalTranscript && currentNote) {
-          // Add to current section (assuming subjective for demo)
-          setCurrentNote({
-            ...currentNote,
-            content: {
-              ...currentNote.content,
-              subjective: currentNote.content.subjective + ' ' + finalTranscript
-            }
-          })
-        }
+  const handleStartDictation = async (section: Section) => {
+    try {
+      setCurrentSection(section)
+      setIsRecording(true)
+      await recorder.startRecording()
+    } catch (error) {
+      console.error('Failed to start recording:', error)
+      alert('Failed to start recording. Please check microphone permissions.')
+      setIsRecording(false)
+    }
+  }
+
+  const handleStopDictation = async () => {
+    try {
+      setIsRecording(false)
+      const blob = await recorder.stopRecording()
+
+      if (!selectedVisitId) {
+        alert('Please select a visit first')
+        return
       }
-      
-      recognitionRef.current = recognition
-    }
-  }, [currentNote])
 
-  const handleMacroExpansion = (text: string, section: keyof Note['content']) => {
-    const words = text.split(' ')
-    const lastWord = words[words.length - 1]
-    
-    if (macroTemplates[lastWord]) {
-      const template = macroTemplates[lastWord]
-      const newText = words.slice(0, -1).join(' ')
-      
-      if (template[section]) {
-        return newText + (newText ? ' ' : '') + template[section]
+      // Convert to MP3 and upload
+      const mp3Blob = await convertToMP3(blob)
+      const mp3File = new File([mp3Blob], `dictation-${Date.now()}.mp3`, { type: 'audio/mp3' })
+
+      const upload = await uploadToPrivateBucket(mp3File)
+
+      // Transcribe the audio (dictation only, no parsing)
+      const { transcript } = await dictateAudio(upload.path)
+
+      if (transcript) {
+        // Append the transcribed text as a note entry
+        await handleAppendEntry(currentSection, transcript, 'dictation')
       }
-    }
-    return text
-  }
-
-  const handleContentChange = (section: keyof Note['content'], value: string) => {
-    if (!currentNote) return
-    
-    const expandedValue = handleMacroExpansion(value, section)
-    
-    setCurrentNote({
-      ...currentNote,
-      content: {
-        ...currentNote.content,
-        [section]: expandedValue
-      }
-    })
-    setIsEditing(true)
-  }
-
-  const createNewNote = () => {
-    const newNote: Note = {
-      id: Date.now().toString(),
-      date: new Date().toISOString().split('T')[0],
-      type: 'Progress Note',
-      status: 'draft',
-      author: 'Dr. Alex Robin',
-      content: {
-        subjective: '',
-        objective: '',
-        assessment: '',
-        plan: ''
-      },
-      lastModified: new Date().toISOString()
-    }
-    
-    setNotes([newNote, ...notes])
-    setCurrentNote(newNote)
-    setIsEditing(true)
-  }
-
-  const cloneLastNote = () => {
-    if (notes.length === 0) return
-    
-    const lastNote = notes.find(note => note.status === 'signed') || notes[0]
-    const newNote: Note = {
-      ...lastNote,
-      id: Date.now().toString(),
-      date: new Date().toISOString().split('T')[0],
-      status: 'draft',
-      lastModified: new Date().toISOString(),
-      content: {
-        ...lastNote.content,
-        subjective: '', // Clear subjective for new visit
-        objective: '', // Clear objective for new visit
-      }
-    }
-    
-    setNotes([newNote, ...notes])
-    setCurrentNote(newNote)
-    setIsEditing(true)
-  }
-
-  const toggleVoiceDictation = () => {
-    if (!recognitionRef.current) return
-    
-    if (isListening) {
-      recognitionRef.current.stop()
-      setIsListening(false)
-    } else {
-      recognitionRef.current.start()
-      setIsListening(true)
+    } catch (error) {
+      console.error('Failed to process dictation:', error)
+      alert('Failed to process dictation')
     }
   }
 
-  const signNote = () => {
-    if (!currentNote) return
-    
-    const updatedNote = {
-      ...currentNote,
-      status: 'signed' as const,
-      lastModified: new Date().toISOString()
-    }
-    
-    setCurrentNote(updatedNote)
-    setNotes(notes.map(note => note.id === updatedNote.id ? updatedNote : note))
-    setIsEditing(false)
-    setShowSignModal(false)
+  const convertToMP3 = async (blob: Blob): Promise<Blob> => {
+    // For now, return the blob as-is. In production, you'd use a library like lamejs
+    // to convert WebM to MP3 on the client side, or handle conversion on the server
+    return blob
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'signed': return 'text-green-600 bg-green-100 dark:bg-green-900/20'
-      case 'draft': return 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/20'
-      case 'pending': return 'text-blue-600 bg-blue-100 dark:bg-blue-900/20'
-      default: return 'text-gray-600 bg-gray-100 dark:bg-gray-800'
+  const handleSignNote = async () => {
+    if (!selectedVisitId) return
+
+    try {
+      setSaving(true)
+      await updateVisitNoteStatus(selectedVisitId, 'signed')
+      await loadVisitNotes(selectedVisitId)
+      setShowSignModal(false)
+    } catch (error) {
+      console.error('Failed to sign note:', error)
+      alert('Failed to sign note')
+    } finally {
+      setSaving(false)
     }
   }
 
-  const getAutoSaveIndicator = () => {
-    switch (autoSaveStatus) {
-      case 'saving': return (
-        <div className="flex items-center gap-1 text-blue-600">
-          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-          <span className="text-xs">Saving...</span>
-        </div>
-      )
-      case 'saved': return (
-        <div className="flex items-center gap-1 text-green-600">
-          <span className="material-symbols-outlined text-sm">check_circle</span>
-          <span className="text-xs">Saved</span>
-        </div>
-      )
-      case 'unsaved': return (
-        <div className="flex items-center gap-1 text-orange-600">
-          <span className="material-symbols-outlined text-sm">edit</span>
-          <span className="text-xs">Unsaved changes</span>
-        </div>
-      )
-    }
+  const getEntriesForSection = (section: Section): NoteEntry[] => {
+    if (!visitNotes) return []
+    return visitNotes.entries.filter(entry => entry.section === section)
+  }
+
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp)
+    return date.toLocaleString()
+  }
+
+  const selectedVisit = visits.find(v => v.id === selectedVisitId)
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full">
+        <Sidebar />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </main>
+      </div>
+    )
   }
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
       <Sidebar />
-      
+
       <main className="flex-1 flex flex-col h-full overflow-hidden bg-background-light dark:bg-background-dark">
         <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
           <div className="flex items-center gap-4">
-            <button 
+            <button
               onClick={() => router.back()}
               className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
             >
@@ -296,70 +225,73 @@ export default function PatientNotesPage() {
             </button>
             <GlobalSearchBar />
           </div>
-          
+
           <div className="flex items-center gap-4">
-            {getAutoSaveIndicator()}
-            <button className="relative p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
+            {saving && (
+              <div className="flex items-center gap-1 text-blue-600">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                <span className="text-xs">Saving...</span>
+              </div>
+            )}
+            <AITransparency className="ml-2" />
           </div>
         </header>
 
         <div className="flex flex-1 overflow-hidden">
-          {/* Notes List Sidebar */}
+          {/* Visits List Sidebar */}
           <div className="w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Clinical Notes</h2>
-                <div className="flex gap-2">
-                  <button
-                    onClick={cloneLastNote}
-                    className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                    title="Clone Last Note"
-                  >
-                    <span className="material-symbols-outlined text-sm">content_copy</span>
-                  </button>
-                  <button
-                    onClick={createNewNote}
-                    className="p-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors"
-                    title="New Note"
-                  >
-                    <span className="material-symbols-outlined text-sm">add</span>
-                  </button>
-                </div>
-              </div>
-              
-              {/* Unsigned Notes Alert */}
-              {notes.filter(note => note.status === 'draft').length > 0 && (
-                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-yellow-600 text-sm">warning</span>
-                    <span className="text-yellow-800 dark:text-yellow-300 text-sm font-medium">
-                      {notes.filter(note => note.status === 'draft').length} unsigned notes
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <div className="flex-1 overflow-y-auto">
-              {notes.map(note => (
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Visits</h2>
                 <button
-                  key={note.id}
-                  onClick={() => setCurrentNote(note)}
-                  className={`w-full p-4 text-left border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
-                    currentNote?.id === note.id ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-primary' : ''
-                  }`}
+                  onClick={createNewVisit}
+                  disabled={saving}
+                  className="p-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+                  title="New Visit"
+                >
+                  <span className="material-symbols-outlined text-sm">add</span>
+                </button>
+              </div>
+
+              {visits.filter(v => {
+                // Check if visit has unsigned notes
+                return true // For now, show all visits
+              }).length > 0 && (
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-yellow-600 text-sm">warning</span>
+                      <span className="text-yellow-800 dark:text-yellow-300 text-sm font-medium">
+                        {visits.filter(v => {
+                          // Count visits with draft notes
+                          return true
+                        }).length} visits with draft notes
+                      </span>
+                    </div>
+                  </div>
+                )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {visits.map(visit => (
+                <button
+                  key={visit.id}
+                  onClick={() => setSelectedVisitId(visit.id)}
+                  className={`w-full p-4 text-left border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${selectedVisitId === visit.id ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-primary' : ''
+                    }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">{note.type}</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(note.status)}`}>
-                      {note.status}
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      {new Date(visit.created_at).toLocaleDateString()}
+                    </span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${visit.status === 'signed' ? 'text-green-600 bg-green-100 dark:bg-green-900/20' :
+                      visit.status === 'draft' ? 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/20' :
+                        'text-blue-600 bg-blue-100 dark:bg-blue-900/20'
+                      }`}>
+                      {visit.status}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{note.date}</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
-                    {note.content.subjective || 'No content yet...'}
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {new Date(visit.created_at).toLocaleTimeString()}
                   </p>
                 </button>
               ))}
@@ -368,15 +300,17 @@ export default function PatientNotesPage() {
 
           {/* Note Editor */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            {currentNote ? (
+            {selectedVisitId && visitNotes ? (
               <>
                 <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{currentNote.type}</h1>
-                      <p className="text-gray-500 dark:text-gray-400">{currentNote.date} • {currentNote.author}</p>
+                      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Clinical Notes</h1>
+                      <p className="text-gray-500 dark:text-gray-400">
+                        {selectedVisit ? new Date(selectedVisit.created_at).toLocaleDateString() : ''}
+                      </p>
                     </div>
-                    
+
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => window.print()}
@@ -385,33 +319,8 @@ export default function PatientNotesPage() {
                       >
                         <span className="material-symbols-outlined">print</span>
                       </button>
-                      
-                      <button
-                        onClick={() => setIsEditing(!isEditing)}
-                        className="p-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                        title="Edit Record"
-                        disabled={currentNote.status === 'signed'}
-                      >
-                        <span className="material-symbols-outlined">edit_document</span>
-                      </button>
-                      
-                      <button
-                        onClick={toggleVoiceDictation}
-                        className={`p-2 rounded-lg transition-colors ${
-                          isListening 
-                            ? 'bg-red-100 text-red-600 dark:bg-red-900/20' 
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                        }`}
-                        title="Voice Dictation"
-                      >
-                        <span className="material-symbols-outlined">
-                          {isListening ? 'mic' : 'mic_none'}
-                        </span>
-                      </button>
-                      
-                      <AITransparency className="ml-2" />
-                      
-                      {currentNote.status === 'draft' && (
+
+                      {visitNotes.status === 'draft' && (
                         <button
                           onClick={() => setShowSignModal(true)}
                           className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
@@ -422,40 +331,113 @@ export default function PatientNotesPage() {
                       )}
                     </div>
                   </div>
-                  
-                  {/* Macro Help */}
+
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    <span className="font-medium">Macros:</span> .dia (diabetes), .htn (hypertension), .fu (follow-up), .pe (physical exam)
+                    <span className="font-medium">Status:</span> {visitNotes.status} •
+                    <span className="font-medium ml-2">Entries:</span> {visitNotes.entries.length}
                   </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 bg-gray-50 dark:bg-gray-800">
                   <div className="max-w-4xl mx-auto space-y-6">
-                    {/* Clinical Sections */}
-                    <ClinicalSections 
-                      patientId={params.id as string} 
-                      visitId={currentNote.id}
-                      isEditable={currentNote.status !== 'signed'}
-                    />
-                    
-                    {/* SOAP Note Template */}
-                    {(['subjective', 'objective', 'assessment', 'plan'] as const).map(section => (
-                      <div key={section} className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 capitalize">
-                          {section === 'subjective' && 'Subjective (S)'}
-                          {section === 'objective' && 'Objective (O)'}
-                          {section === 'assessment' && 'Assessment (A)'}
-                          {section === 'plan' && 'Plan (P)'}
-                        </h3>
-                        <textarea
-                          value={currentNote.content[section]}
-                          onChange={(e) => handleContentChange(section, e.target.value)}
-                          className="w-full h-32 p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
-                          placeholder={`Enter ${section} information...`}
-                          disabled={currentNote.status === 'signed'}
-                        />
-                      </div>
-                    ))}
+                    {(['subjective', 'objective', 'assessment', 'plan'] as Section[]).map(section => {
+                      const entries = getEntriesForSection(section)
+                      return (
+                        <div key={section} className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white capitalize">
+                              {section === 'subjective' && 'Subjective (S)'}
+                              {section === 'objective' && 'Objective (O)'}
+                              {section === 'assessment' && 'Assessment (A)'}
+                              {section === 'plan' && 'Plan (P)'}
+                            </h3>
+                            {visitNotes.status === 'draft' && (
+                              <button
+                                onClick={() => isRecording && currentSection === section
+                                  ? handleStopDictation()
+                                  : handleStartDictation(section)}
+                                disabled={isRecording && currentSection !== section}
+                                className={`p-2 rounded-lg transition-colors ${isRecording && currentSection === section
+                                  ? 'bg-red-100 text-red-600 dark:bg-red-900/20 animate-pulse'
+                                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                  }`}
+                                title={isRecording && currentSection === section ? 'Stop Dictation' : 'Start Dictation'}
+                              >
+                                <span className="material-symbols-outlined">
+                                  {isRecording && currentSection === section ? 'mic' : 'mic_none'}
+                                </span>
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Append-only entries display */}
+                          <div className="space-y-2 mb-4">
+                            {entries.map(entry => (
+                              <div
+                                key={entry.id}
+                                className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border-l-4 border-primary"
+                              >
+                                <div className="flex items-start justify-between mb-1">
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    {formatTimestamp(entry.timestamp)}
+                                  </span>
+                                  <span className={`text-xs px-2 py-0.5 rounded ${entry.source === 'dictation'
+                                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/20'
+                                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700'
+                                    }`}>
+                                    {entry.source}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-900 dark:text-white whitespace-pre-wrap">
+                                  {entry.content}
+                                </p>
+                              </div>
+                            ))}
+                            {entries.length === 0 && (
+                              <p className="text-sm text-gray-400 italic">No entries yet</p>
+                            )}
+                          </div>
+
+                          {/* Add new entry input */}
+                          {visitNotes.status === 'draft' && (
+                            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                              <textarea
+                                ref={newEntryRefs[section]}
+                                placeholder={`Add ${section} entry...`}
+                                className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
+                                rows={3}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                                    e.preventDefault()
+                                    const content = newEntryRefs[section].current?.value || ''
+                                    if (content.trim()) {
+                                      handleAppendEntry(section, content, 'manual')
+                                    }
+                                  }
+                                }}
+                              />
+                              <div className="flex items-center justify-between mt-2">
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  Press Cmd/Ctrl + Enter to add entry
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    const content = newEntryRefs[section].current?.value || ''
+                                    if (content.trim()) {
+                                      handleAppendEntry(section, content, 'manual')
+                                    }
+                                  }}
+                                  disabled={saving}
+                                  className="px-3 py-1 bg-primary text-white text-sm rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+                                >
+                                  Add Entry
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               </>
@@ -463,8 +445,8 @@ export default function PatientNotesPage() {
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
                   <span className="material-symbols-outlined text-6xl text-gray-400 mb-4">note_add</span>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Note Selected</h3>
-                  <p className="text-gray-500 dark:text-gray-400">Select a note from the sidebar or create a new one</p>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Visit Selected</h3>
+                  <p className="text-gray-500 dark:text-gray-400">Select a visit from the sidebar or create a new one</p>
                 </div>
               </div>
             )}
@@ -488,8 +470,9 @@ export default function PatientNotesPage() {
                 Cancel
               </button>
               <button
-                onClick={signNote}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                onClick={handleSignNote}
+                disabled={saving}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
               >
                 Sign Note
               </button>

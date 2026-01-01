@@ -1,7 +1,6 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useState } from 'react'
 import NurseSidebar from '@/components/NurseSidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
@@ -12,38 +11,12 @@ export default function PatientVitalsPage() {
   const router = useRouter()
   const patientId = params.id as string
   const patient = PatientDataManager.getPatient(patientId)
-  const [vitalsHistory, setVitalsHistory] = useState<any[]>(
-    () => PatientDataManager.getPatientSectionList(patientId, 'vitals')
-  )
+  const vitalsHistory = PatientDataManager.getPatientSectionList(patientId, 'vitals')
   const latestVitals = vitalsHistory[0]
   const bpValue = latestVitals?.bp || '--'
   const hrValue = latestVitals?.hr || '--'
   const tempValue = latestVitals?.temp || '--'
   const weightValue = latestVitals?.weight || '--'
-  const [vitals, setVitals] = useState({
-    systolic: '',
-    diastolic: '',
-    heartRate: '',
-    spo2: '',
-    notes: ''
-  })
-
-  const handleSaveVitals = () => {
-    if (vitals.systolic && vitals.diastolic && vitals.heartRate) {
-      const entry = {
-        id: Date.now().toString(),
-        recordedAt: new Date().toISOString(),
-        bp: `${vitals.systolic}/${vitals.diastolic}`,
-        hr: vitals.heartRate,
-        spo2: vitals.spo2,
-        notes: vitals.notes
-      }
-      const nextVitals = [entry, ...vitalsHistory]
-      PatientDataManager.savePatientSectionList(patientId, 'vitals', nextVitals)
-      setVitalsHistory(nextVitals)
-      setVitals({ systolic: '', diastolic: '', heartRate: '', spo2: '', notes: '' })
-    }
-  }
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -250,62 +223,32 @@ export default function PatientVitalsPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="flex flex-col gap-1">
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-400">Systolic</label>
-                        <input
-                          value={vitals.systolic}
-                          onChange={(e) => setVitals({ ...vitals, systolic: e.target.value })}
-                          className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary text-gray-900 dark:text-white"
-                          placeholder="120"
-                          type="number"
-                        />
+                        <input className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary text-gray-900 dark:text-white" placeholder="120" type="number"/>
                       </div>
                       <div className="flex flex-col gap-1">
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-400">Diastolic</label>
-                        <input
-                          value={vitals.diastolic}
-                          onChange={(e) => setVitals({ ...vitals, diastolic: e.target.value })}
-                          className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary text-gray-900 dark:text-white"
-                          placeholder="80"
-                          type="number"
-                        />
+                        <input className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary text-gray-900 dark:text-white" placeholder="80" type="number"/>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="flex flex-col gap-1">
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-400">Heart Rate</label>
                         <div className="relative">
-                          <input
-                            value={vitals.heartRate}
-                            onChange={(e) => setVitals({ ...vitals, heartRate: e.target.value })}
-                            className="w-full rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary pr-8 text-gray-900 dark:text-white"
-                            placeholder="72"
-                            type="number"
-                          />
+                          <input className="w-full rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary pr-8 text-gray-900 dark:text-white" placeholder="72" type="number"/>
                           <span className="absolute right-2 top-2 text-[10px] text-gray-400 dark:text-gray-500">bpm</span>
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-400">SpO₂</label>
                         <div className="relative">
-                          <input
-                            value={vitals.spo2}
-                            onChange={(e) => setVitals({ ...vitals, spo2: e.target.value })}
-                            className="w-full rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary pr-6 text-gray-900 dark:text-white"
-                            placeholder="98"
-                            type="number"
-                          />
+                          <input className="w-full rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary pr-6 text-gray-900 dark:text-white" placeholder="98" type="number"/>
                           <span className="absolute right-2 top-2 text-[10px] text-gray-400 dark:text-gray-500">%</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex flex-col gap-1">
                       <label className="text-xs font-semibold text-gray-600 dark:text-gray-400">Quick Note</label>
-                      <textarea
-                        value={vitals.notes}
-                        onChange={(e) => setVitals({ ...vitals, notes: e.target.value })}
-                        className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary resize-none text-gray-900 dark:text-white"
-                        placeholder="e.g. Patient anxious..."
-                        rows={2}
-                      ></textarea>
+                      <textarea className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary resize-none text-gray-900 dark:text-white" placeholder="e.g. Patient anxious..." rows={2}></textarea>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-[10px] font-medium text-gray-600 dark:text-gray-400 transition">Post-exercise</button>
@@ -313,10 +256,7 @@ export default function PatientVitalsPage() {
                       <button className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-[10px] font-medium text-gray-600 dark:text-gray-400 transition">Lying</button>
                     </div>
                     <div className="mt-auto pt-4">
-                      <button
-                        onClick={handleSaveVitals}
-                        className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
-                      >
+                      <button className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2">
                         <span className="material-symbols-outlined text-sm">save</span>
                         Save Vitals
                       </button>

@@ -1,14 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PatientDataManager } from '@/utils/PatientDataManager'
 
 interface VisitHistoryProps {
   patientId: string
 }
 
-const VisitHistory = ({ patientId }: VisitHistoryProps) => {
+const VisitHistory = ({ patientId, visits: initialVisits }: VisitHistoryProps & { visits?: any[] }) => {
   const [selectedVisit, setSelectedVisit] = useState<string | null>(null)
+  const [visits, setVisits] = useState<any[]>(initialVisits || [])
+  const [loading, setLoading] = useState(!initialVisits)
 
   const formatDate = (timestamp?: string) => {
     if (!timestamp) return 'Not recorded'
@@ -24,23 +26,44 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
-  const rawVisits = PatientDataManager.getPatientSectionList(patientId, 'visits')
-  const visits = rawVisits.map((visit: any) => ({
+  // If not provided, we will fetch visits from the patient endpoint when mounted
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      if (initialVisits) return
+      setLoading(true)
+      try {
+        const res = await fetch(`/api/patients/${patientId}`)
+        if (!res.ok) throw new Error('Failed to load visits')
+        const json = await res.json()
+        if (!cancelled) setVisits(json.visits || [])
+      } catch (err) {
+        console.warn('Failed to load visits for patient', err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [patientId, initialVisits])
+
+  const normalizedVisits = visits.map((visit: any) => ({
     id: visit.id,
-    date: formatDate(visit.recordedAt),
-    time: formatTime(visit.recordedAt),
+    date: formatDate(visit.created_at || visit.start_at || visit.recordedAt),
+    time: formatTime(visit.start_at || visit.recordedAt),
     type: visit.type || 'Visit',
-    provider: visit.providerName || 'Unknown provider',
-    chiefComplaint: visit.subjective?.chiefComplaint || 'No chief complaint recorded',
+    provider: visit.clinician_name || visit.providerName || 'Unknown provider',
+    chiefComplaint: visit.notes?.[0]?.note || visit.chief_complaint || 'No chief complaint recorded',
     hpi: visit.subjective?.hpi || 'No HPI recorded',
-    assessmentPlan: visit.assessmentPlan?.assessment || visit.assessmentPlan?.plan || 'No assessment recorded',
+    assessmentPlan: visit.assessment_plan || visit.assessmentPlan?.plan || 'No assessment recorded',
     vitals: visit.objective || {},
     signature: {
       signedBy: visit.signedBy || 'Unsigned',
       signedDate: visit.signedAt || '',
       status: visit.status || 'Draft',
       cosignRequired: false
-    }
+    },
+    raw: visit
   }))
 
   const selectedVisitData = visits.find(v => v.id === selectedVisit)

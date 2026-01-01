@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import NurseSidebar from '@/components/NurseSidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
@@ -11,64 +10,6 @@ export default function PatientVaccinesPage() {
   const params = useParams()
   const patientId = params.id as string
   const patient = PatientDataManager.getPatient(patientId)
-  const [vaccines, setVaccines] = useState<any[]>([])
-  const draftKey = 'vaccines-form'
-  const [formData, setFormData] = useState({
-    name: '',
-    date: '',
-    dose: '',
-    site: '',
-    route: '',
-    lotNumber: '',
-    manufacturer: ''
-  })
-
-  useEffect(() => {
-    const saved = PatientDataManager.getPatientSectionList(patientId, 'vaccines')
-    setVaccines(saved)
-  }, [patientId])
-
-  useEffect(() => {
-    const draft = PatientDataManager.getDraft(patientId, draftKey)
-    if (draft?.data) {
-      setFormData((prev) => ({ ...prev, ...draft.data }))
-    }
-  }, [patientId])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      PatientDataManager.saveDraft(patientId, draftKey, formData)
-    }, 400)
-    return () => clearTimeout(timeout)
-  }, [patientId, formData])
-
-  const handleSaveVaccine = () => {
-    if (!formData.name.trim()) return
-    const entry = {
-      id: Date.now().toString(),
-      ...formData,
-      recordedAt: new Date().toISOString()
-    }
-    const nextVaccines = [entry, ...vaccines]
-    setVaccines(nextVaccines)
-    PatientDataManager.savePatientSectionList(patientId, 'vaccines', nextVaccines)
-    setFormData({
-      name: '',
-      date: '',
-      dose: '',
-      site: '',
-      route: '',
-      lotNumber: '',
-      manufacturer: ''
-    })
-    PatientDataManager.clearDraft(patientId, draftKey)
-  }
-
-  const handleRemoveVaccine = (id: string) => {
-    const nextVaccines = vaccines.filter((item) => item.id !== id)
-    setVaccines(nextVaccines)
-    PatientDataManager.savePatientSectionList(patientId, 'vaccines', nextVaccines)
-  }
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -236,34 +177,97 @@ export default function PatientVaccinesPage() {
                   </div>
                   <div className="p-0">
                     <div className="divide-y divide-gray-50 dark:divide-gray-800">
-                      {vaccines.length === 0 ? (
-                        <div className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">
-                          No vaccine records yet.
-                        </div>
-                      ) : (
-                        vaccines.map((vaccine) => (
-                          <div key={vaccine.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                            <div className="flex items-center gap-3 w-1/3">
-                              <span className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg material-symbols-outlined text-sm">vaccines</span>
-                              <div>
-                                <p className="text-sm font-bold text-gray-900 dark:text-white">{vaccine.name || 'Vaccine'}</p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">{vaccine.manufacturer || 'Manufacturer not recorded'}</p>
-                              </div>
-                            </div>
-                            <div className="flex-1 px-4">
-                              <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
-                                <div className="bg-green-500 h-2 rounded-full" style={{width: '100%'}}></div>
-                              </div>
-                              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 text-right">
-                                {vaccine.date ? `Date: ${vaccine.date}` : 'Date not recorded'}
-                              </p>
-                            </div>
-                            <div className="w-24 text-right">
-                              <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">Recorded</span>
-                            </div>
+                      <div className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <div className="flex items-center gap-3 w-1/3">
+                          <span className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg material-symbols-outlined text-sm">coronavirus</span>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">COVID-19</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Annual Updated Formula</p>
                           </div>
-                        ))
-                      )}
+                        </div>
+                        <div className="flex-1 px-4">
+                          <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
+                            <div className="bg-green-500 h-2 rounded-full" style={{width: '100%'}}></div>
+                          </div>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 text-right">Last: Nov 2023</p>
+                        </div>
+                        <div className="w-24 text-right">
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">Up to date</span>
+                        </div>
+                      </div>
+
+                      <div className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-l-4 border-l-amber-400 bg-amber-50/10 dark:bg-amber-900/10">
+                        <div className="flex items-center gap-3 w-1/3">
+                          <span className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg material-symbols-outlined text-sm">ac_unit</span>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">Influenza</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Seasonal</p>
+                          </div>
+                        </div>
+                        <div className="flex-1 px-4">
+                          <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2 relative">
+                            <div className="absolute -top-1 right-0 text-amber-500 material-symbols-outlined text-sm bg-white dark:bg-gray-800 rounded-full shadow-sm">warning</div>
+                          </div>
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 font-semibold text-right">Due Now</p>
+                        </div>
+                        <div className="w-24 text-right">
+                          <button className="inline-flex items-center px-2 py-1 rounded text-xs font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50">Administer</button>
+                        </div>
+                      </div>
+
+                      <div className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors border-l-4 border-l-red-400 bg-red-50/10 dark:bg-red-900/10">
+                        <div className="flex items-center gap-3 w-1/3">
+                          <span className="p-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg material-symbols-outlined text-sm">vaccines</span>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">Tdap / Td</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Every 10 years</p>
+                          </div>
+                        </div>
+                        <div className="flex-1 px-4">
+                          <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2"></div>
+                          <p className="text-[10px] text-red-500 dark:text-red-400 mt-1 font-semibold text-right">Overdue (+4mo)</p>
+                        </div>
+                        <div className="w-24 text-right">
+                          <button className="inline-flex items-center px-2 py-1 rounded text-xs font-bold bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50">Administer</button>
+                        </div>
+                      </div>
+
+                      <div className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <div className="flex items-center gap-3 w-1/3">
+                          <span className="p-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg material-symbols-outlined text-sm">bloodtype</span>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">Hepatitis B</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">3-dose series</p>
+                          </div>
+                        </div>
+                        <div className="flex-1 px-4">
+                          <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
+                            <div className="bg-gray-300 dark:bg-gray-600 h-2 rounded-full" style={{width: '0%'}}></div>
+                          </div>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 text-right">No Record</p>
+                        </div>
+                        <div className="w-24 text-right">
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700">Missing</span>
+                        </div>
+                      </div>
+
+                      <div className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <div className="flex items-center gap-3 w-1/3">
+                          <span className="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg material-symbols-outlined text-sm">child_care</span>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">MMR</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Measles, Mumps, Rubella</p>
+                          </div>
+                        </div>
+                        <div className="flex-1 px-4">
+                          <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
+                            <div className="bg-green-500 h-2 rounded-full" style={{width: '100%'}}></div>
+                          </div>
+                        </div>
+                        <div className="w-24 text-right">
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">Completed</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -283,48 +287,21 @@ export default function PatientVaccinesPage() {
                       <label className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Vaccine</label>
                       <div className="relative">
                         <span className="material-symbols-outlined absolute left-3 top-2.5 text-gray-400 dark:text-gray-500 text-[18px]">search</span>
-                        <input
-                          value={formData.name}
-                          onChange={(event) => setFormData({ ...formData, name: event.target.value })}
-                          className="w-full pl-9 rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2.5 font-medium text-gray-900 dark:text-white"
-                          placeholder="Search vaccine (e.g. Tdap)"
-                          type="text"
-                        />
+                        <input className="w-full pl-9 rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2.5 font-medium text-gray-900 dark:text-white" placeholder="Search vaccine (e.g. Tdap)" type="text"/>
                       </div>
                       <div className="flex gap-2 mt-1">
-                        <button
-                          type="button"
-                          onClick={() => setFormData({ ...formData, name: 'Tdap' })}
-                          className="px-2 py-1 border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[10px] font-bold rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 transition"
-                        >
-                          Tdap
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setFormData({ ...formData, name: 'Flu (Egg-Free)' })}
-                          className="px-2 py-1 border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition"
-                        >
-                          Flu (Egg-Free)
-                        </button>
+                        <button className="px-2 py-1 border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[10px] font-bold rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 transition">Tdap</button>
+                        <button className="px-2 py-1 border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition">Flu (Egg-Free)</button>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Date</label>
-                        <input
-                          value={formData.date}
-                          onChange={(event) => setFormData({ ...formData, date: event.target.value })}
-                          className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2 text-gray-900 dark:text-white"
-                          type="date"
-                        />
+                        <input className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2 text-gray-900 dark:text-white" type="date" defaultValue="2024-05-12"/>
                       </div>
                       <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Dose #</label>
-                        <select
-                          value={formData.dose}
-                          onChange={(event) => setFormData({ ...formData, dose: event.target.value })}
-                          className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2 text-gray-900 dark:text-white"
-                        >
+                        <select className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2 text-gray-900 dark:text-white">
                           <option>Booster</option>
                           <option>Dose 1</option>
                           <option>Dose 2</option>
@@ -335,11 +312,7 @@ export default function PatientVaccinesPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Site</label>
-                        <select
-                          value={formData.site}
-                          onChange={(event) => setFormData({ ...formData, site: event.target.value })}
-                          className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2 text-gray-900 dark:text-white"
-                        >
+                        <select className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2 text-gray-900 dark:text-white">
                           <option>Left Deltoid</option>
                           <option>Right Deltoid</option>
                           <option>Left Vastus Lateralis</option>
@@ -348,11 +321,7 @@ export default function PatientVaccinesPage() {
                       </div>
                       <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Route</label>
-                        <select
-                          value={formData.route}
-                          onChange={(event) => setFormData({ ...formData, route: event.target.value })}
-                          className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2 text-gray-900 dark:text-white"
-                        >
+                        <select className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2 text-gray-900 dark:text-white">
                           <option>Intramuscular (IM)</option>
                           <option>Subcutaneous (SC)</option>
                           <option>Intranasal</option>
@@ -364,22 +333,12 @@ export default function PatientVaccinesPage() {
                         Lot Number
                         <span className="text-primary cursor-pointer flex items-center gap-1 text-[10px] font-normal"><span className="material-symbols-outlined text-[12px]">qr_code_scanner</span> Scan</span>
                       </label>
-                      <input
-                        value={formData.lotNumber}
-                        onChange={(event) => setFormData({ ...formData, lotNumber: event.target.value })}
-                        className="w-full rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2 text-gray-900 dark:text-white"
-                        placeholder="Lot #"
-                        type="text"
-                      />
+                      <input className="w-full rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2 text-gray-900 dark:text-white" placeholder="Lot #" type="text"/>
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Manufacturer</label>
-                      <select
-                        value={formData.manufacturer}
-                        onChange={(event) => setFormData({ ...formData, manufacturer: event.target.value })}
-                        className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2 text-gray-900 dark:text-white"
-                      >
-                        <option value="">Select Manufacturer</option>
+                      <select className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2 text-gray-900 dark:text-white">
+                        <option disabled selected>Select Manufacturer</option>
                         <option>GSK</option>
                         <option>Sanofi Pasteur</option>
                         <option>Merck</option>
@@ -388,10 +347,7 @@ export default function PatientVaccinesPage() {
                       </select>
                     </div>
                     <div className="mt-auto pt-4">
-                      <button
-                        onClick={handleSaveVaccine}
-                        className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
-                      >
+                      <button className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2">
                         <span className="material-symbols-outlined text-sm">save</span>
                         Save & Update Schedule
                       </button>
@@ -406,9 +362,7 @@ export default function PatientVaccinesPage() {
                 <div className="flex items-center gap-4">
                   <h3 className="font-bold text-gray-900 dark:text-white">Immunization History</h3>
                   <div className="flex gap-2">
-                    <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                      All ({vaccines.length})
-                    </span>
+                    <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">All (24)</span>
                     <span className="px-2 py-1 rounded text-xs font-medium text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">Refusals (0)</span>
                   </div>
                 </div>
@@ -440,67 +394,48 @@ export default function PatientVaccinesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800 text-sm text-gray-700 dark:text-gray-300">
-                    {vaccines.length === 0 ? (
-                      <tr>
-                        <td className="px-6 py-8 text-center text-gray-500 dark:text-gray-400" colSpan={8}>
-                          No immunization records yet.
-                        </td>
-                      </tr>
-                    ) : (
-                      vaccines.map((vaccine) => (
-                        <tr key={vaccine.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="font-bold text-gray-900 dark:text-white">{vaccine.name || 'Vaccine'}</div>
-                            <div className="text-xs text-gray-400 dark:text-gray-500">{vaccine.manufacturer || 'Manufacturer not recorded'}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-gray-900 dark:text-white">{vaccine.date || 'Not recorded'}</span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                              {vaccine.dose || 'Not recorded'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-gray-900 dark:text-white">{vaccine.site || 'Not recorded'}</div>
-                            <div className="text-xs text-gray-400 dark:text-gray-500">{vaccine.route || 'Not recorded'}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="font-mono text-xs text-gray-600 dark:text-gray-400">{vaccine.lotNumber || 'N/A'}</div>
-                            <div className="text-[10px] text-gray-400 dark:text-gray-500">{vaccine.manufacturer || 'N/A'}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-1.5">
-                              <span className="material-symbols-outlined text-sm text-primary">medical_services</span>
-                              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Visit Intake</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <div className="bg-primary/10 text-primary rounded-full size-6 flex items-center justify-center text-[10px] font-bold">
-                                {(patient?.name || 'P').slice(0, 1).toUpperCase()}
-                              </div>
-                              <span className="text-xs font-medium">{patient?.physician || 'Staff'}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <button
-                              onClick={() => handleRemoveVaccine(vaccine.id)}
-                              className="text-gray-400 dark:text-gray-500 hover:text-red-500 transition p-1"
-                            >
-                              <span className="material-symbols-outlined text-[18px]">delete</span>
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
+                    <tr className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-bold text-gray-900 dark:text-white">COVID-19 (Pfizer)</div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500">Comirnaty 2023-2024 Formula</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-gray-900 dark:text-white">Nov 12, 2023</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">Booster</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-gray-900 dark:text-white">Left Deltoid</div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500">Intramuscular (IM)</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-mono text-xs text-gray-600 dark:text-gray-400">GH12345</div>
+                        <div className="text-[10px] text-gray-400 dark:text-gray-500">Pfizer</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-sm text-primary">medical_services</span>
+                          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">MedCore Clinic</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div className="bg-primary/10 text-primary rounded-full size-6 flex items-center justify-center text-[10px] font-bold">JD</div>
+                          <span className="text-xs font-medium">Dr. J. Doe</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button className="text-gray-400 dark:text-gray-500 hover:text-primary transition p-1">
+                          <span className="material-symbols-outlined text-[18px]">edit</span>
+                        </button>
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
               <div className="p-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  Showing {vaccines.length} record{vaccines.length !== 1 ? 's' : ''}
-                </span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Showing 3 of 24 records</span>
                 <div className="flex gap-2">
                   <button className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400 disabled:opacity-50">Previous</button>
                   <button className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400">Next</button>

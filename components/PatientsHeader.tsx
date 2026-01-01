@@ -17,9 +17,9 @@ const PatientsHeader = () => {
           />
         </div>
         
-        <button className="bg-[#0f172a] hover:bg-slate-800 text-white px-6 py-3 rounded-full flex items-center shadow-lg transition-transform transform hover:scale-105">
-          <span className="material-icons-outlined text-sm mr-2">add</span>
-          <span className="text-sm font-medium">Add Patients</span>
+        <button className="bg-[#0f172a] hover:bg-slate-800 text-white px-3 py-2 sm:px-6 sm:py-3 rounded-full inline-flex items-center sm:gap-2 shadow-lg transition-transform transform hover:scale-105">
+          <span className="material-icons-outlined text-sm hidden sm:inline-flex">add</span>
+          <span className="text-sm font-medium">Add Patient</span>
         </button>
       </div>
     </header>
