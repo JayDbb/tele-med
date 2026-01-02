@@ -1,10 +1,19 @@
-const CACHE_NAME = 'telemed-shell-v2'
+const CACHE_NAME = 'telemed-shell-v1'
 const OFFLINE_URL = '/offline.html'
 
 const PRECACHE_URLS = [
   '/',
   OFFLINE_URL,
-  '/manifest.json'
+  '/manifest.json',
+  '/login',
+  '/doctor',
+  '/doctor/dashboard',
+  '/patients',
+  '/doctor/calendar',
+  '/doctor/inbox',
+  '/nurse-portal',
+  '/nurse-portal/schedule',
+  '/nurse-portal/messages'
 ]
 
 self.addEventListener('install', (event) => {

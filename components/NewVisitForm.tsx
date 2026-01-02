@@ -13,6 +13,8 @@ import { uploadToPrivateBucket } from '@/lib/storage'
 import { useDoctor } from '@/contexts/DoctorContext'
 import { useNurse } from '@/contexts/NurseContext'
 import { usePatientRoutes } from '@/lib/usePatientRoutes'
+import { useAutosave } from '@/hooks/useAutosave'
+import AssignPatientModal from './AssignPatientModal'
 
 interface NewVisitFormProps {
   patientId: string
@@ -32,6 +34,8 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
   const [recording, setRecording] = useState(false)
   const [transcribing, setTranscribing] = useState(false)
   const [transcription, setTranscription] = useState<any>(null)
+  const [assignModalOpen, setAssignModalOpen] = useState(false)
+  const [showAssignPrompt, setShowAssignPrompt] = useState(false)
 
   const recorder = useAudioRecorder()
 
@@ -50,7 +54,8 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
     assessmentPlan: {
       assessment: '',
       plan: ''
-    }
+    },
+    additionalNotes: ''
   })
 
   useEffect(() => {
@@ -77,10 +82,55 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
     }
   }
 
+  // Autosave form data
+  const { clearDraft } = useAutosave(
+    'new-visit-form',
+    { visitData },
+    patientId,
+    {
+      enabled: true,
+      onRestore: (data) => {
+        if (data.visitData) {
+          setVisitData(data.visitData)
+        }
+      }
+    }
+  )
+
   // Sync recording state with recorder
   useEffect(() => {
     setRecording(recorder.isRecording)
   }, [recorder.isRecording])
+
+  // Helper function to format allergies from various formats (string, array, JSON string)
+  const formatAllergies = (allergies: any): string => {
+    if (!allergies) return 'None'
+
+    // If it's already a string and not a JSON array, return it
+    if (typeof allergies === 'string') {
+      // Check if it's a JSON array string
+      if (allergies.trim().startsWith('[')) {
+        try {
+          const parsed = JSON.parse(allergies)
+          if (Array.isArray(parsed)) {
+            return parsed.map((a: any) => a.name || a).filter(Boolean).join(', ') || 'None'
+          }
+        } catch {
+          // If parsing fails, return as is
+          return allergies || 'None'
+        }
+      }
+      return allergies || 'None'
+    }
+
+    // If it's an array
+    if (Array.isArray(allergies)) {
+      if (allergies.length === 0) return 'None'
+      return allergies.map((a: any) => a.name || a).filter(Boolean).join(', ')
+    }
+
+    return 'None'
+  }
 
   const handleStartRecording = async () => {
     setError(null)
@@ -140,31 +190,37 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
         const transcriptionResult = await transcribeVisitAudio(upload.path, visitId)
         setTranscription(transcriptionResult)
 
-        // Save the full transcript to visit notes as subjective (dictation source)
-        if (transcriptionResult.transcript) {
-          try {
-            await appendVisitNote(
-              visitId,
-              transcriptionResult.transcript,
-              "subjective",
-              "dictation"
-            )
-          } catch (noteError) {
-            console.warn("Failed to save transcript to notes:", noteError)
-          }
+        // Populate additional notes with the summary from dictation
+        if (transcriptionResult.summary) {
+          setVisitData(prev => ({
+            ...prev,
+            additionalNotes: transcriptionResult.summary
+          }))
         }
 
-        // Save the AI-generated summary to visit notes as assessment
-        if (transcriptionResult.summary) {
+        // Save structured data as a single entry instead of multiple individual entries
+        if (transcriptionResult.structured) {
           try {
+            // Create a structured note entry with all the parsed data
+            const structuredNote = {
+              past_medical_history: transcriptionResult.structured.past_medical_history || [],
+              current_symptoms: transcriptionResult.structured.current_symptoms || [],
+              physical_exam_findings: transcriptionResult.structured.physical_exam_findings || {},
+              diagnosis: transcriptionResult.structured.diagnosis || '',
+              treatment_plan: transcriptionResult.structured.treatment_plan || [],
+              prescriptions: transcriptionResult.structured.prescriptions || [],
+              summary: transcriptionResult.summary || ''
+            }
+
+            // Save as a single structured entry in assessment section
             await appendVisitNote(
               visitId,
-              transcriptionResult.summary,
+              JSON.stringify(structuredNote, null, 2),
               "assessment",
               "dictation"
             )
           } catch (noteError) {
-            console.warn("Failed to save summary to notes:", noteError)
+            console.warn("Failed to save structured data to notes:", noteError)
           }
         }
 
@@ -183,19 +239,7 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
               subjective: { ...prev.subjective, chiefComplaint: symptomsText || prev.subjective.chiefComplaint }
             }))
 
-            // Save symptoms to notes as subjective
-            if (symptomsText) {
-              try {
-                await appendVisitNote(
-                  visitId,
-                  `Chief Complaint: ${symptomsText}`,
-                  "subjective",
-                  "dictation"
-                )
-              } catch (noteError) {
-                console.warn("Failed to save symptoms to notes:", noteError)
-              }
-            }
+            // Symptoms are already saved in structured data, no need to save separately
           }
 
           // Extract and parse vitals from physical_exam_findings
@@ -388,26 +432,7 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
                 }
               }));
 
-              // Save vitals separately to notes
-              const vitalsText = [
-                bpValue && `Blood Pressure: ${bpValue}`,
-                hrValue && `Heart Rate: ${hrValue} bpm`,
-                tempValue && `Temperature: ${tempValue}°F`,
-                weightValue && `Weight: ${weightValue} lbs`
-              ].filter(Boolean).join('\n');
-
-              if (vitalsText) {
-                try {
-                  await appendVisitNote(
-                    visitId,
-                    `Vital Signs:\n${vitalsText}`,
-                    "objective",
-                    "dictation"
-                  )
-                } catch (noteError) {
-                  console.warn("Failed to save vitals to notes:", noteError)
-                }
-              }
+              // Vitals are already saved in structured data, no need to save separately
             }
 
             // Build physical exam text excluding vitals (already in separate fields)
@@ -550,19 +575,7 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
               objective: { ...prev.objective, examFindings: examFindings || prev.objective.examFindings }
             }))
 
-            // Save physical exam findings to notes as objective (excluding vitals)
-            if (examFindings) {
-              try {
-                await appendVisitNote(
-                  visitId,
-                  `Physical Examination: ${examFindings}`,
-                  "objective",
-                  "dictation"
-                )
-              } catch (noteError) {
-                console.warn("Failed to save physical exam to notes:", noteError)
-              }
-            }
+            // Physical exam findings are already saved in structured data, no need to save separately
           }
 
           if (structured.past_medical_history && Array.isArray(structured.past_medical_history) && structured.past_medical_history.length > 0) {
@@ -572,17 +585,7 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
               subjective: { ...prev.subjective, hpi: historyText || prev.subjective.hpi }
             }))
 
-            // Save past medical history to notes as subjective
-            try {
-              await appendVisitNote(
-                visitId,
-                `Past Medical History: ${historyText}`,
-                "subjective",
-                "dictation"
-              )
-            } catch (noteError) {
-              console.warn("Failed to save medical history to notes:", noteError)
-            }
+            // Past medical history is already saved in structured data, no need to save separately
           }
 
           if (structured.diagnosis) {
@@ -594,19 +597,7 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
               assessmentPlan: { ...prev.assessmentPlan, assessment: diagnosis || prev.assessmentPlan.assessment }
             }))
 
-            // Save diagnosis to notes as assessment
-            if (diagnosis) {
-              try {
-                await appendVisitNote(
-                  visitId,
-                  `Diagnosis: ${diagnosis}`,
-                  "assessment",
-                  "dictation"
-                )
-              } catch (noteError) {
-                console.warn("Failed to save diagnosis to notes:", noteError)
-              }
-            }
+            // Diagnosis is already saved in structured data, no need to save separately
           }
 
           if (structured.treatment_plan && Array.isArray(structured.treatment_plan) && structured.treatment_plan.length > 0) {
@@ -616,45 +607,10 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
               assessmentPlan: { ...prev.assessmentPlan, plan: planText || prev.assessmentPlan.plan }
             }))
 
-            // Save treatment plan to notes as plan
-            try {
-              await appendVisitNote(
-                visitId,
-                `Treatment Plan: ${planText}`,
-                "plan",
-                "dictation"
-              )
-            } catch (noteError) {
-              console.warn("Failed to save treatment plan to notes:", noteError)
-            }
+            // Treatment plan is already saved in structured data, no need to save separately
           }
 
-          // Save prescriptions if available
-          if (structured.prescriptions && Array.isArray(structured.prescriptions) && structured.prescriptions.length > 0) {
-            const prescriptionsText = structured.prescriptions
-              .map((p: any) => {
-                const parts = []
-                if (p.medication) parts.push(p.medication)
-                if (p.dosage) parts.push(`Dosage: ${p.dosage}`)
-                if (p.frequency) parts.push(`Frequency: ${p.frequency}`)
-                if (p.duration) parts.push(`Duration: ${p.duration}`)
-                return parts.join(', ')
-              })
-              .join('\n')
-
-            if (prescriptionsText) {
-              try {
-                await appendVisitNote(
-                  visitId,
-                  `Prescriptions: ${prescriptionsText}`,
-                  "plan",
-                  "dictation"
-                )
-              } catch (noteError) {
-                console.warn("Failed to save prescriptions to notes:", noteError)
-              }
-            }
-          }
+          // Prescriptions are already saved in structured data, no need to save separately
         }
       } catch (transcribeError: any) {
         console.error('Transcription error:', transcribeError)
@@ -743,8 +699,21 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
         )
       }
 
-      // Navigate back to patient page
-      router.push(getPatientUrl(patientId))
+      // Save additional notes if present
+      if (visitData.additionalNotes.trim()) {
+        await appendVisitNote(
+          visitId,
+          visitData.additionalNotes,
+          'subjective',
+          'manual'
+        )
+      }
+
+      // Clear autosave draft after successful save
+      clearDraft()
+
+      // Show prompt to assign patient
+      setShowAssignPrompt(true)
     } catch (err: any) {
       console.error('Error saving visit:', err)
       setError(err?.message || 'Failed to save visit')
@@ -821,7 +790,7 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
                   {patient?.allergies && (
                     <span className="flex items-center gap-1.5 text-red-600 dark:text-red-400 font-medium">
                       <span className="material-symbols-outlined text-sm">warning</span>
-                      Allergies: {typeof patient.allergies === 'string' ? patient.allergies : JSON.stringify(patient.allergies)}
+                      Allergies: {formatAllergies(patient.allergies)}
                     </span>
                   )}
                 </div>
@@ -1090,11 +1059,84 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
                     </div>
                   </div>
                 </section>
+
+                {/* Additional Notes */}
+                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                  <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    Additional Notes
+                    <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Summary & Observations</span>
+                  </h3>
+                  <div>
+                    <textarea
+                      value={visitData.additionalNotes}
+                      onChange={(e) => setVisitData({
+                        ...visitData,
+                        additionalNotes: e.target.value
+                      })}
+                      className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
+                      placeholder="Additional notes, observations, or summary will appear here after dictation..."
+                      rows={6}
+                    />
+                  </div>
+                </section>
               </div>
             </div>
           </div>
         </div>
       </main>
+
+      {/* Assign Patient Prompt Modal */}
+      {showAssignPrompt && (
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-2 rounded-lg">
+                <span className="material-symbols-outlined text-2xl">check_circle</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Visit Saved Successfully!</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Would you like to assign this patient to another doctor or nurse?</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setShowAssignPrompt(false)
+                  router.push(getPatientUrl(patientId))
+                }}
+                className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+              >
+                Not Now
+              </button>
+              <button
+                onClick={() => {
+                  setShowAssignPrompt(false)
+                  setAssignModalOpen(true)
+                }}
+                className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined text-sm">person_add</span>
+                Assign Patient
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AssignPatientModal
+        isOpen={assignModalOpen}
+        onClose={() => {
+          setAssignModalOpen(false)
+          router.push(getPatientUrl(patientId))
+        }}
+        patientId={patientId}
+        patientName={patient?.name}
+        onSuccess={() => {
+          router.push(getPatientUrl(patientId))
+        }}
+      />
     </div>
   )
 }

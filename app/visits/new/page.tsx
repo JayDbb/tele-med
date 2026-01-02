@@ -123,6 +123,7 @@ function NewVisitPageContent() {
     try {
       const transcriptionResult = await transcribeVisitAudio(upload.path, visitId);
       setTranscription(transcriptionResult);
+      console.log("Transcription completed:", transcriptionResult);
       
       // Import appendVisitNote for saving transcription to notes
       const { appendVisitNote } = await import("../../../lib/api");

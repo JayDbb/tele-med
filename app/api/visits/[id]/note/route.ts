@@ -101,7 +101,10 @@ export async function POST(
   const payload = await req.json();
   const { content, section, source = "manual" } = payload; // source: 'manual' | 'dictation'
 
-  if (!content || typeof content !== "string") {
+  if (
+    !content ||
+    (typeof content !== "string" && typeof content !== "object")
+  ) {
     return NextResponse.json(
       { error: "Missing or invalid content" },
       { status: 400 }
@@ -125,7 +128,7 @@ export async function POST(
   const newEntry = {
     id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
-    content: content.trim(),
+    content: typeof content === "string" ? content.trim() : content,
     section,
     source,
     author_id: userId,
@@ -264,6 +267,46 @@ export async function PUT(
 
   if (dbError)
     return NextResponse.json({ error: dbError.message }, { status: 400 });
+
+  // Log audit trail
+  try {
+    const oldStatus = existingNote?.status || 'none';
+    const changes = {
+      status: {
+        from: oldStatus,
+        to: status
+      }
+    };
+
+    // Get user info for audit log
+    const { data: userData } = await supabase.auth.admin.getUserById(userId);
+    const userName = userData?.user?.user_metadata?.full_name || 
+                     userData?.user?.email?.split("@")[0] || 
+                     "Unknown User";
+
+    // Insert audit log directly
+    const { error: auditError } = await supabase
+      .from("visit_audit_trail")
+      .insert({
+        visit_id: id,
+        patient_id: access.visit?.patient_id,
+        action: status === 'signed' ? 'note_signed' : 'note_status_changed',
+        entity_type: 'note',
+        entity_id: id,
+        user_id: userId,
+        user_name: userName,
+        changes,
+        notes: status === 'signed' ? 'Note signed and finalized' : `Note status changed from ${oldStatus} to ${status}`
+      });
+
+    if (auditError && auditError.code !== '42P01') {
+      // Only log if it's not a "table doesn't exist" error
+      console.warn('Failed to log audit trail:', auditError);
+    }
+  } catch (auditError) {
+    console.warn('Error logging audit trail:', auditError);
+    // Continue even if audit logging fails
+  }
 
   return NextResponse.json(data);
 }

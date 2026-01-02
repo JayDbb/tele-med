@@ -164,6 +164,9 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
     }
     
     PatientDataManager.savePatient(newPatient, isNewPatient ? 'create' : 'update', nurse.id)
+    
+    // Clear draft after successful save
+    PatientDataManager.clearDraft(patientId, draftKey)
 
     const visits = PatientDataManager.getPatientSectionList(newPatientId, 'visits')
     const visitId = Date.now().toString()

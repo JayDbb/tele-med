@@ -22,91 +22,34 @@ async function authFetch(input: string, init?: RequestInit) {
 
 export async function login(email: string, password: string) {
   const supabase = supabaseBrowser();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error(error.message);
-
-  // If we have a session token, set server-side HttpOnly cookie for SSR authentication
-  const token = data?.session?.access_token || null;
-  if (token) {
-    await fetch('/api/auth/set-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token })
-    });
-  }
-
-  return { data, error };
 }
 
-export async function signup(payload: { email: string; password: string; role: 'doctor' | 'nurse' | string; name?: string; specialty?: string; department?: string; }) {
+export async function signup(email: string, password: string) {
   const supabase = supabaseBrowser();
-  const { data, error } = await supabase.auth.signUp({
-    email: payload.email,
-    password: payload.password,
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
   });
-
   if (error) throw new Error(error.message);
-
-  // Try to sign in user immediately to get session (if automatic sign-in is enabled)
-  const { data: sessionData } = await supabase.auth.getSession();
-  let token = sessionData?.session?.access_token || null;
-
-  // If no token, attempt sign-in with password (some Supabase setups require confirmation)
-  if (!token) {
-    const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword({
-      email: payload.email,
-      password: payload.password,
-    }).catch(() => ({ data: null, error: new Error('Sign in after sign up failed') }));
-
-    if (signInError) {
-      // We won't throw here because the user may need to confirm email; return and let client handle next steps
-      return { success: true, message: 'Signup successful; check your email to confirm and then sign in.' };
-    }
-
-    token = signInData?.session?.access_token || null;
-  }
-
-  if (token) {
-    // Update auth user metadata to include role and basic profile
-    try {
-      await supabase.auth.updateUser({ data: { role: payload.role, full_name: payload.name, specialty: payload.specialty, department: payload.department } });
-    } catch (err) {
-      // Non-fatal - continue
-      console.warn('Failed to update auth user metadata:', err);
-    }
-
-    // Set server-side session cookie for SSR
-    await fetch('/api/auth/set-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token })
-    });
-
-    // Create user row by calling server endpoint (cookie will be used for auth)
-    const resp = await fetch('/api/users', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ role: payload.role, name: payload.name, specialty: payload.specialty, department: payload.department }),
-    });
-
-    if (!resp.ok) {
-      const err = await resp.text();
-      throw new Error(err || 'Failed to create user profile');
-    }
-
-    const { user } = await resp.json();
-
-    return { success: true, user };
-  }
-
-  return { success: true, message: 'Signup successful; please verify your email.' };
 }
 
 export async function getPatients(): Promise<Patient[]> {
   const res = await authFetch("/api/patients");
   if (!res.ok) throw new Error("Failed to load patients");
+  return res.json();
+}
+
+export async function checkDuplicatePatient(email?: string | null, phone?: string | null): Promise<{
+  isDuplicate: boolean;
+  patients: Patient[];
+}> {
+  const res = await authFetch("/api/patients/check-duplicate", {
+    method: "POST",
+    body: JSON.stringify({ email, phone }),
+  });
+  if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
@@ -227,6 +170,46 @@ export async function updateVisitNoteStatus(
   return res.json();
 }
 
+export async function getVisitAuditTrail(visitId: string): Promise<Array<{
+  id: string;
+  visit_id: string;
+  patient_id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  user_id: string;
+  user_name: string;
+  changes: any;
+  notes: string | null;
+  created_at: string;
+}>> {
+  const res = await authFetch(`/api/visits/${visitId}/audit`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function logAuditEvent(
+  visitId: string,
+  action: string,
+  entityType: string,
+  changes?: any,
+  notes?: string,
+  entityId?: string
+) {
+  const res = await authFetch(`/api/visits/${visitId}/audit`, {
+    method: "POST",
+    body: JSON.stringify({
+      action,
+      entity_type: entityType,
+      entity_id: entityId || visitId,
+      changes,
+      notes,
+    }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 export async function sharePatient(patientId: string, email: string) {
   const res = await authFetch(`/api/patients/${patientId}/share`, {
     method: "POST",
@@ -284,13 +267,148 @@ export async function createAllergy(
   return res.json();
 }
 
-export async function getCurrentUser() {
-  const res = await fetch('/api/users', { credentials: 'include' });
-  if (!res.ok) {
-    return null;
+export async function getPastMedicalHistory(patientId: string) {
+  const res = await authFetch(
+    `/api/patients/${patientId}/past-medical-history`
+  );
+  if (!res.ok) throw new Error("Failed to load past medical history");
+  return res.json() as Promise<
+    Array<{
+      id: string;
+      condition: string;
+      code?: string;
+      category?: string;
+      status: string;
+      date?: string;
+      impact?: string;
+      source?: string;
+      icon?: string;
+      iconBg?: string;
+      description?: string;
+      relevance?: string;
+      treatment?: string[];
+      complications?: string;
+      careGaps?: Array<{ label: string; icon: string }>;
+      created_at?: string;
+      updated_at?: string;
+    }>
+  >;
+}
+
+export async function createMedicalCondition(
+  patientId: string,
+  payload: {
+    condition: string;
+    code?: string;
+    category?: string;
+    status: string;
+    date?: string;
+    impact?: string;
+    source?: string;
+    description?: string;
+    relevance?: string;
+    treatment?: string[];
+    complications?: string;
+    careGaps?: Array<{ label: string; icon: string }>;
   }
-  const data = await res.json();
-  return data.user;
+) {
+  const res = await authFetch(
+    `/api/patients/${patientId}/past-medical-history`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMessage = "Failed to create medical condition";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
+}
+
+export async function updateMedicalCondition(
+  patientId: string,
+  conditionId: string,
+  payload: Partial<{
+    condition: string;
+    code?: string;
+    category?: string;
+    status: string;
+    date?: string;
+    impact?: string;
+    source?: string;
+    description?: string;
+    relevance?: string;
+    treatment?: string[];
+    complications?: string;
+    careGaps?: Array<{ label: string; icon: string }>;
+  }>
+) {
+  const res = await authFetch(
+    `/api/patients/${patientId}/past-medical-history`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ conditionId, ...payload }),
+    }
+  );
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMessage = "Failed to update medical condition";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
+}
+
+export async function deleteMedicalCondition(
+  patientId: string,
+  conditionId: string
+) {
+  const res = await authFetch(
+    `/api/patients/${patientId}/past-medical-history?conditionId=${conditionId}`,
+    {
+      method: "DELETE",
+    }
+  );
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMessage = "Failed to delete medical condition";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
+}
+
+export async function getVitals(patientId: string) {
+  const res = await authFetch(`/api/patients/${patientId}/vitals`);
+  if (!res.ok) throw new Error("Failed to load vitals");
+  return res.json() as Promise<
+    Array<{
+      visit_id: string;
+      recordedAt: string;
+      bp: string | null;
+      hr: number | null;
+      temp: number | null;
+      weight: number | null;
+    }>
+  >;
 }
 
 // Dictate audio to text (transcription only, no parsing)

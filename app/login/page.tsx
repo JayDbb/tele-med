@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useDoctor } from '@/contexts/DoctorContext'
 import { useNurse } from '@/contexts/NurseContext'
 import { supabaseBrowser } from '@/lib/supabaseBrowser'
-import { getCurrentUser } from '@/lib/api'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -25,25 +24,31 @@ export default function LoginPage() {
       const result = await doctorLogin(email, password)
 
       if (result.success) {
-        // Use the role returned by the login call when possible (avoids race with auth state)
-        const role = result.role
+        // Get the user to determine role
+        const supabase = supabaseBrowser()
+        const { data: { session } } = await supabase.auth.getSession()
+        const userRole = session?.user.user_metadata?.role || 'doctor'
 
-        if (role === 'nurse') {
-          // Nurse: set nurse context and auth then navigate client-side
-          const user = await getCurrentUser()
-          setNurse({
-            id: user?.id || '',
-            name: user?.name || user?.email || 'User',
-            email: user?.email || '',
-            department: user?.metadata?.department || user?.department || 'General',
-            avatar: user?.avatar_url || null
-          })
-          setIsAuthenticated(true)
+        if (userRole === 'nurse') {
+          // Load nurse data
+          const user = session?.user
+          if (user) {
+            const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+            const department = user.user_metadata?.department || 'General'
+
+            setNurse({
+              id: user.id,
+              name: fullName,
+              email: user.email || '',
+              department: department,
+              avatar: user.user_metadata?.avatar
+            })
+            setIsAuthenticated(true)
+          }
           router.push('/nurse-portal')
         } else {
-          // Doctor: to avoid client-side auth race where AuthWrapper re-renders back to login
-          // force a full page navigation so server renders the correct dashboard post-login
-          window.location.href = '/doctor/dashboard'
+          // Doctor login
+          router.push('/doctor/dashboard')
         }
       } else {
         setError(result.error || 'Invalid email or password')
@@ -113,7 +118,7 @@ export default function LoginPage() {
 
         <div className="mt-6 text-sm text-gray-600 dark:text-gray-400">
           <p className="font-medium">Sign in with your Supabase account</p>
-          <p className="mt-1 text-xs">Don't have an account? <a href="/signup" className="text-primary">Sign up</a></p>
+          <p className="mt-1 text-xs">Make sure your user has a role set in user_metadata (doctor or nurse)</p>
         </div>
       </div>
     </div>

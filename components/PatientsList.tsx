@@ -8,6 +8,7 @@ import { getPatients } from '@/lib/api'
 import { useDoctor } from '@/contexts/DoctorContext'
 import { usePatientRoutes } from '@/lib/usePatientRoutes'
 import type { Patient } from '@/lib/types'
+import AssignPatientModal from './AssignPatientModal'
 
 const PatientsList = () => {
   const { startVideoCall } = useVideoCall()
@@ -15,6 +16,8 @@ const PatientsList = () => {
   const [allPatients, setAllPatients] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [assignModalOpen, setAssignModalOpen] = useState(false)
+  const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null)
   const { doctor } = useDoctor()
   const { getPatientUrl, getNewVisitUrl } = usePatientRoutes()
 
@@ -75,6 +78,7 @@ const PatientsList = () => {
   const handleAddPatient = () => {
     // Generate new patient ID
     // const newPatientId = Date.now().toString()
+    console.log('pushing to /patients/new')
     router.push('/patients/create')
   }
 
@@ -186,7 +190,20 @@ const PatientsList = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setSelectedPatient({ id: patient.id, name: patient.name })
+                      setAssignModalOpen(true)
+                    }}
+                    className="text-primary hover:text-primary/80 transition-colors flex items-center gap-1 text-sm font-medium"
+                    title="Assign to another doctor or nurse"
+                  >
+                    <span className="material-symbols-outlined text-sm">person_add</span>
+                    <span>Assign</span>
+                  </button>
                   <button className="text-primary hover:text-primary/80 transition-colors">
                     <span className="material-symbols-outlined text-sm">arrow_forward</span>
                   </button>
@@ -196,6 +213,19 @@ const PatientsList = () => {
           )}
         </div>
       )}
+
+      <AssignPatientModal
+        isOpen={assignModalOpen}
+        onClose={() => {
+          setAssignModalOpen(false)
+          setSelectedPatient(null)
+        }}
+        patientId={selectedPatient?.id || ''}
+        patientName={selectedPatient?.name}
+        onSuccess={() => {
+          loadAllPatients()
+        }}
+      />
     </div>
   )
 }
