@@ -7,7 +7,6 @@ export type Patient = {
   phone: string | null;
   email: string | null;
   address: string | null;
-  mrn?: string | null;
   primary_language?: string | null;
   preferred_comm_method?: string | null;
   allergies?: any;
@@ -23,12 +22,7 @@ export type Visit = {
   patient_id: string;
   clinician_id: string | null;
   audio_url: string | null;
-  status?: 'draft' | 'registered' | 'in_progress' | 'completed' | 'pending_review' | 'finalized';
-  type?: 'telehealth' | 'mobile_acute' | 'triage' | 'nurse_visit' | 'doctor_visit' | string | null;
-  location_lat?: number | null;
-  location_lng?: number | null;
-  location_accuracy?: number | null;
-  location_recorded_at?: string | null;
+  status: string;
   created_at?: string;
   notes?: VisitNote | null;
   transcripts?: Transcript | null;

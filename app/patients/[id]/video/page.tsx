@@ -5,7 +5,8 @@ import { useParams } from "next/navigation";
 import { supabaseBrowser } from "../../../../lib/supabaseBrowser";
 import * as Video from "twilio-video";
 import { Header } from "../../../../components/Header";
-import { getPatient, createVisit, updateVisit, createRecordingCacheUpload, enqueueTranscriptionWithCache, getCurrentLocation } from "../../../../lib/api";
+import { getPatient, createVisit, updateVisit, transcribeVisitAudio } from "../../../../lib/api";
+import { uploadToPrivateBucket } from "../../../../lib/storage";
 import { convertToMP3 } from "../../../../lib/audioConverter";
 
 export default function PatientVideoPage() {
@@ -44,7 +45,6 @@ export default function PatientVideoPage() {
   const [recordingTime, setRecordingTime] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [visitType, setVisitType] = useState<string>('telehealth');
   const [recordingError, setRecordingError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
@@ -875,37 +875,96 @@ export default function PatientVideoPage() {
       }
       const mp3File = new File([mp3Blob], `video-call-${patientId}-${Date.now()}.mp3`, { type: 'audio/mpeg' });
 
-      // Capture optional geolocation and create visit
+      // Create visit
       console.log('Creating visit...');
-      const location = await getCurrentLocation();
-      const payload: any = { patient_id: patientId, status: 'draft', type: visitType };
-      if (location) {
-        payload.location_lat = location.latitude;
-        payload.location_lng = location.longitude;
-        if (location.accuracy) payload.location_accuracy = Math.round(location.accuracy);
-        if (location.timestamp) payload.location_recorded_at = location.timestamp;
-      }
-      const newVisit = await createVisit(payload);
+      const newVisit = await createVisit({ patient_id: patientId, status: 'draft' });
 
-      // Create cache entry and get signed upload URL
-      const { cache, path, token, bucket } = await createRecordingCacheUpload({ filename: mp3File.name, contentType: mp3File.type, size: mp3File.size });
+      // Upload audio
+      console.log(`Uploading audio: ${mp3File.name}, ${mp3File.size} bytes, type: ${mp3File.type}`);
+      const upload = await uploadToPrivateBucket(mp3File);
+      console.log(`Upload complete: path=${upload.path}, bucket=${upload.bucket}`);
+      await updateVisit(newVisit.id, { audio_url: upload.path });
+      console.log(`Visit updated with audio_url: ${upload.path}`);
 
-      // Upload to signed URL
-      const supabaseClient = supabaseBrowser();
-      const { error: uploadErr } = await supabaseClient.storage.from(bucket).uploadToSignedUrl(path, token, mp3File, { contentType: mp3File.type });
-      if (uploadErr) throw new Error(uploadErr.message);
-
-      await updateVisit(newVisit.id, { audio_url: path });
-
-      // Enqueue transcription job referencing cache
+      // Transcribe
+      console.log('Transcribing audio...');
       setIsTranscribing(true);
       try {
-        const cacheId = cache && cache[0] ? cache[0].id : cache.id;
-        await enqueueTranscriptionWithCache(newVisit.id, cacheId, path);
-        showToast('Recording saved and queued for transcription');
-      } catch (e) {
-        console.error('Failed to enqueue transcription', e);
-        showToast('Recording saved but failed to queue transcription');
+        const transcriptionResult = await transcribeVisitAudio(upload.path, newVisit.id);
+        console.log('Transcription completed');
+        
+        // Import appendVisitNote for saving transcription to notes
+        const { appendVisitNote } = await import('../../../../lib/api');
+        
+        // Save the full transcript to visit notes as subjective (dictation source)
+        if (transcriptionResult.transcript) {
+          try {
+            await appendVisitNote(
+              newVisit.id,
+              transcriptionResult.transcript,
+              "subjective",
+              "dictation"
+            );
+          } catch (noteError) {
+            console.warn("Failed to save transcript to notes:", noteError);
+          }
+        }
+
+        // Save the AI-generated summary to visit notes as assessment
+        if (transcriptionResult.summary) {
+          try {
+            await appendVisitNote(
+              newVisit.id,
+              transcriptionResult.summary,
+              "assessment",
+              "dictation"
+            );
+          } catch (noteError) {
+            console.warn("Failed to save summary to notes:", noteError);
+          }
+        }
+
+        // Save structured data to notes if available
+        if (transcriptionResult.structured) {
+          const structured = transcriptionResult.structured;
+          
+          // Save diagnosis
+          if (structured.diagnosis) {
+            const diagnosis = Array.isArray(structured.diagnosis)
+              ? structured.diagnosis.join(', ')
+              : structured.diagnosis;
+            try {
+              await appendVisitNote(
+                newVisit.id,
+                `Diagnosis: ${diagnosis}`,
+                "assessment",
+                "dictation"
+              );
+            } catch (noteError) {
+              console.warn("Failed to save diagnosis to notes:", noteError);
+            }
+          }
+
+          // Save treatment plan
+          if (structured.treatment_plan && Array.isArray(structured.treatment_plan) && structured.treatment_plan.length > 0) {
+            try {
+              await appendVisitNote(
+                newVisit.id,
+                `Treatment Plan: ${structured.treatment_plan.join('\n')}`,
+                "plan",
+                "dictation"
+              );
+            } catch (noteError) {
+              console.warn("Failed to save treatment plan to notes:", noteError);
+            }
+          }
+        }
+        
+        showToast('Recording saved and transcribed successfully');
+      } catch (transcribeErr) {
+        console.error('Transcription error:', transcribeErr);
+        console.error('Transcription failed: ' + (transcribeErr as Error).message);
+        showToast('Recording saved but transcription failed');
       } finally {
         setIsTranscribing(false);
         setIsSaving(false);

@@ -33,7 +33,7 @@ export default function NursePortalPage() {
       <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
         <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
           <GlobalSearchBar />
-          <Link href={`/nurse-portal/patients/${Date.now()}/new-visit`} className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-blue-600 transition-all text-sm">
+          <Link href={`/patients/${Date.now()}/new-visit`} className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-blue-600 transition-all text-sm">
             <span className="material-symbols-outlined text-[18px]">add</span>
             New Patient Intake
           </Link>
@@ -153,7 +153,7 @@ export default function NursePortalPage() {
                     </div>
                     <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">No patients yet</h3>
                     <p className="text-slate-500 dark:text-gray-400 mb-4">Start by adding a new patient intake</p>
-                    <Link href={`/nurse-portal/patients/${Date.now()}/new-visit`} className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-blue-600 transition-all text-sm">
+                    <Link href={`/patients/${Date.now()}/new-visit`} className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-blue-600 transition-all text-sm">
                       <span className="material-symbols-outlined text-[18px]">add</span>
                       New Patient Intake
                     </Link>
@@ -164,7 +164,7 @@ export default function NursePortalPage() {
                     const age = patient.dob ? new Date().getFullYear() - new Date(patient.dob).getFullYear() : 'Unknown'
                     
                     return (
-                      <Link key={patient.id} href={`/nurse-portal/patients/${patient.id}`} className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 p-1 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/30 block">
+                      <Link key={patient.id} href={`/patients/${patient.id}`} className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 p-1 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/30 block">
                         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-4 gap-4 lg:gap-8">
                           <div className="flex items-center gap-4 min-w-[240px]">
                             <div className="size-12 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg border border-blue-100 dark:border-blue-800 shadow-sm">

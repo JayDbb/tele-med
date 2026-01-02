@@ -117,7 +117,7 @@ const Calendar = () => {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-sm flex flex-col w-full">
+    <div className="col-span-2 md:col-span-1 bg-white dark:bg-gray-900 p-6 rounded-xl shadow-sm flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
           {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
@@ -148,7 +148,7 @@ const Calendar = () => {
         </div>
       </div>
 
-      <div className="flex w-full flex-1 flex-col gap-0.5">
+      <div className="flex min-w-72 flex-1 flex-col gap-0.5">
         <div className="flex items-center justify-between mb-2">
           <button 
             onClick={() => navigateMonth(-1)}

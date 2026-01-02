@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { supabaseBrowser } from '@/lib/supabaseBrowser'
-import { login as supabaseLogin } from '@/lib/api'
+import { login as supabaseLogin, getCurrentUser } from '@/lib/api'
 import type { User } from '@supabase/supabase-js'
 
 interface Doctor {
@@ -34,9 +34,15 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const supabase = supabaseBrowser()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        loadUserData(session.user)
+        // Try to load server-side profile first
+        const current = await getCurrentUser()
+        if (current) {
+          await loadUserData(null)
+        } else if (session.user) {
+          await loadUserData(session.user)
+        }
       } else if (event === 'SIGNED_OUT') {
         setDoctor(null)
         setIsAuthenticated(false)
@@ -53,7 +59,7 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
       setLoading(true)
       const supabase = supabaseBrowser()
       const { data: { session }, error } = await supabase.auth.getSession()
-      
+
       if (error) {
         console.error('Error checking session:', error)
         setLoading(false)
@@ -71,41 +77,37 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const loadUserData = async (user: User) => {
+  const loadUserData = async (user: User | null) => {
     try {
-      // Fetch server-side profile (upsert if missing) to get canonical fields
-      const token = (await supabaseBrowser().auth.getSession()).data.session?.access_token
-      let profile: any = null
+      // Prefer server-side users table for authoritative profile
+      const current = await getCurrentUser()
 
-      if (token) {
-        try {
-          const res = await fetch('/api/user', {
-            method: 'GET',
-            headers: { Authorization: `Bearer ${token}` }
-          })
-          if (res.ok) {
-            const json = await res.json()
-            profile = json.user
-          }
-        } catch (err) {
-          console.warn('Failed to load server profile, falling back to metadata', err)
+      if (current) {
+        const doctorData: Doctor = {
+          id: current.id,
+          name: current.name || current.email || 'User',
+          email: current.email || '',
+          specialty: current.metadata?.specialty || current.specialty || 'General Practice',
+          avatar: current.avatar_url || null,
         }
+        setDoctor(doctorData)
+        setIsAuthenticated(true)
+      } else if (user) {
+        // Fallback to auth user metadata
+        const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+        const specialty = user.user_metadata?.specialty || 'General Practice'
+
+        const doctorData: Doctor = {
+          id: user.id,
+          name: fullName,
+          email: user.email || '',
+          specialty: specialty,
+          avatar: user.user_metadata?.avatar
+        }
+
+        setDoctor(doctorData)
+        setIsAuthenticated(true)
       }
-
-      const role = profile?.role || user.user_metadata?.role || 'doctor'
-      const fullName = profile?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
-      const specialty = profile?.metadata?.specialty || user.user_metadata?.specialty || 'General Practice'
-
-      const doctorData: Doctor = {
-        id: user.id,
-        name: fullName,
-        email: user.email || '',
-        specialty: specialty,
-        avatar: profile?.avatar_url || user.user_metadata?.avatar
-      }
-
-      setDoctor(doctorData)
-      setIsAuthenticated(true)
     } catch (error) {
       console.error('Error loading user data:', error)
     } finally {
@@ -117,20 +119,21 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
     try {
       // Use Supabase auth
       await supabaseLogin(email, password)
-      
+
       // Get the session and user
       const supabase = supabaseBrowser()
       const { data: { session }, error } = await supabase.auth.getSession()
-      
+
       if (error || !session?.user) {
         return { success: false, error: error?.message || 'Failed to get session' }
       }
 
       const user = session.user
-      const role = user.user_metadata?.role || 'doctor' // Default to doctor
-      
-      // Load user data
+      // Load user data (server-side users table preferred)
+      const current = await getCurrentUser()
       await loadUserData(user)
+
+      const role = current?.role || user.user_metadata?.role || 'doctor'
 
       return { success: true, role }
     } catch (error: any) {
@@ -142,8 +145,8 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
     try {
       const supabase = supabaseBrowser()
       await supabase.auth.signOut()
-      setDoctor(null)
-      setIsAuthenticated(false)
+    setDoctor(null)
+    setIsAuthenticated(false)
     } catch (error) {
       console.error('Error logging out:', error)
     }

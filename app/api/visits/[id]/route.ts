@@ -82,44 +82,9 @@ export async function PUT(
   }
 
   const payload = await req.json();
-
-  // Sanitize updates: only accept known status/types to avoid casting errors
-  const allowedStatus = ['draft','registered','in_progress','completed','pending_review','finalized'];
-  const allowedTypes = ['telehealth','mobile_acute','triage','nurse_visit','doctor_visit'];
-  const updatePayload: any = { ...payload };
-
-  if ('status' in payload) {
-    if (allowedStatus.includes(payload.status)) {
-      updatePayload.status = payload.status;
-    } else {
-      // Unknown status - ignore to prevent DB errors
-      delete updatePayload.status;
-    }
-  }
-
-  if ('type' in payload) {
-    if (allowedTypes.includes(payload.type)) {
-      updatePayload.type = payload.type;
-    } else {
-      delete updatePayload.type;
-    }
-  }
-
-  // Accept location updates if provided
-  if ('location_lat' in payload && 'location_lng' in payload) {
-    const lat = Number(payload.location_lat);
-    const lng = Number(payload.location_lng);
-    if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-      updatePayload.location_lat = lat;
-      updatePayload.location_lng = lng;
-      if ('location_accuracy' in payload) updatePayload.location_accuracy = Number(payload.location_accuracy);
-      if ('location_recorded_at' in payload && payload.location_recorded_at) updatePayload.location_recorded_at = payload.location_recorded_at;
-    }
-  }
-
   const { data, error: dbError } = await supabase
     .from("visits")
-    .update(updatePayload)
+    .update(payload)
     .eq("id", id)
     .select()
     .single();

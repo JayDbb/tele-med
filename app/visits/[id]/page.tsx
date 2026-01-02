@@ -3,8 +3,8 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getVisit, updateVisit, createRecordingCacheUpload, enqueueTranscriptionWithCache } from "../../../lib/api";
-import { supabaseBrowser } from "../../../lib/supabaseBrowser";
+import { getVisit, updateVisit } from "../../../lib/api";
+import { uploadToPrivateBucket } from "../../../lib/storage";
 import { useAudioRecorder } from "../../../lib/useAudioRecorder";
 import { useAuthGuard } from "../../../lib/useAuthGuard";
 import type { Patient, Visit } from "../../../lib/types";
@@ -60,19 +60,8 @@ export default function VisitDetailPage() {
       const file = new File([blob], `recording-${params.id}-${Date.now()}.webm`, {
         type: "audio/webm;codecs=opus"
       });
-
-      // Create cache entry and get signed upload URL
-      const { cache, path, token, bucket } = await createRecordingCacheUpload({ filename: file.name, contentType: file.type, size: file.size });
-
-      // Upload the file to the signed URL using the browser client
-      const supabase = supabaseBrowser();
-      const { error: uploadErr } = await supabase.storage.from(bucket).uploadToSignedUrl(path, token, file, { contentType: file.type });
-      if (uploadErr) throw new Error(uploadErr.message);
-
-      // Update visit to include audio URL and enqueue a transcription job referencing the cache
+      const { path } = await uploadToPrivateBucket(file);
       await updateVisit(params.id, { audio_url: path });
-      await enqueueTranscriptionWithCache(params.id, cache && cache[0] ? cache[0].id : cache.id, path);
-
       setRecording(false);
       await loadVisit();
     } catch (err) {
@@ -114,19 +103,7 @@ export default function VisitDetailPage() {
       <div className="card stack">
         <div className="header" style={{ padding: 0 }}>
           <div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <div className="pill">Visit</div>
-              {visit?.status && (
-                <div className="pill" style={{ background: visit.status === 'in_progress' ? '#FEF3C7' : visit.status === 'completed' ? '#D1FAE5' : '#E8F1FF', color: visit.status === 'completed' ? '#065F46' : '#92400E' }}>
-                  {visit.status.replace('_', ' ').toUpperCase()}
-                </div>
-              )}
-              {visit?.type && (
-                <div className="pill" style={{ background: '#f0f9ff', color: '#0369a1' }}>
-                  {visit.type.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                </div>
-              )}
-            </div>
+            <div className="pill">Visit</div>
             <h1 style={{ margin: "4px 0 0" }}>
               {patient?.full_name ? `Visit with ${patient.full_name}` : "Visit"}
             </h1>
@@ -135,21 +112,6 @@ export default function VisitDetailPage() {
                 {new Date(visit.created_at).toLocaleString()}
               </div>
             )}
-
-            <div style={{ marginTop: 8 }}>
-              {/* Status action buttons */}
-              {visit?.status !== 'in_progress' && visit?.status !== 'completed' && (
-                <button className="button" onClick={async () => { try { await updateVisit(params.id, { status: 'in_progress' }); await loadVisit(); } catch (e) { console.error(e); } }}>
-                  Start Visit
-                </button>
-              )}
-
-              {visit?.status === 'in_progress' && (
-                <button className="button" style={{ marginLeft: 8, background: '#10B981', color: 'white' }} onClick={async () => { try { await updateVisit(params.id, { status: 'completed' }); await loadVisit(); } catch (e) { console.error(e); } }}>
-                  Complete Visit
-                </button>
-              )}
-            </div>
           </div>
           <Link className="button secondary" href={patient ? `/patients/${patient.id}` : "/dashboard"}>
             Back

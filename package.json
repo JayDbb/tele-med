@@ -6,26 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "worker:transcribe": "ts-node scripts/worker-transcribe.ts",
-    "worker:transcribe:dev": "ts-node --esm scripts/worker-transcribe.ts",
-    "build:worker": "tsup scripts/worker-transcribe.ts --format cjs --platform node --target node16 --out-dir dist --no-dts",
-    "worker:dist": "node dist/worker-transcribe.js",
-    "cleanup:cache": "node scripts/cleanup-cache.js",
-    "validate:migration": "node scripts/validate-migration.js",
-    "test:migration": "node scripts/test-visit-type.js",
-    "test:location": "node scripts/test-visit-location.js",
-    "test:transcription:e2e": "ts-node scripts/test-transcription-e2e.ts",
-    "test:transcription:e2e:realworker": "npm run build:worker && node dist/worker-transcribe.js --once & npm run test:transcription:e2e",
-    "test:messages:e2e": "ts-node scripts/test-messages-e2e.ts",
-    "test:medications:e2e": "ts-node scripts/test-medications-e2e.ts",
-    "apply:migrations": "node scripts/apply-migrations.js",
-    "apply:migrations:cli": "supabase db remote set \"$DATABASE_URL\" && supabase db push",
-    "apply:migrations:cli-auto": "node scripts/apply-migrations-cli-safe.js",
-    "apply:migrations:pg": "node scripts/apply-migrations-pg.js",
-    "apply:migrations:supabase-js": "node scripts/migrate-with-supabase-js.js",
-    "env:check": "node scripts/check-env.js",
-    "verify:migrations:applied": "node scripts/verify-applied-migrations.js"
+    "lint": "next lint"
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",
@@ -33,7 +14,6 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@supabase/supabase-js": "^2.89.0",
-    "dotenv": "^17.2.3",
     "googleapis": "^169.0.0",
     "next": "14.0.0",
     "next-auth": "^4.24.13",
@@ -41,7 +21,6 @@
     "react-beautiful-dnd": "^13.1.1",
     "react-dom": "^18",
     "replicate": "^1.4.0",
-    "twilio": "^5.11.1",
     "twilio-video": "^2.33.0"
   },
   "devDependencies": {
@@ -52,11 +31,8 @@
     "autoprefixer": "^10.0.1",
     "eslint": "^8",
     "eslint-config-next": "14.0.0",
-    "pg": "^8.16.3",
     "postcss": "^8",
     "tailwindcss": "^3.3.0",
-    "ts-node": "^10.9.1",
-    "tsup": "^6.7.0",
     "typescript": "^5"
   }
 }

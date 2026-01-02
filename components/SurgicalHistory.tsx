@@ -1,11 +1,11 @@
-import { PatientDataManager } from '@/utils/PatientDataManager'
-
 interface SurgicalHistoryProps {
   patientId: string
 }
 
 const SurgicalHistory = ({ patientId }: SurgicalHistoryProps) => {
-  const surgeries = PatientDataManager.getPatientSectionList(patientId, 'surgical-history')
+  // TODO: Replace with API call when surgical history endpoint is available
+  // const surgeries = await getSurgicalHistory(patientId)
+  const surgeries: any[] = []
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm">

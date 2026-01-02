@@ -5,9 +5,9 @@ import { useParams, useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
 import AITransparency from '@/components/AITransparency'
-import { getPatient, createVisit, appendVisitNote, getVisitNotes, updateVisitNoteStatus, createRecordingCacheUpload, enqueueTranscriptionWithCache, getCurrentLocation } from '@/lib/api'
+import { getPatient, createVisit, appendVisitNote, getVisitNotes, updateVisitNoteStatus, dictateAudio } from '@/lib/api'
 import { useAudioRecorder } from '@/lib/useAudioRecorder'
-import { supabaseBrowser } from '@/lib/supabaseBrowser'
+import { uploadToPrivateBucket } from '@/lib/storage'
 import type { Visit } from '@/lib/types'
 
 interface NoteEntry {
@@ -40,10 +40,7 @@ export default function PatientNotesPage() {
   const [currentSection, setCurrentSection] = useState<Section>('subjective')
   const [newEntryText, setNewEntryText] = useState('')
   const [saving, setSaving] = useState(false)
-  const [visitType, setVisitType] = useState<string>('telehealth')
   const [showSignModal, setShowSignModal] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000); }
 
   const recorder = useAudioRecorder()
   const newEntryRefs = {
@@ -56,12 +53,6 @@ export default function PatientNotesPage() {
   // Load patient and visits
   useEffect(() => {
     loadData()
-
-    return () => {
-      if (transcriptionPollRef.current) {
-        clearInterval(transcriptionPollRef.current)
-      }
-    }
   }, [patientId])
 
   // Load visit notes when visit is selected
@@ -103,15 +94,7 @@ export default function PatientNotesPage() {
   const createNewVisit = async () => {
     try {
       setSaving(true)
-      const location = await getCurrentLocation();
-      const payload: any = { patient_id: patientId, status: 'draft', type: visitType };
-      if (location) {
-        payload.location_lat = location.latitude;
-        payload.location_lng = location.longitude;
-        if (location.accuracy) payload.location_accuracy = Math.round(location.accuracy);
-        if (location.timestamp) payload.location_recorded_at = location.timestamp;
-      }
-      const newVisit = await createVisit(payload)
+      const newVisit = await createVisit({ patient_id: patientId, status: 'draft' })
       setVisits([newVisit, ...visits])
       setSelectedVisitId(newVisit.id)
     } catch (error) {
@@ -153,8 +136,6 @@ export default function PatientNotesPage() {
     }
   }
 
-  const transcriptionPollRef = useRef<number | null>(null);
-
   const handleStopDictation = async () => {
     try {
       setIsRecording(false)
@@ -165,37 +146,19 @@ export default function PatientNotesPage() {
         return
       }
 
-      // Convert to MP3 and create cache entry
+      // Convert to MP3 and upload
       const mp3Blob = await convertToMP3(blob)
       const mp3File = new File([mp3Blob], `dictation-${Date.now()}.mp3`, { type: 'audio/mp3' })
 
-      const { cache, path, token, bucket } = await createRecordingCacheUpload({ filename: mp3File.name, contentType: mp3File.type, size: mp3File.size })
+      const upload = await uploadToPrivateBucket(mp3File)
 
-      const supabase = supabaseBrowser()
-      const { error: uploadErr } = await supabase.storage.from(bucket).uploadToSignedUrl(path, token, mp3File, { contentType: mp3File.type })
-      if (uploadErr) throw new Error(uploadErr.message)
+      // Transcribe the audio (dictation only, no parsing)
+      const { transcript } = await dictateAudio(upload.path)
 
-      // Enqueue transcription job
-      const cacheId = cache && cache[0] ? cache[0].id : cache.id
-      await enqueueTranscriptionWithCache(selectedVisitId, cacheId, path)
-      showToast('Dictation queued for transcription')
-
-      // Poll visit notes until new dictation entry appears
-      if (transcriptionPollRef.current) clearInterval(transcriptionPollRef.current)
-      transcriptionPollRef.current = window.setInterval(async () => {
-        try {
-          const notes = await getVisitNotes(selectedVisitId)
-          if (notes && notes.entries && notes.entries.some(e => e.source === 'dictation')) {
-            // reload notes and stop polling
-            await loadVisitNotes(selectedVisitId)
-            if (transcriptionPollRef.current) { clearInterval(transcriptionPollRef.current); transcriptionPollRef.current = null }
-            showToast('Dictation available in notes')
-          }
-        } catch (e) {
-          // ignore
-        }
-      }, 2500)
-
+      if (transcript) {
+        // Append the transcribed text as a note entry
+        await handleAppendEntry(currentSection, transcript, 'dictation')
+      }
     } catch (error) {
       console.error('Failed to process dictation:', error)
       alert('Failed to process dictation')
@@ -270,9 +233,6 @@ export default function PatientNotesPage() {
                 <span className="text-xs">Saving...</span>
               </div>
             )}
-            {toast && (
-              <div className="fixed bottom-6 right-6 bg-gray-900 text-white px-4 py-2 rounded-md shadow-md">{toast}</div>
-            )}
             <AITransparency className="ml-2" />
           </div>
         </header>
@@ -283,23 +243,14 @@ export default function PatientNotesPage() {
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Visits</h2>
-                <div className="flex items-center gap-2">
-                  <select className="input" value={visitType} onChange={(e) => setVisitType(e.target.value)}>
-                    <option value="telehealth">Telehealth</option>
-                    <option value="mobile_acute">Mobile Acute Care</option>
-                    <option value="triage">Triage</option>
-                    <option value="nurse_visit">Nurse Visit</option>
-                    <option value="doctor_visit">Doctor Visit</option>
-                  </select>
-                  <button
-                    onClick={createNewVisit}
-                    disabled={saving}
-                    className="p-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
-                    title="New Visit"
-                  >
-                    <span className="material-symbols-outlined text-sm">add</span>
-                  </button>
-                </div>
+                <button
+                  onClick={createNewVisit}
+                  disabled={saving}
+                  className="p-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+                  title="New Visit"
+                >
+                  <span className="material-symbols-outlined text-sm">add</span>
+                </button>
               </div>
 
               {visits.filter(v => {
@@ -332,7 +283,7 @@ export default function PatientNotesPage() {
                     <span className="text-sm font-medium text-gray-900 dark:text-white">
                       {new Date(visit.created_at).toLocaleDateString()}
                     </span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${visit.status === 'finalized' ? 'text-green-600 bg-green-100 dark:bg-green-900/20' :
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${visit.status === 'signed' ? 'text-green-600 bg-green-100 dark:bg-green-900/20' :
                       visit.status === 'draft' ? 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/20' :
                         'text-blue-600 bg-blue-100 dark:bg-blue-900/20'
                       }`}>

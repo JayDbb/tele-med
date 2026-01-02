@@ -81,7 +81,7 @@ const Appointments = () => {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-900 p-6 rounded-xl shadow-sm w-full">
+    <div className="col-span-2 md:col-span-1 bg-white dark:bg-gray-900 p-6 rounded-xl shadow-sm">
       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Appointments</h3>
       
       {loading ? (

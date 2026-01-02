@@ -1,38 +1,30 @@
 "use client";
 
-import { FormEvent, useEffect, useState, useRef } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { createVisit, getPatient, getVisit, updateVisit, upsertVisitNote, createRecordingCacheUpload, enqueueTranscriptionWithCache, getVisitNotes, getCurrentLocation } from "../../../../lib/api";
+import Sidebar from '@/components/Sidebar'
+import PatientDetailSidebar from '@/components/PatientDetailSidebar'
+import GlobalSearchBar from '@/components/GlobalSearchBar'
+import { createVisit, getPatient, transcribeVisitAudio, updateVisit, appendVisitNote } from "../../../../lib/api";
 import type { Patient, Visit } from "../../../../lib/types";
-import { useAuthGuard } from "../../../../lib/useAuthGuard";
-import { supabaseBrowser } from "../../../../lib/supabaseBrowser";
+import { uploadToPrivateBucket } from "../../../../lib/storage";
 import { useAudioRecorder } from "../../../../lib/useAudioRecorder";
 import { convertToMP3 } from "../../../../lib/audioConverter";
-import { Header } from "../../../../components/Header";
 
 export default function PatientVisitPage() {
-  const { ready } = useAuthGuard();
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [visit, setVisit] = useState<Visit | null>(null);
-  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("record");
-  const [visitType, setVisitType] = useState<string>('telehealth');
   const [transcription, setTranscription] = useState<any>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
-
-  // for small toast render helper
-  const Toast = () => toast ? (
-    <div className="fixed bottom-6 right-6 bg-gray-900 text-white px-4 py-2 rounded-md shadow-md">{toast}</div>
-  ) : null;
 
   // SOAP Note fields
   const [chiefComplaint, setChiefComplaint] = useState("");
@@ -47,16 +39,9 @@ export default function PatientVisitPage() {
 
   const recorder = useAudioRecorder();
 
-  const transcriptionPollRef = useRef<number | null>(null);
-
   useEffect(() => {
-    if (!ready) return;
     (async () => {
       try {
-        const supabase = supabaseBrowser();
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
-
         const patientData = await getPatient(params.id);
         setPatient(patientData.patient);
       } catch (err) {
@@ -65,51 +50,12 @@ export default function PatientVisitPage() {
         setLoading(false);
       }
     })();
-
-    return () => {
-      if (transcriptionPollRef.current) {
-        clearInterval(transcriptionPollRef.current);
-      }
-    };
-  }, [ready, params.id]);
-
-  const getUserDisplayName = () => {
-    if (!user) return 'Loading...';
-    return user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
-  };
-
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
-  };
+  }, [params.id]);
 
   const handleStartRecording = async () => {
     setError(null);
     setTranscription(null);
     try {
-      // Capture geolocation at recording start and persist to visit if we have a visit
-      if (visit?.id) {
-        try {
-          const loc = await getCurrentLocation(7000);
-          if (loc) {
-            await updateVisit(visit.id, {
-              location_lat: loc.latitude,
-              location_lng: loc.longitude,
-              location_accuracy: loc.accuracy ? Math.round(loc.accuracy) : undefined,
-              location_recorded_at: loc.timestamp,
-            });
-            try {
-              const { visit: refreshed } = await getVisit(visit.id);
-              setVisit(refreshed);
-            } catch (e) {
-              // ignore refresh error
-            }
-          }
-        } catch (e) {
-          // non-fatal - location optional
-          console.warn('Could not capture location at recording start', e);
-        }
-      }
-
       await recorder.startRecording();
       setRecording(true);
     } catch (err) {
@@ -137,57 +83,521 @@ export default function PatientVisitPage() {
   };
 
   const processAudioFile = async (mp3File: File) => {
+    setError(null);
+
     // Create visit first
-    const location = await getCurrentLocation();
-    const payload: any = { patient_id: params.id, status: "draft", type: visitType };
-    if (location) {
-      payload.location_lat = location.latitude;
-      payload.location_lng = location.longitude;
-      if (location.accuracy) payload.location_accuracy = Math.round(location.accuracy);
-      if (location.timestamp) payload.location_recorded_at = location.timestamp;
-    }
-    const newVisit = await createVisit(payload);
+    const newVisit = await createVisit({ patient_id: params.id, status: "draft" });
     setVisit(newVisit);
 
-    // Create cache entry and signed upload
-    const { cache, path, token, bucket } = await createRecordingCacheUpload({ filename: mp3File.name, contentType: mp3File.type, size: mp3File.size });
+    // Upload MP3 file
+    setUploading(true);
+    let upload;
+    try {
+      upload = await uploadToPrivateBucket(mp3File);
+      await updateVisit(newVisit.id, { audio_url: upload.path });
+    } finally {
+      setUploading(false);
+    }
 
-    // Upload to signed URL
-    const supabase = supabaseBrowser();
-    const { error: uploadErr } = await supabase.storage.from(bucket).uploadToSignedUrl(path, token, mp3File, { contentType: mp3File.type });
-    if (uploadErr) throw new Error(uploadErr.message);
-
-    // Update visit with audio url
-    await updateVisit(newVisit.id, { audio_url: path });
-
-    // Enqueue transcription job referencing cache
+    // Transcribe the audio
     setTranscribing(true);
     try {
-      const cacheId = cache && cache[0] ? cache[0].id : cache.id;
-      await enqueueTranscriptionWithCache(newVisit.id, cacheId, path);
-      showToast('Recording saved and queued for transcription');
+      const transcriptionResult = await transcribeVisitAudio(upload.path, newVisit.id);
+      setTranscription(transcriptionResult);
 
-      // Poll for visit notes (worker will append dictation/parsed notes when finished)
-      if (transcriptionPollRef.current) clearInterval(transcriptionPollRef.current);
-      transcriptionPollRef.current = window.setInterval(async () => {
+      // Save the full transcript to visit notes as subjective (dictation source)
+      if (transcriptionResult.transcript) {
         try {
-          const notes = await getVisitNotes(newVisit.id);
-          if (notes && notes.entries && notes.entries.length > 0) {
-            // Prefer most recent dictation/structured entry
-            const latest = notes.entries[notes.entries.length - 1];
-            setTranscription({ transcript: latest.content });
-            if (latest.section === 'subjective') setChiefComplaint(latest.content);
-            // Stop polling
-            if (transcriptionPollRef.current) { clearInterval(transcriptionPollRef.current); transcriptionPollRef.current = null; }
-          }
-        } catch (e) {
-          // ignore polling errors
+          await appendVisitNote(
+            newVisit.id,
+            transcriptionResult.transcript,
+            "subjective",
+            "dictation"
+          );
+        } catch (noteError) {
+          console.warn("Failed to save transcript to notes:", noteError);
         }
-      }, 3000);
+      }
 
-    } catch (e) {
-      console.error('Failed to enqueue transcription', e);
-      showToast('Recording saved but failed to queue transcription');
+      // Save the AI-generated summary to visit notes as assessment
+      if (transcriptionResult.summary) {
+        try {
+          await appendVisitNote(
+            newVisit.id,
+            transcriptionResult.summary,
+            "assessment",
+            "dictation"
+          );
+        } catch (noteError) {
+          console.warn("Failed to save summary to notes:", noteError);
+        }
+      }
+
+      // Auto-populate SOAP fields from structured transcription data
+      if (transcriptionResult.structured) {
+        const structured = transcriptionResult.structured;
+
+        // Handle current symptoms - extract symptom names only
+        if (structured.current_symptoms && Array.isArray(structured.current_symptoms)) {
+          const symptomsText = structured.current_symptoms
+            .map((s: any) => s.symptom)
+            .filter((symptom: string) => symptom && symptom !== 'undefined')
+            .join(', ');
+          setChiefComplaint(symptomsText);
+
+          // Save symptoms to notes as subjective
+          if (symptomsText) {
+            try {
+              await appendVisitNote(
+                newVisit.id,
+                `Chief Complaint: ${symptomsText}`,
+                "subjective",
+                "dictation"
+              );
+            } catch (noteError) {
+              console.warn("Failed to save symptoms to notes:", noteError);
+            }
+          }
+        }
+
+        // Extract and parse vitals from physical_exam_findings
+        if (structured.physical_exam_findings) {
+          const findings = structured.physical_exam_findings;
+
+          // Helper function to extract numeric value from string
+          const extractNumber = (value: any): string | null => {
+            if (!value) return null;
+            if (typeof value === 'number') return String(value);
+            if (typeof value === 'string') {
+              const match = value.match(/(\d+\.?\d*)/);
+              return match ? match[1] : null;
+            }
+            return null;
+          };
+
+          // Helper function to extract blood pressure (handles "120/80", "120 over 80", etc.)
+          const extractBloodPressure = (value: any): string | null => {
+            if (!value) return null;
+            if (typeof value === 'string') {
+              // Match patterns like "120/80", "120 over 80", "120-80", or just "200" (systolic only)
+              const bpMatch = value.match(/(\d+)\s*[\/\-\s]+\s*(\d+)/);
+              if (bpMatch) {
+                return `${bpMatch[1]}/${bpMatch[2]}`;
+              }
+              // If it's already in the right format, return as is
+              if (value.includes('/')) return value;
+              // If just a number, assume it's systolic (we'll use it as is)
+              const singleMatch = value.match(/(\d+)/);
+              if (singleMatch) return singleMatch[1];
+            }
+            return String(value);
+          };
+
+          // Helper function to parse JSON-like strings from text
+          const parseVitalsFromText = (text: string) => {
+            const vitals: any = {};
+
+            // Try to find JSON-like patterns: {"blood_pressure":"200","weight":"100 pounds"}
+            // Look for any JSON object that might contain vital signs
+            const jsonPattern = /\{[\s\S]*?(?:blood[_\s]?pressure|heart[_\s]?rate|temperature|temp|weight|bp|hr)[\s\S]*?\}/i;
+            const jsonMatch = text.match(jsonPattern);
+
+            if (jsonMatch) {
+              try {
+                // Try to find and parse the entire JSON object
+                // Match the first complete JSON object in the text
+                let braceCount = 0;
+                let jsonStart = -1;
+                let jsonEnd = -1;
+
+                for (let i = 0; i < text.length; i++) {
+                  if (text[i] === '{') {
+                    if (jsonStart === -1) jsonStart = i;
+                    braceCount++;
+                  } else if (text[i] === '}') {
+                    braceCount--;
+                    if (braceCount === 0 && jsonStart !== -1) {
+                      jsonEnd = i;
+                      break;
+                    }
+                  }
+                }
+
+                if (jsonStart !== -1 && jsonEnd !== -1) {
+                  const jsonStr = text.substring(jsonStart, jsonEnd + 1);
+                  try {
+                    const parsed = JSON.parse(jsonStr);
+                    if (parsed.blood_pressure || parsed.bp) {
+                      vitals.blood_pressure = parsed.blood_pressure || parsed.bp;
+                    }
+                    if (parsed.heart_rate || parsed.hr) {
+                      vitals.heart_rate = parsed.heart_rate || parsed.hr;
+                    }
+                    if (parsed.temperature || parsed.temp) {
+                      vitals.temperature = parsed.temperature || parsed.temp;
+                    }
+                    if (parsed.weight) {
+                      vitals.weight = parsed.weight;
+                    }
+                  } catch (parseError) {
+                    // If JSON parsing fails, try regex extraction
+                    const bpMatch = jsonStr.match(/["']blood[_\s]?pressure["']\s*:\s*["']?([^"',}]+)/i);
+                    if (bpMatch) vitals.blood_pressure = bpMatch[1].trim();
+
+                    const hrMatch = jsonStr.match(/["']heart[_\s]?rate["']\s*:\s*["']?([^"',}]+)/i);
+                    if (hrMatch) vitals.heart_rate = hrMatch[1].trim();
+
+                    const tempMatch = jsonStr.match(/["']temperature["']\s*:\s*["']?([^"',}]+)/i);
+                    if (tempMatch) vitals.temperature = tempMatch[1].trim();
+
+                    const weightMatch = jsonStr.match(/["']weight["']\s*:\s*["']?([^"',}]+)/i);
+                    if (weightMatch) vitals.weight = weightMatch[1].trim();
+                  }
+                }
+              } catch (e) {
+                // Fallback to regex extraction if JSON structure is too complex
+                const bpMatch = text.match(/["']blood[_\s]?pressure["']\s*:\s*["']?([^"',}]+)/i);
+                if (bpMatch) vitals.blood_pressure = bpMatch[1].trim();
+
+                const hrMatch = text.match(/["']heart[_\s]?rate["']\s*:\s*["']?([^"',}]+)/i);
+                if (hrMatch) vitals.heart_rate = hrMatch[1].trim();
+
+                const tempMatch = text.match(/["']temperature["']\s*:\s*["']?([^"',}]+)/i);
+                if (tempMatch) vitals.temperature = tempMatch[1].trim();
+
+                const weightMatch = text.match(/["']weight["']\s*:\s*["']?([^"',}]+)/i);
+                if (weightMatch) vitals.weight = weightMatch[1].trim();
+              }
+            }
+
+            return vitals;
+          };
+
+          // First, try to extract from structured vital_signs object
+          const vitalSigns = findings.vital_signs || {};
+
+          // Parse blood pressure
+          let bpValue = vitalSigns.blood_pressure
+            ? extractBloodPressure(vitalSigns.blood_pressure)
+            : vitalSigns.bp
+              ? extractBloodPressure(vitalSigns.bp)
+              : null;
+
+          // Parse heart rate
+          let hrValue = vitalSigns.heart_rate
+            ? extractNumber(vitalSigns.heart_rate)
+            : vitalSigns.hr
+              ? extractNumber(vitalSigns.hr)
+              : null;
+
+          // Parse temperature
+          let tempValue = vitalSigns.temperature
+            ? extractNumber(vitalSigns.temperature)
+            : vitalSigns.temp
+              ? extractNumber(vitalSigns.temp)
+              : null;
+
+          // Parse weight
+          let weightValue = vitalSigns.weight
+            ? extractNumber(vitalSigns.weight)
+            : null;
+
+          // If vitals weren't found in structured format, search all findings for text patterns
+          if (!bpValue || !hrValue || !tempValue || !weightValue) {
+            const findingsString = JSON.stringify(findings);
+            const textVitals = parseVitalsFromText(findingsString);
+
+            // Check ALL string values in findings for vital signs patterns
+            Object.values(findings).forEach((value) => {
+              if (typeof value === 'string') {
+                // Check if this string contains any vital signs indicators
+                const hasVitalsPattern = /(?:blood[_\s]?pressure|heart[_\s]?rate|temperature|temp|weight|bp|hr|vital[_\s]?signs?)/i.test(value);
+                if (hasVitalsPattern) {
+                  const parsed = parseVitalsFromText(value);
+                  if (parsed.blood_pressure && !bpValue) bpValue = extractBloodPressure(parsed.blood_pressure);
+                  if (parsed.heart_rate && !hrValue) hrValue = extractNumber(parsed.heart_rate);
+                  if (parsed.temperature && !tempValue) tempValue = extractNumber(parsed.temperature);
+                  if (parsed.weight && !weightValue) weightValue = extractNumber(parsed.weight);
+                }
+              }
+            });
+
+            // Use text-extracted vitals if structured ones weren't found
+            if (!bpValue && textVitals.blood_pressure) {
+              bpValue = extractBloodPressure(textVitals.blood_pressure);
+            }
+            if (!hrValue && textVitals.heart_rate) {
+              hrValue = extractNumber(textVitals.heart_rate);
+            }
+            if (!tempValue && textVitals.temperature) {
+              tempValue = extractNumber(textVitals.temperature);
+            }
+            if (!weightValue && textVitals.weight) {
+              weightValue = extractNumber(textVitals.weight);
+            }
+          }
+
+          // Set the vital sign values
+          if (bpValue) setBp(bpValue);
+          if (hrValue) setHr(hrValue);
+          if (tempValue) setTemp(tempValue);
+          if (weightValue) setWeight(weightValue);
+
+          // Build physical exam text excluding vitals (already in separate fields)
+          const examFindingsWithoutVitals: string[] = [];
+          Object.entries(findings).forEach(([key, value]) => {
+            // Skip vital_signs and individual vital fields
+            if (key !== 'vital_signs' &&
+              key !== 'blood_pressure' && key !== 'bp' &&
+              key !== 'heart_rate' && key !== 'hr' &&
+              key !== 'temperature' && key !== 'temp' &&
+              key !== 'weight') {
+
+              // Check if this field value is ONLY vital signs (JSON string or object)
+              let isOnlyVitals = false;
+
+              if (typeof value === 'string') {
+                // Try to parse as JSON and check if it's only vitals
+                try {
+                  const parsed = JSON.parse(value);
+                  if (typeof parsed === 'object' && parsed !== null) {
+                    const keys = Object.keys(parsed);
+                    const vitalKeys = ['blood_pressure', 'bp', 'heart_rate', 'hr', 'temperature', 'temp', 'weight'];
+                    isOnlyVitals = keys.length > 0 && keys.every(key =>
+                      vitalKeys.some(vk => key.toLowerCase().includes(vk.toLowerCase()))
+                    );
+                  }
+                } catch (e) {
+                  // Not valid JSON, check if it's a vital signs pattern
+                  const vitalPattern = /^(?:vital[_\s]?signs?\s*:\s*)?\{[\s\S]*(?:blood[_\s]?pressure|bp|heart[_\s]?rate|hr|temperature|temp|weight)[\s\S]*\}$/i;
+                  isOnlyVitals = vitalPattern.test(value.trim());
+                }
+              } else if (typeof value === 'object' && value !== null) {
+                // For object values, check if they contain only vital signs
+                const keys = Object.keys(value);
+                const vitalKeys = ['blood_pressure', 'bp', 'heart_rate', 'hr', 'temperature', 'temp', 'weight', 'vital_signs'];
+                isOnlyVitals = keys.length > 0 && keys.every(key =>
+                  vitalKeys.some(vk => key.toLowerCase().includes(vk.toLowerCase()))
+                );
+              }
+
+              // If this field contains only vital signs, skip it entirely
+              if (isOnlyVitals) {
+                return; // Skip this entry
+              }
+
+              const formattedKey = key.replace(/_/g, ' ');
+              let formattedValue = typeof value === 'object' && value !== null
+                ? JSON.stringify(value, null, 2)
+                : String(value);
+
+              // Remove vital signs text from string values
+              if (typeof value === 'string') {
+                // First, try to remove complete JSON objects containing vital signs
+                // This handles cases like: {"blood_pressure":"200","weight":"100 pounds"}
+                // or: vital signs: {"blood_pressure":"200","weight":"100 pounds"}
+
+                // Remove "vital signs: {...}" or "vital_signs: {...}" patterns
+                formattedValue = formattedValue.replace(/vital[_\s]?signs?\s*:\s*\{[^}]*\}/gi, '');
+
+                // Remove standalone JSON objects that might contain vital signs
+                // Match JSON objects (handles simple objects without nesting)
+                // For more complex nested objects, we'll handle them separately
+                let jsonStart = -1;
+                let braceCount = 0;
+                let jsonObjects: { start: number; end: number }[] = [];
+
+                // Find all JSON objects in the string
+                for (let i = 0; i < formattedValue.length; i++) {
+                  if (formattedValue[i] === '{') {
+                    if (jsonStart === -1) jsonStart = i;
+                    braceCount++;
+                  } else if (formattedValue[i] === '}') {
+                    braceCount--;
+                    if (braceCount === 0 && jsonStart !== -1) {
+                      jsonObjects.push({ start: jsonStart, end: i });
+                      jsonStart = -1;
+                    }
+                  }
+                }
+
+                // Process JSON objects in reverse order to maintain indices
+                for (let i = jsonObjects.length - 1; i >= 0; i--) {
+                  const { start, end } = jsonObjects[i];
+                  const jsonStr = formattedValue.substring(start, end + 1);
+
+                  // Check if this JSON object contains ONLY vital signs
+                  try {
+                    const parsed = JSON.parse(jsonStr);
+                    if (typeof parsed === 'object' && parsed !== null) {
+                      const keys = Object.keys(parsed);
+                      const vitalKeys = ['blood_pressure', 'bp', 'heart_rate', 'hr', 'temperature', 'temp', 'weight'];
+                      const hasOnlyVitals = keys.length > 0 && keys.every(key =>
+                        vitalKeys.some(vk => key.toLowerCase().includes(vk.toLowerCase()))
+                      );
+                      if (hasOnlyVitals) {
+                        // Remove this JSON object
+                        formattedValue = formattedValue.substring(0, start) + formattedValue.substring(end + 1);
+                      }
+                    }
+                  } catch (e) {
+                    // If parsing fails, check if it looks like a vital signs object
+                    const vitalPattern = /(?:blood[_\s]?pressure|bp|heart[_\s]?rate|hr|temperature|temp|weight)/i;
+                    if (vitalPattern.test(jsonStr) && jsonStr.split(',').length <= 5) {
+                      // Likely a vital signs object, remove it
+                      formattedValue = formattedValue.substring(0, start) + formattedValue.substring(end + 1);
+                    }
+                  }
+                }
+
+                // Remove individual vital sign key-value pairs that might be left
+                formattedValue = formattedValue
+                  .replace(/["']blood[_\s]?pressure["']\s*:\s*["']?[^"',}]+["']?/gi, '')
+                  .replace(/["']bp["']\s*:\s*["']?[^"',}]+["']?/gi, '')
+                  .replace(/["']heart[_\s]?rate["']\s*:\s*["']?[^"',}]+["']?/gi, '')
+                  .replace(/["']hr["']\s*:\s*["']?[^"',}]+["']?/gi, '')
+                  .replace(/["']temperature["']\s*:\s*["']?[^"',}]+["']?/gi, '')
+                  .replace(/["']temp["']\s*:\s*["']?[^"',}]+["']?/gi, '')
+                  .replace(/["']weight["']\s*:\s*["']?[^"',}]+["']?/gi, '')
+                  // Clean up leftover commas, colons, and whitespace
+                  .replace(/,\s*,/g, ',')
+                  .replace(/,\s*}/g, '}')
+                  .replace(/\{\s*,/g, '{')
+                  .replace(/:\s*:/g, ':')
+                  .replace(/^\s*[,:\s]+|\s*[,:\s]+$/g, '')
+                  .trim();
+              }
+
+              // Only add if there's actual content left after removing vitals
+              if (formattedValue && formattedValue.length > 0 && formattedValue !== '{}' && formattedValue !== 'null') {
+                examFindingsWithoutVitals.push(`${formattedKey}: ${formattedValue}`);
+              }
+            }
+          });
+
+          const examFindings = examFindingsWithoutVitals.join('\n');
+          setPhysicalExam(examFindings);
+
+          // Save physical exam findings to notes as objective (excluding vitals)
+          if (examFindings) {
+            try {
+              await appendVisitNote(
+                newVisit.id,
+                `Physical Examination: ${examFindings}`,
+                "objective",
+                "dictation"
+              );
+            } catch (noteError) {
+              console.warn("Failed to save physical exam to notes:", noteError);
+            }
+          }
+
+          // Save vitals separately to notes
+          const vitalsText = [
+            bp && `Blood Pressure: ${bp}`,
+            hr && `Heart Rate: ${hr} bpm`,
+            temp && `Temperature: ${temp}°F`,
+            weight && `Weight: ${weight} lbs`
+          ].filter(Boolean).join('\n');
+
+          if (vitalsText) {
+            try {
+              await appendVisitNote(
+                newVisit.id,
+                `Vital Signs:\n${vitalsText}`,
+                "objective",
+                "dictation"
+              );
+            } catch (noteError) {
+              console.warn("Failed to save vitals to notes:", noteError);
+            }
+          }
+        }
+
+        if (structured.past_medical_history && Array.isArray(structured.past_medical_history) && structured.past_medical_history.length > 0) {
+          const historyText = structured.past_medical_history.join('\n');
+          setHpi(historyText);
+
+          // Save past medical history to notes as subjective
+          try {
+            await appendVisitNote(
+              newVisit.id,
+              `Past Medical History: ${historyText}`,
+              "subjective",
+              "dictation"
+            );
+          } catch (noteError) {
+            console.warn("Failed to save medical history to notes:", noteError);
+          }
+        }
+
+        if (structured.diagnosis) {
+          const diagnosis = Array.isArray(structured.diagnosis)
+            ? structured.diagnosis.join(', ')
+            : structured.diagnosis;
+          setAssessment(diagnosis);
+
+          // Save diagnosis to notes as assessment
+          if (diagnosis) {
+            try {
+              await appendVisitNote(
+                newVisit.id,
+                `Diagnosis: ${diagnosis}`,
+                "assessment",
+                "dictation"
+              );
+            } catch (noteError) {
+              console.warn("Failed to save diagnosis to notes:", noteError);
+            }
+          }
+        }
+
+        if (structured.treatment_plan && Array.isArray(structured.treatment_plan) && structured.treatment_plan.length > 0) {
+          const planText = structured.treatment_plan.join('\n');
+          setTreatmentPlan(planText);
+
+          // Save treatment plan to notes as plan
+          try {
+            await appendVisitNote(
+              newVisit.id,
+              `Treatment Plan: ${planText}`,
+              "plan",
+              "dictation"
+            );
+          } catch (noteError) {
+            console.warn("Failed to save treatment plan to notes:", noteError);
+          }
+        }
+
+        // Save prescriptions if available
+        if (structured.prescriptions && Array.isArray(structured.prescriptions) && structured.prescriptions.length > 0) {
+          const prescriptionsText = structured.prescriptions
+            .map((p: any) => {
+              const parts = [];
+              if (p.medication) parts.push(p.medication);
+              if (p.dosage) parts.push(`Dosage: ${p.dosage}`);
+              if (p.frequency) parts.push(`Frequency: ${p.frequency}`);
+              if (p.duration) parts.push(`Duration: ${p.duration}`);
+              return parts.join(', ');
+            })
+            .join('\n');
+
+          if (prescriptionsText) {
+            try {
+              await appendVisitNote(
+                newVisit.id,
+                `Prescriptions: ${prescriptionsText}`,
+                "plan",
+                "dictation"
+              );
+            } catch (noteError) {
+              console.warn("Failed to save prescriptions to notes:", noteError);
+            }
+          }
+        }
+      }
+    } catch (transcribeError) {
+      setError((transcribeError as Error).message);
     } finally {
       setTranscribing(false);
       setSaving(false);
@@ -195,24 +605,54 @@ export default function PatientVisitPage() {
   };
 
   const handleSaveDraft = async () => {
-    if (!visit) return;
+    // Create visit first if it doesn't exist
+    let currentVisit = visit;
+    if (!currentVisit) {
+      try {
+        currentVisit = await createVisit({ patient_id: params.id, status: "draft" });
+        setVisit(currentVisit);
+      } catch (err) {
+        setError((err as Error).message);
+        return;
+      }
+    }
+
+    if (!currentVisit) {
+      setError("Failed to create visit");
+      return;
+    }
 
     setSaving(true);
     try {
-      const noteData = {
-        subjective: {
-          chief_complaint: chiefComplaint,
-          hpi: hpi
-        },
-        objective: {
-          vitals: { bp, hr, temp, weight },
-          physical_exam: physicalExam
-        },
-        assessment: assessment,
-        plan: treatmentPlan
-      };
+      // Save each section separately
+      if (chiefComplaint.trim()) {
+        await appendVisitNote(currentVisit.id, chiefComplaint, "subjective", "manual");
+      }
 
-      await upsertVisitNote(visit.id, noteData, "draft");
+      if (hpi.trim()) {
+        await appendVisitNote(currentVisit.id, hpi, "subjective", "manual");
+      }
+
+      // Combine objective data
+      const objectiveText = [
+        bp && `BP: ${bp}`,
+        hr && `HR: ${hr}`,
+        temp && `Temp: ${temp}`,
+        weight && `Weight: ${weight}`,
+        physicalExam
+      ].filter(Boolean).join('\n');
+
+      if (objectiveText.trim()) {
+        await appendVisitNote(currentVisit.id, objectiveText, "objective", "manual");
+      }
+
+      if (assessment.trim()) {
+        await appendVisitNote(currentVisit.id, assessment, "assessment", "manual");
+      }
+
+      if (treatmentPlan.trim()) {
+        await appendVisitNote(currentVisit.id, treatmentPlan, "plan", "manual");
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -223,7 +663,7 @@ export default function PatientVisitPage() {
   const handleContinueToVisit = async () => {
     if (!visit) {
       // Create visit without recording
-      const newVisit = await createVisit({ patient_id: params.id, status: "draft", type: visitType });
+      const newVisit = await createVisit({ patient_id: params.id, status: "draft" });
       setVisit(newVisit);
     }
     // Continue with current form data
@@ -231,27 +671,40 @@ export default function PatientVisitPage() {
 
   if (loading) {
     return (
-      <div className="bg-[#f6f7f8] min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-8 h-8 border-4 border-[#137fec] border-t-transparent rounded-full mx-auto mb-4"></div>
-          Loading patient...
-        </div>
+      <div className="relative flex min-h-screen w-full">
+        <Sidebar />
+        <PatientDetailSidebar patientId={params.id} />
+        <main className="flex-1 p-8">
+          <div className="mb-6">
+            <GlobalSearchBar />
+          </div>
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p className="text-gray-500 dark:text-gray-400">Loading patient...</p>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="bg-[#F3F6FD] min-h-screen">
-      <Header />
-      {/* Main Content */}
-      <main className="p-4 md:p-8 overflow-y-auto">
+    <div className="relative flex min-h-screen w-full">
+      <Sidebar />
+      <PatientDetailSidebar patientId={params.id} />
+
+      <main className="flex-1 p-8">
+        <div className="mb-6">
+          <GlobalSearchBar />
+        </div>
 
         {/* Header */}
         <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 md:mb-8 gap-4">
           <div className="w-full lg:w-auto">
             <div className="flex items-center space-x-2 mb-1">
               <span className="bg-blue-100 text-[#5BB5E8] text-xs font-semibold px-2 py-0.5 rounded-md">Phase 1</span>
-              <h2 className="text-sm text-[#718096] font-medium">Intellibus</h2>
+              <h2 className="text-sm text-[#718096] font-medium">Intellibus Tele-Medicine</h2>
             </div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#2D3748] mt-4">Ready to help your patients today?</h1>
             <p className="text-sm text-[#718096] mt-1">Recording visit for {patient?.full_name} - manage consultation and track health progress</p>
@@ -317,45 +770,46 @@ export default function PatientVisitPage() {
                         </p>
                       </div>
                       {!recording && !recorder.isRecording && !transcription && (
-                        <>
-                          <label className="w-full text-left mb-2">
-                            <span className="text-xs text-gray-600 block mb-1">Visit Type</span>
-                            <select className="input" value={visitType} onChange={(e) => setVisitType(e.target.value)}>
-                              <option value="telehealth">Telehealth</option>
-                              <option value="mobile_acute">Mobile Acute Care</option>
-                              <option value="triage">Triage</option>
-                              <option value="nurse_visit">Nurse Visit</option>
-                              <option value="doctor_visit">Doctor Visit</option>
-                            </select>
-                          </label>
-                          <button
-                            onClick={handleStartRecording}
-                            className="mt-2 flex items-center justify-center rounded-lg h-11 px-6 bg-[#137fec] hover:bg-[#0b5ec2] text-white text-sm font-bold shadow-lg shadow-[#137fec]/25 transition-all w-full max-w-[200px] gap-2"
-                            disabled={saving || transcribing}
-                          >
-                            <span className="text-[20px]">⏺</span>
-                            <span>Start Recording</span>
-                          </button>
-                        </>
+                        <button
+                          onClick={handleStartRecording}
+                          className="mt-2 flex items-center justify-center rounded-lg h-11 px-6 bg-[#137fec] hover:bg-[#0b5ec2] text-white text-sm font-bold shadow-lg shadow-[#137fec]/25 transition-all w-full max-w-[200px] gap-2"
+                          disabled={saving || uploading || transcribing}
+                        >
+                          <span className="text-[20px]">⏺</span>
+                          <span>Start Recording</span>
+                        </button>
                       )}
                       {recording && recorder.isRecording && (
                         <div className="flex flex-col items-center gap-4">
                           <button
                             onClick={handleStopRecording}
                             className="flex items-center justify-center rounded-lg h-11 px-6 bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-all gap-2"
-                            disabled={saving || transcribing}
+                            disabled={saving || uploading || transcribing}
                           >
                             <span className="text-[20px]">⏹</span>
-                            <span>{saving || transcribing ? "Processing..." : "Stop Recording"}</span>
+                            <span>{saving || uploading || transcribing ? "Processing..." : "Stop Recording"}</span>
                           </button>
                           <span className="px-3 py-1 bg-red-50 text-red-600 rounded-full text-sm font-medium">
                             {recorder.formatTime(recorder.recordingTime)}
                           </span>
                         </div>
                       )}
-                      {transcription && !recording && (
-                        <div className="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium">
-                          Recording saved and transcribed
+                      {uploading && !recording && !transcribing && (
+                        <div className="w-full px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-center gap-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+                          <span className="text-blue-700 dark:text-blue-300 text-sm font-medium">Uploading audio file...</span>
+                        </div>
+                      )}
+                      {transcribing && !uploading && !recording && (
+                        <div className="w-full px-4 py-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg flex items-center justify-center gap-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-600 border-t-transparent"></div>
+                          <span className="text-purple-700 dark:text-purple-300 text-sm font-medium">Transcribing audio and generating notes...</span>
+                        </div>
+                      )}
+                      {transcription && !recording && !uploading && !transcribing && (
+                        <div className="w-full px-4 py-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center justify-center gap-2">
+                          <span className="material-symbols-outlined text-green-600 dark:text-green-400 text-sm">check_circle</span>
+                          <span className="text-green-700 dark:text-green-300 text-sm font-medium">Recording saved and transcribed successfully</span>
                         </div>
                       )}
                     </div>
@@ -364,7 +818,6 @@ export default function PatientVisitPage() {
               </div>
 
               {/* Previous Visit Info */}
-            <Toast />
               <div className="bg-white rounded-xl border border-[#e7edf3] shadow-sm p-5 space-y-4 mt-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-[#4c739a]">Previous Visit</h3>
@@ -611,13 +1064,13 @@ export default function PatientVisitPage() {
               {/* Form Footer */}
               <div className="p-4 border-t border-[#e7edf3] bg-[#f6f7f8]/30 flex justify-between items-center">
                 <span className="text-xs text-[#4c739a] italic">
-                  {saving ? "Saving..." : transcribing ? "Transcribing..." : "Ready to save"}
+                  {uploading ? "Uploading..." : saving ? "Saving..." : transcribing ? "Transcribing..." : "Ready to save"}
                 </span>
                 <div className="flex gap-3">
                   <button
                     onClick={handleSaveDraft}
                     className="text-[#0d141b] hover:bg-white px-3 py-1.5 rounded-lg text-sm font-medium border border-transparent hover:border-[#e7edf3] transition-all"
-                    disabled={saving || transcribing}
+                    disabled={saving || uploading || transcribing}
                   >
                     Save Draft
                   </button>

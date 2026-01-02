@@ -3,10 +3,10 @@
 
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createVisit, getPatients, updateVisit, createRecordingCacheUpload, enqueueTranscriptionWithCache, getCurrentLocation } from "../../../lib/api";
+import { createVisit, getPatients, transcribeVisitAudio, updateVisit } from "../../../lib/api";
 import type { Patient } from "../../../lib/types";
 import { useAuthGuard } from "../../../lib/useAuthGuard";
-import { supabaseBrowser } from "../../../lib/supabaseBrowser";
+import { uploadToPrivateBucket } from "../../../lib/storage";
 import { useAudioRecorder } from "../../../lib/useAudioRecorder";
 import { convertToMP3 } from "../../../lib/audioConverter";
 
@@ -15,8 +15,7 @@ function NewVisitPageContent() {
   const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientId, setPatientId] = useState("");
-  const [status, setStatus] = useState<'draft'|'registered'|'in_progress'|'completed'|'pending_review'|'finalized'>("draft");
-  const [visitType, setVisitType] = useState<string>('telehealth');
+  const [status, setStatus] = useState("draft");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -110,38 +109,92 @@ function NewVisitPageContent() {
 
   const processAudioFile = async (mp3File: File) => {
     // Create visit first to get the visit_id
-    const location = await getCurrentLocation();
-    const visitPayload: any = { patient_id: patientId, status, type: visitType };
-    if (location) {
-      visitPayload.location_lat = location.latitude;
-      visitPayload.location_lng = location.longitude;
-      if (location.accuracy) visitPayload.location_accuracy = Math.round(location.accuracy);
-      if (location.timestamp) visitPayload.location_recorded_at = location.timestamp;
-    }
-
-    const visit = await createVisit(visitPayload);
+    const visit = await createVisit({ patient_id: patientId, status });
     const visitId = visit.id;
 
-    // Create a cache entry and get a signed upload URL
-    const { cache, path, token, bucket } = await createRecordingCacheUpload({ filename: mp3File.name, contentType: mp3File.type, size: mp3File.size });
+    // Upload MP3 file to Supabase storage
+    const upload = await uploadToPrivateBucket(mp3File);
 
-    // Upload file to the signed URL
-    const supabase = supabaseBrowser();
-    const { error: uploadErr } = await supabase.storage.from(bucket).uploadToSignedUrl(path, token, mp3File, { contentType: mp3File.type });
-    if (uploadErr) throw new Error(uploadErr.message);
+    // Update visit with audio URL
+    await updateVisit(visitId, { audio_url: upload.path });
 
-    // Update visit with audio URL and enqueue transcription referencing the cache
-    await updateVisit(visitId, { audio_url: path });
-
+    // Transcribe the audio with visit_id so it gets saved to database
     setTranscribing(true);
     try {
-      const cacheId = cache && cache[0] ? cache[0].id : cache.id;
-      await enqueueTranscriptionWithCache(visitId, cacheId, path);
-      // Inform the user that transcription was queued
-      setTranscription({ transcript: '', structured: null, summary: 'Transcription has been queued and will complete shortly.' });
-    } catch (e) {
-      console.error('Failed to enqueue transcription', e);
-      setError((e as Error).message || String(e));
+      const transcriptionResult = await transcribeVisitAudio(upload.path, visitId);
+      setTranscription(transcriptionResult);
+      console.log("Transcription completed:", transcriptionResult);
+      
+      // Import appendVisitNote for saving transcription to notes
+      const { appendVisitNote } = await import("../../../lib/api");
+      
+      // Save the full transcript to visit notes as subjective (dictation source)
+      if (transcriptionResult.transcript) {
+        try {
+          await appendVisitNote(
+            visitId,
+            transcriptionResult.transcript,
+            "subjective",
+            "dictation"
+          );
+        } catch (noteError) {
+          console.warn("Failed to save transcript to notes:", noteError);
+        }
+      }
+
+      // Save the AI-generated summary to visit notes as assessment
+      if (transcriptionResult.summary) {
+        try {
+          await appendVisitNote(
+            visitId,
+            transcriptionResult.summary,
+            "assessment",
+            "dictation"
+          );
+        } catch (noteError) {
+          console.warn("Failed to save summary to notes:", noteError);
+        }
+      }
+
+      // Save structured data to notes if available
+      if (transcriptionResult.structured) {
+        const structured = transcriptionResult.structured;
+        
+        // Save diagnosis
+        if (structured.diagnosis) {
+          const diagnosis = Array.isArray(structured.diagnosis)
+            ? structured.diagnosis.join(', ')
+            : structured.diagnosis;
+          try {
+            await appendVisitNote(
+              visitId,
+              `Diagnosis: ${diagnosis}`,
+              "assessment",
+              "dictation"
+            );
+          } catch (noteError) {
+            console.warn("Failed to save diagnosis to notes:", noteError);
+          }
+        }
+
+        // Save treatment plan
+        if (structured.treatment_plan && Array.isArray(structured.treatment_plan) && structured.treatment_plan.length > 0) {
+          try {
+            await appendVisitNote(
+              visitId,
+              `Treatment Plan: ${structured.treatment_plan.join('\n')}`,
+              "plan",
+              "dictation"
+            );
+          } catch (noteError) {
+            console.warn("Failed to save treatment plan to notes:", noteError);
+          }
+        }
+      }
+    } catch (transcribeError) {
+      console.error("Transcription error:", transcribeError);
+      setError((transcribeError as Error).message);
+      // Don't fail the visit creation if transcription fails
     } finally {
       setTranscribing(false);
       setSaving(false);
@@ -194,7 +247,7 @@ function NewVisitPageContent() {
               <select
                 className="input"
                 value={status}
-                onChange={(e) => { const v = e.target.value as 'draft'|'registered'|'in_progress'|'completed'|'pending_review'|'finalized'; setStatus(v); }}
+                onChange={(e) => setStatus(e.target.value)}
                 disabled={recording || saving || transcribing}
               >
                 <option value="draft">Draft</option>

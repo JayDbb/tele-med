@@ -125,12 +125,8 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
     setQuery('')
     setShowDropdown(false)
     
-    // Route to appropriate portal based on user type
-    if (nurse) {
-      router.push(`/nurse-portal/patients/${patient.id}`)
-    } else {
-      router.push(`/doctor/patients/${patient.id}`)
-    }
+    // Route to patient page
+    router.push(`/patients/${patient.id}`)
   }
 
   const handleFocus = () => {
@@ -151,12 +147,7 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
   }
 
   return (
-    <div ref={searchRef} className="relative w-full max-w-md flex items-center gap-2">
-      {/* Mobile menu button - toggles sidebar */}
-      <button onClick={() => window.dispatchEvent(new CustomEvent('toggleSidebar'))} className="lg:hidden inline-flex items-center p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800">
-        <span className="material-symbols-outlined text-gray-600 dark:text-gray-300">menu</span>
-      </button>
-
+    <div ref={searchRef} className="relative w-full max-w-md">
       <label className="flex w-full items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg px-3 h-10 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
         <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">search</span>
         <input 

@@ -1,7 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/supabase
 /node_modules
 /.pnp
 .pnp.*
@@ -11,13 +10,8 @@
 !.yarn/releases
 !.yarn/versions
 
-# docs
-current_features_list.md
-features_to_add.md
-
 # testing
 /coverage
-/scripts
 
 # next.js
 /.next/

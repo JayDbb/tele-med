@@ -48,38 +48,39 @@ export async function GET(
   if (!access.allowed)
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
 
-  // Fetch entries from the notes table (normalized per-entry rows)
-  // Select entries from normalized `visit_notes` table
-  const { data: rows, error: dbError } = await supabase
-    .from("visit_notes")
-    .select("id, content, section, source, author_id, created_at")
+  // Get the note record for this visit
+  const { data: noteRecord, error: dbError } = await supabase
+    .from("notes")
+    .select("*")
     .eq("visit_id", id)
-    .order("created_at", { ascending: true });
-
-  if (dbError) return NextResponse.json({ error: dbError.message }, { status: 400 });
-
-  // Determine visit-level status from visits.notes_status
-  const { data: visitRow } = await supabase
-    .from("visits")
-    .select("notes_status, notes_finalized_by, notes_finalized_at")
-    .eq("id", id)
     .maybeSingle();
 
-  const entries = Array.isArray(rows)
-    ? rows.map((r: any) => ({
-        id: r.id || r?.id || r?.row?.id,
-        timestamp: r.created_at || r?.created_at,
-        content: r.content || r?.content,
-        section: r.section || r?.section,
-        source: r.source || r?.source,
-        author_id: r.author_id || r?.author_id,
-      }))
-    : [];
+  if (dbError)
+    return NextResponse.json({ error: dbError.message }, { status: 400 });
+
+  // If no note record exists, return empty array
+  if (!noteRecord) {
+    return NextResponse.json({
+      visit_id: id,
+      status: "draft",
+      entries: [],
+    });
+  }
+
+  // Parse entries from note field (should be array of entries)
+  let entries = [];
+  if (noteRecord.note) {
+    try {
+      entries = Array.isArray(noteRecord.note) ? noteRecord.note : [];
+    } catch {
+      entries = [];
+    }
+  }
 
   return NextResponse.json({
-    visit_id: id,
-    status: visitRow?.notes_status ?? "draft",
-    entries,
+    visit_id: noteRecord.visit_id,
+    status: noteRecord.status,
+    entries: entries,
   });
 }
 
@@ -88,116 +89,105 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id } = await params;
-  const { userId, user, error } = await requireUser(req);
+  const { id } = await params;
+  const { userId, error } = await requireUser(req);
   if (!userId) return NextResponse.json({ error }, { status: 401 });
 
   const supabase = supabaseServer();
+  const access = await assertAccess(supabase, userId, id);
+  if (!access.allowed)
+    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
 
-  // Ensure the canonical public.users row exists for this author (foreign key requires it)
-  let hasAuthorRow = false;
-  try {
-    const { data: existingUser } = await supabase.from('users').select('id').eq('id', userId).maybeSingle();
-    if (existingUser) {
-      hasAuthorRow = true;
-    } else {
-      // Try to upsert a minimal public.users row using email and name from auth user
-      const email = user?.email || null;
-      const name = user?.user_metadata?.full_name || user?.user_metadata?.fullName || null;
-      if (email) {
-        const { data: up, error: upsertErr } = await supabase.from('users').insert({ id: userId, email, name }).select().maybeSingle();
-        if (upsertErr) {
-          console.warn('Could not upsert public.users row for author:', upsertErr.message);
-        } else if (up) {
-          hasAuthorRow = true;
-        }
-      } else {
-        console.warn('Author has no email to create public.users row; insert may fail due to FK');
-      }
-    }
-  } catch (e) {
-    console.warn('Error checking/creating public.users row for author', e);
+  const payload = await req.json();
+  const { content, section, source = "manual" } = payload; // source: 'manual' | 'dictation'
+
+  if (!content || typeof content !== "string") {
+    return NextResponse.json(
+      { error: "Missing or invalid content" },
+      { status: 400 }
+    );
   }
 
-    const access = await assertAccess(supabase, userId, id);
-    if (!access.allowed)
-      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  if (
+    !section ||
+    !["subjective", "objective", "assessment", "plan"].includes(section)
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Invalid section. Must be: subjective, objective, assessment, or plan",
+      },
+      { status: 400 }
+    );
+  }
 
-    // debug logging for failing cases
-    console.log("POST /api/visits/[id]/note - userId:", userId, "visitId:", id);
+  // Create new entry
+  const newEntry = {
+    id: crypto.randomUUID(),
+    timestamp: new Date().toISOString(),
+    content: content.trim(),
+    section,
+    source,
+    author_id: userId,
+  };
 
-    const payload = await req.json();
-    const { content, section, source = "manual" } = payload; // source: 'manual' | 'dictation'
+  // Get existing note record
+  const { data: existingNote, error: fetchError } = await supabase
+    .from("notes")
+    .select("*")
+    .eq("visit_id", id)
+    .maybeSingle();
 
-    if (!content || typeof content !== "string") {
-      return NextResponse.json(
-        { error: "Missing or invalid content" },
-        { status: 400 }
-      );
+  let entries = [];
+  if (existingNote?.note) {
+    try {
+      entries = Array.isArray(existingNote.note) ? existingNote.note : [];
+    } catch {
+      entries = [];
     }
+  }
 
-    if (
-      !section ||
-      !["subjective", "objective", "assessment", "plan"].includes(section)
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Invalid section. Must be: subjective, objective, assessment, or plan",
-        },
-        { status: 400 }
-      );
-    }
+  // Append new entry
+  entries.push(newEntry);
 
-    // Create new entry
-    const newEntry = {
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      content: content.trim(),
-      section,
-      source,
-      author_id: userId,
-    };
-
-    // Insert new per-entry row into `visit_notes`
-    const { data: inserted, error: insertErr } = await supabase
-      .from("visit_notes")
+  // Insert or update note with updated entries array
+  let data, dbError;
+  if (existingNote) {
+    // Update existing note
+    const { data: updated, error: updateError } = await supabase
+      .from("notes")
+      .update({
+        note: entries,
+        status: existingNote.status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("visit_id", id)
+      .select()
+      .maybeSingle();
+    data = updated;
+    dbError = updateError;
+  } else {
+    // Insert new note
+    const { data: inserted, error: insertError } = await supabase
+      .from("notes")
       .insert({
         visit_id: id,
-        content: newEntry.content,
-        section: newEntry.section,
-        source: newEntry.source,
-        author_id: hasAuthorRow ? newEntry.author_id : null,
+        note: entries,
+        status: "draft",
       })
       .select()
       .maybeSingle();
-
-    if (insertErr) {
-      console.error("visit_notes insertErr:", insertErr);
-      return NextResponse.json({ error: insertErr.message }, { status: 400 });
-    }
-
-    // Get the total count for the visit
-    const { data: list, error: listErr } = await supabase
-      .from('visit_notes')
-      .select('id')
-      .eq('visit_id', id);
-
-    if (listErr) {
-      console.error("visit_notes listErr:", listErr);
-    }
-
-    const total = Array.isArray(list) ? list.length : undefined;
-
-    return NextResponse.json({
-      entry: newEntry,
-      totalEntries: total,
-    });
-  } catch (e) {
-    console.error("Unhandled error in POST /api/visits/[id]/note:", e);
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    data = inserted;
+    dbError = insertError;
   }
+
+  if (dbError)
+    return NextResponse.json({ error: dbError.message }, { status: 400 });
+
+  return NextResponse.json({
+    entry: newEntry,
+    totalEntries: entries.length,
+  });
 }
 
 // PUT: Update note status (e.g., sign note)
@@ -206,26 +196,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { userId, user, token, error } = await requireUser(req);
+  const { userId, error } = await requireUser(req);
   if (!userId) return NextResponse.json({ error }, { status: 401 });
 
   const supabase = supabaseServer();
-
-  // Ensure a public.users row exists for the signer to satisfy FK when finalizing
-  try {
-    const { data: existingUser } = await supabase.from('users').select('id').eq('id', userId).maybeSingle();
-    if (!existingUser) {
-      const email = user?.email || null;
-      const name = user?.user_metadata?.full_name || user?.user_metadata?.fullName || null;
-      if (email) {
-        const { error: upsertErr } = await supabase.from('users').insert({ id: userId, email, name }).select().maybeSingle();
-        if (upsertErr) console.warn('Could not upsert public.users for signer:', upsertErr.message);
-      }
-    }
-  } catch (e) {
-    console.warn('Error ensuring public.users for signer', e);
-  }
-
   const access = await assertAccess(supabase, userId, id);
   if (!access.allowed)
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
@@ -240,25 +214,53 @@ export async function PUT(
     );
   }
 
-  // Update visit-level note metadata on the visits table
+  // Get existing note to preserve entries
+  const { data: existingNote } = await supabase
+    .from("notes")
+    .select("*")
+    .eq("visit_id", id)
+    .maybeSingle();
+
+  // Prepare update data
   const updateData: any = {
-    notes_status: status,
+    visit_id: id,
+    note: existingNote?.note ?? [],
+    status,
+    updated_at: new Date().toISOString(),
   };
 
+  // If signing the note, set finalized_by and finalized_at
   if (status === "signed") {
-    updateData.notes_finalized_by = userId;
-    updateData.notes_finalized_at = new Date().toISOString();
+    updateData.finalized_by = userId;
+    updateData.finalized_at = new Date().toISOString();
   } else if (status === "draft") {
-    updateData.notes_finalized_by = null;
-    updateData.notes_finalized_at = null;
+    // If reverting to draft, clear finalized fields
+    updateData.finalized_by = null;
+    updateData.finalized_at = null;
   }
 
-  const { data, error: dbError } = await supabase
-    .from("visits")
-    .update(updateData)
-    .eq("id", id)
-    .select()
-    .maybeSingle();
+  // Insert or update note
+  let data, dbError;
+  if (existingNote) {
+    // Update existing note
+    const { data: updated, error: updateError } = await supabase
+      .from("notes")
+      .update(updateData)
+      .eq("visit_id", id)
+      .select()
+      .maybeSingle();
+    data = updated;
+    dbError = updateError;
+  } else {
+    // Insert new note
+    const { data: inserted, error: insertError } = await supabase
+      .from("notes")
+      .insert(updateData)
+      .select()
+      .maybeSingle();
+    data = inserted;
+    dbError = insertError;
+  }
 
   if (dbError)
     return NextResponse.json({ error: dbError.message }, { status: 400 });

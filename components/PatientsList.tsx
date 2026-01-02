@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import { useVideoCall } from '../contexts/VideoCallContext'
 import { getPatients } from '@/lib/api'
 import { useDoctor } from '@/contexts/DoctorContext'
-import { useNurse } from '@/contexts/NurseContext'
+import { usePatientRoutes } from '@/lib/usePatientRoutes'
 import type { Patient } from '@/lib/types'
 
 const PatientsList = () => {
@@ -16,23 +16,7 @@ const PatientsList = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { doctor } = useDoctor()
-  const { nurse } = useNurse()
-
-  const getPatientUrl = (patientId: string) => {
-    if (nurse) {
-      return `/nurse-portal/patients/${patientId}`
-    } else {
-      return `/doctor/patients/${patientId}`
-    }
-  }
-
-  const getNewVisitUrl = (patientId: string) => {
-    if (nurse) {
-      return `/nurse-portal/patients/${patientId}/new-visit`
-    } else {
-      return `/doctor/patients/${patientId}/new-visit`
-    }
-  }
+  const { getPatientUrl, getNewVisitUrl } = usePatientRoutes()
 
   useEffect(() => {
     loadAllPatients()
@@ -58,7 +42,6 @@ const PatientsList = () => {
       const mappedPatients = patients.map((patient: Patient) => ({
         id: patient.id,
         name: patient.full_name || 'Unknown',
-        mrn: patient.mrn || null,
         email: patient.email || '',
         dob: patient.dob || '',
         phone: patient.phone || '',
@@ -90,7 +73,10 @@ const PatientsList = () => {
   }
 
   const handleAddPatient = () => {
-    router.push('/patients/new')
+    // Generate new patient ID
+    // const newPatientId = Date.now().toString()
+    console.log('pushing to /patients/new')
+    router.push('/patients/create')
   }
 
   return (
@@ -102,8 +88,9 @@ const PatientsList = () => {
         </div>
         <button
           onClick={handleAddPatient}
-          className="bg-primary hover:bg-primary/90 text-white px-3 py-2 sm:px-6 sm:py-3 rounded-lg inline-flex items-center sm:gap-2 shadow-sm transition-colors"
+          className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg flex items-center gap-2 shadow-sm transition-colors"
         >
+          <span className="material-symbols-outlined text-sm">add</span>
           Add Patient
         </button>
       </div>
@@ -135,9 +122,9 @@ const PatientsList = () => {
               <p className="text-gray-500 dark:text-gray-400 mb-6">Add your first patient to get started</p>
               <button
                 onClick={handleAddPatient}
-                className="bg-primary hover:bg-primary/90 text-white px-3 py-2 sm:px-6 sm:py-3 rounded-lg inline-flex items-center sm:gap-2 shadow-sm transition-colors"
+                className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg flex items-center gap-2 shadow-sm transition-colors"
               >
-                <span className="material-icons-outlined text-sm hidden sm:inline-flex">add</span>
+                <span className="material-symbols-outlined text-sm">add</span>
                 Add First Patient
               </button>
             </div>
@@ -146,21 +133,8 @@ const PatientsList = () => {
               <Link
                 key={index}
                 href={getPatientUrl(patient.id)}
-                className="block relative bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-800"
+                className="block bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-800"
               >
-                <button
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    handleVideoCall(patient.email, patient.name)
-                  }}
-                  className="absolute top-12 right-6 bg-green-500 hover:bg-green-600 text-white w-12 h-12 flex items-center justify-center rounded-full shadow-md transition-colors"
-                  title="Start Video Call"
-                  aria-label={`Start video call with ${patient.name}`}
-                >
-                  <span className="material-symbols-outlined text-sm">videocam</span>
-                </button>
-
                 <div className="flex items-start gap-4 mb-4">
                   {patient.image ? (
                     <img
@@ -176,8 +150,18 @@ const PatientsList = () => {
                   <div className="flex-1 min-w-0">
                     <h4 className="font-semibold text-gray-900 dark:text-white truncate">{patient.name}</h4>
                     <div className="flex items-center gap-2">
-                      {patient.mrn && <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-md text-gray-600 dark:text-gray-300">MRN: {patient.mrn}</span>}
                       <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{patient.email}</p>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleVideoCall(patient.email, patient.name)
+                        }}
+                        className="bg-green-500 hover:bg-green-600 text-white p-1 rounded flex items-center justify-center transition-colors"
+                        title="Start Video Call"
+                      >
+                        <span className="material-symbols-outlined text-sm">videocam</span>
+                      </button>
                     </div>
                   </div>
                 </div>

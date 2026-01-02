@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useDoctor } from '@/contexts/DoctorContext'
 import { useNurse } from '@/contexts/NurseContext'
 import { supabaseBrowser } from '@/lib/supabaseBrowser'
+import { getCurrentUser } from '@/lib/api'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -24,30 +25,23 @@ export default function LoginPage() {
       const result = await doctorLogin(email, password)
 
       if (result.success) {
-        // Get the user to determine role
-        const supabase = supabaseBrowser()
-        const { data: { session } } = await supabase.auth.getSession()
-        const userRole = session?.user.user_metadata?.role || 'doctor'
+        // Get the user to determine role from users table (server-side)
+        const user = await getCurrentUser()
 
-        if (userRole === 'nurse') {
-          // Load nurse data
-          const user = session?.user
-          if (user) {
-            const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
-            const department = user.user_metadata?.department || 'General'
-
-            setNurse({
-              id: user.id,
-              name: fullName,
-              email: user.email || '',
-              department: department,
-              avatar: user.user_metadata?.avatar
-            })
-            setIsAuthenticated(true)
-          }
+        if (user && user.role === 'nurse') {
+          // Load nurse data from users table
+          setNurse({
+            id: user.id,
+            name: user.name || user.email || 'User',
+            email: user.email || '',
+            department: user.metadata?.department || user.department || 'General',
+            avatar: user.avatar_url || null
+          })
+          setIsAuthenticated(true)
           router.push('/nurse-portal')
         } else {
-          // Doctor login
+          // Doctor login - use users table when available
+          const doctorName = user?.name || ''
           router.push('/doctor/dashboard')
         }
       } else {
@@ -118,7 +112,7 @@ export default function LoginPage() {
 
         <div className="mt-6 text-sm text-gray-600 dark:text-gray-400">
           <p className="font-medium">Sign in with your Supabase account</p>
-          <p className="mt-1 text-xs">Make sure your user has a role set in user_metadata (doctor or nurse)</p>
+          <p className="mt-1 text-xs">Don't have an account? <a href="/signup" className="text-primary">Sign up</a></p>
         </div>
       </div>
     </div>

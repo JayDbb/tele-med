@@ -1,5 +1,5 @@
 import Sidebar from '@/components/Sidebar'
-import SearchBar from '@/components/SearchBar'
+import GlobalSearchBar from '@/components/GlobalSearchBar'
 import PatientsList from '@/components/PatientsList'
 
 export default function PatientsPage() {
@@ -7,8 +7,10 @@ export default function PatientsPage() {
     <div className="relative flex min-h-screen w-full">
       <Sidebar />
       
-      <main className="flex-1 p-8 grid grid-cols-12 gap-8">
-        <SearchBar />
+      <main className="flex-1 p-8">
+        <div className="mb-6">
+          <GlobalSearchBar />
+        </div>
         <PatientsList />
       </main>
     </div>

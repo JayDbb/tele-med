@@ -37,124 +37,62 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Try selecting visits with nested notes/transcripts; if permission errors occur (e.g., notes table RLS),
-  // fall back to a simpler query that selects visits only.
-  let visits: any[] = []
-  try {
-    const { data, error } = await supabase
-      .from('visits')
-      .select('*, notes(note), transcripts(raw_text, segments)')
-      .eq('patient_id', id)
-      .order('created_at', { ascending: false })
+  // First, get visits without notes/transcripts to avoid permission issues
+  const { data: visits, error: visitsError } = await supabase
+    .from("visits")
+    .select("*")
+    .eq("patient_id", id)
+    .order("created_at", { ascending: false });
 
-    if (error) {
-      // If the error is permission related, retry with a simpler select
-      console.warn('visits select (with notes/transcripts) failed:', error.message)
-      const { data: fallbackData, error: fallbackErr } = await supabase
-        .from('visits')
-        .select('*')
-        .eq('patient_id', id)
-        .order('created_at', { ascending: false })
-
-      if (fallbackErr) {
-        console.warn('fallback visits select failed:', fallbackErr.message)
-        visits = []
-      } else {
-        visits = fallbackData || []
-      }
-    } else {
-      visits = data || []
-    }
-  } catch (err: any) {
-    console.error('Unexpected error selecting visits:', err)
-    visits = []
+  if (visitsError) {
+    return NextResponse.json({ error: visitsError.message }, { status: 400 });
   }
 
-  const visitsWithNote = (visits ?? []).map((v: any) => ({
-    ...v,
-    notes: v.notes ?? null,
-  }));
+  // Try to fetch notes and transcripts separately if the tables exist
+  const visitsWithNote = await Promise.all(
+    (visits ?? []).map(async (visit: any) => {
+      let noteData = null;
+      let transcriptData = null;
+
+      // Try to fetch note if notes table exists and is accessible
+      try {
+        const { data: note } = await supabase
+          .from("notes")
+          .select("note, status")
+          .eq("visit_id", visit.id)
+          .maybeSingle();
+        
+        if (note) {
+          noteData = note;
+        }
+      } catch (noteError: any) {
+        // If notes table doesn't exist or permission denied, continue without it
+        console.warn("Could not fetch notes:", noteError.message);
+      }
+
+      // Try to fetch transcript if transcripts table exists and is accessible
+      try {
+        const { data: transcript } = await supabase
+          .from("transcripts")
+          .select("raw_text, segments")
+          .eq("visit_id", visit.id)
+          .maybeSingle();
+        
+        if (transcript) {
+          transcriptData = transcript;
+        }
+      } catch (transcriptError: any) {
+        // If transcripts table doesn't exist or permission denied, continue without it
+        console.warn("Could not fetch transcripts:", transcriptError.message);
+      }
+
+      return {
+        ...visit,
+        notes: noteData,
+        transcripts: transcriptData,
+      };
+    })
+  );
 
   return NextResponse.json({ patient, visits: visitsWithNote });
-}
-
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const { userId, error } = await requireUser(req);
-  if (!userId) {
-    return NextResponse.json({ error }, { status: 401 });
-  }
-
-  try {
-    const body = await req.json();
-    const supabase = supabaseServer();
-
-    // Ensure the requester owns the patient
-    const { data: patientOwned } = await supabase
-      .from('patients')
-      .select('id, clinician_id')
-      .eq('id', id)
-      .maybeSingle();
-
-    if (!patientOwned || patientOwned.clinician_id !== userId) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
-    }
-
-    const { data, error: dbError } = await supabase
-      .from('patients')
-      .update(body)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (dbError) {
-      return NextResponse.json({ error: dbError.message }, { status: 400 });
-    }
-
-    return NextResponse.json({ success: true, patient: data });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err?.message || 'Failed to update patient' }, { status: 500 });
-  }
-}
-
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const { userId, error } = await requireUser(req);
-  if (!userId) {
-    return NextResponse.json({ error }, { status: 401 });
-  }
-
-  try {
-    const supabase = supabaseServer();
-
-    // Ensure the requester owns the patient
-    const { data: patientOwned } = await supabase
-      .from('patients')
-      .select('id, clinician_id')
-      .eq('id', id)
-      .maybeSingle();
-
-    if (!patientOwned || patientOwned.clinician_id !== userId) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
-    }
-
-    const { error: dbError } = await supabase
-      .from('patients')
-      .delete()
-      .eq('id', id);
-
-    if (dbError) {
-      return NextResponse.json({ error: dbError.message }, { status: 400 });
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err?.message || 'Failed to delete patient' }, { status: 500 });
-  }
 }

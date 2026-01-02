@@ -45,22 +45,3 @@ export async function POST(req: NextRequest) {
   });
 }
 
-// GET: create a signed download URL for an existing object
-export async function GET(req: NextRequest) {
-  const { userId, error } = await requireUser(req)
-  if (!userId) return NextResponse.json({ error }, { status: 401 })
-
-  const url = new URL(req.url)
-  const bucket = url.searchParams.get('bucket') || process.env.STORAGE_BUCKET
-  const path = url.searchParams.get('path')
-  const expires = Number(url.searchParams.get('expires') || '3600')
-
-  if (!bucket || !path) return NextResponse.json({ error: 'Missing bucket or path' }, { status: 400 })
-
-  const supabase = supabaseServer()
-  const { data, error: signErr } = await supabase.storage.from(bucket).createSignedUrl(path, expires)
-  if (signErr || !data) return NextResponse.json({ error: signErr?.message || 'Failed to create signed URL' }, { status: 500 })
-
-  return NextResponse.json({ signedUrl: data.signedUrl, expires_in: expires })
-}
-

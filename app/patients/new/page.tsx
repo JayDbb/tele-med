@@ -1,309 +1,242 @@
 "use client";
 
-import { FormEvent, useState, useEffect } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import BackButton from '@/components/BackButton'
+import Sidebar from '@/components/Sidebar'
+import GlobalSearchBar from '@/components/GlobalSearchBar'
 import { createPatient } from "../../../lib/api";
-import { useAuthGuard } from "../../../lib/useAuthGuard";
-import { supabaseBrowser } from "../../../lib/supabaseBrowser";
-import { Header } from "../../../components/Header";
 
 export default function NewPatientPage() {
-  const { ready } = useAuthGuard();
-  const router = useRouter();
-  const [fullName, setFullName] = useState("");
-  const [sex, setSex] = useState<"M" | "F" | "">("");
-  const [phone, setPhone] = useState("");
+    const router = useRouter();
+    const [fullName, setFullName] = useState("");
+    const [dob, setDob] = useState("");
+    const [gender, setGender] = useState("");
+    const [phone, setPhone] = useState("");
+    const [email, setEmail] = useState("");
+    const [allergies, setAllergies] = useState("");
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!ready) return;
-    (async () => {
-      const supabase = supabaseBrowser();
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-    })();
-  }, [ready]);
+    const onSubmit = async (e: FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
+        try {
+            // Convert gender to sex_at_birth format (M/F/null)
+            let sex_at_birth: "M" | "F" | null = null;
+            if (gender === "Male") sex_at_birth = "M";
+            else if (gender === "Female") sex_at_birth = "F";
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!ready) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const patient = await createPatient({
-        full_name: fullName,
-        sex_at_birth: sex || null,
-        phone: phone || null,
+            const response = await createPatient({
+                full_name: fullName,
+                dob: dob || null,
+                sex_at_birth: sex_at_birth,
+                phone: phone || null,
+                email: email || null,
+                allergies: allergies || null,
+            });
 
-      });
-      router.push(`/patients/${patient.id}`);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
+            // Handle API response - it returns { success: true, patient: {...} }
+            if (response.success === false) {
+                setError(response.error || "Failed to create patient. Please try again.");
+                return;
+            }
 
-  const getUserDisplayName = () => {
-    if (!user) return 'Loading...';
-    return user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
-  };
+            const patient = response.patient || response;
+            if (!patient || !patient.id) {
+                setError("Invalid response from server. Please try again.");
+                return;
+            }
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
-  };
+            router.push(`/patients/${patient.id}`);
+        } catch (err: any) {
+            setError(err?.message || "Failed to create patient. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  return (
-    <div className="bg-[#F3F6FD] min-h-screen">
-      <Header />
-      {/* Main Content */}
-      <main className="p-4 md:p-8 overflow-y-auto">
-        {/* Header */}
-        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 md:mb-8 gap-4">
-          <div className="w-full lg:w-auto">
-            <div className="flex items-center space-x-2 mb-1">
-              <span className="bg-blue-100 text-[#5BB5E8] text-xs font-semibold px-2 py-0.5 rounded-md">Phase 1</span>
-              <h2 className="text-sm text-[#718096] font-medium">Intellibus</h2>
-            </div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#2D3748] mt-4">Ready to help your patients today?</h1>
-            <p className="text-sm text-[#718096] mt-1">Enter patient details below to create a new record and start managing their health progress</p>
-          </div>
-          <div className="flex justify-end w-full lg:w-auto">
-            <div className="relative w-full sm:w-auto max-w-sm">
-              <BackButton>Back to Dashboard</BackButton>
-            </div>
-          </div>
-        </header>
+    return (
+        <div className="flex h-screen w-full overflow-hidden">
+            <Sidebar />
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
-          <div className="lg:col-span-8 space-y-6 md:space-y-8">
-            {/* Welcome Card */}
-            <div className="bg-[#5BB5E8] rounded-2xl p-6 md:p-8 relative overflow-hidden text-white shadow-lg shadow-blue-200 min-h-[180px] flex flex-col justify-center">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-              <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-300 opacity-20 rounded-full -ml-10 -mb-10 blur-xl"></div>
-              <div className="relative z-10 w-full">
-                <p className="text-blue-100 mb-1">New Patient Registration</p>
-                <h2 className="text-2xl md:text-3xl font-bold mb-2 leading-tight">Add a new patient to your practice</h2>
-                <p className="text-blue-50 text-sm opacity-90">Fill out the essential information to get started with patient care.</p>
-              </div>
-            </div>
+            <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
+                <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
+                    <GlobalSearchBar />
+                </header>
 
-            {/* Form Card */}
-            <form className="bg-white rounded-2xl shadow-sm p-6 fade-in" onSubmit={onSubmit}>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="size-10 rounded-full bg-[#5BB5E8]/10 flex items-center justify-center shrink-0">
-                  <span className="text-[#5BB5E8] text-xl">👤</span>
-                </div>
-                <h2 className="text-lg font-bold text-[#2D3748]">Demographics</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="col-span-1 md:col-span-2">
-                  <label className="block text-sm font-medium text-[#718096] mb-2" htmlFor="fullname">
-                    Full Legal Name <span className="text-red-500">*</span>
-                  </label>
-                  <input 
-                    className="w-full h-11 px-4 rounded-xl bg-white border border-gray-200 text-[#2D3748] placeholder:text-gray-400 focus:ring-2 focus:ring-[#5BB5E8] focus:border-[#5BB5E8] transition-all" 
-                    id="fullname" 
-                    name="fullname" 
-                    placeholder="e.g. Johnathan Doe" 
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                    autoFocus
-                  />
-                </div>
-                <div className="col-span-1">
-                  <label className="block text-sm font-medium text-[#718096] mb-2">
-                    Biological Sex <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex gap-4">
-                    <div className="relative flex items-center w-full">
-                      <input 
-                        className="peer hidden" 
-                        id="sex_male" 
-                        name="sex" 
-                        type="radio" 
-                        value="M"
-                        checked={sex === "M"}
-                        onChange={(e) => setSex("M")}
-                      />
-                      <label className="flex flex-1 items-center justify-center h-11 px-4 cursor-pointer rounded-xl border border-gray-200 bg-white text-gray-500 font-medium hover:bg-gray-50 peer-checked:bg-[#5BB5E8] peer-checked:text-white peer-checked:border-[#5BB5E8] transition-all" htmlFor="sex_male">
-                        Male
-                      </label>
+                <div className="flex-1 overflow-y-auto p-6">
+                    <div className="w-full flex flex-col gap-6">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-200 dark:border-gray-700">
+                            <div className="flex flex-col gap-2">
+                                <div className="flex items-baseline gap-3">
+                                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">New Patient Registration</h1>
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Enter patient details below to create a new record</p>
+                            </div>
+                            <div className="flex flex-wrap gap-3">
+                                <Link href="/patients" className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
+                                    Cancel
+                                </Link>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            <div className="lg:col-span-8">
+                                <form onSubmit={onSubmit} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 p-2 rounded-lg">
+                                            <span className="material-symbols-outlined text-sm">person_add</span>
+                                        </div>
+                                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Patient Demographics</h2>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
+                                            <input
+                                                type="text"
+                                                value={fullName}
+                                                onChange={(e) => setFullName(e.target.value)}
+                                                className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                                placeholder="Enter patient's full name"
+                                                required
+                                                autoFocus
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Date of Birth *</label>
+                                                <input
+                                                    type="date"
+                                                    value={dob}
+                                                    onChange={(e) => setDob(e.target.value)}
+                                                    className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">MRN</label>
+                                                <input
+                                                    type="text"
+                                                    value="Auto-generated"
+                                                    readOnly
+                                                    className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Gender</label>
+                                                <select
+                                                    value={gender}
+                                                    onChange={(e) => setGender(e.target.value)}
+                                                    className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                                >
+                                                    <option value="">Select gender</option>
+                                                    <option value="Male">Male</option>
+                                                    <option value="Female">Female</option>
+                                                    <option value="Other">Other</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</label>
+                                                <input
+                                                    type="tel"
+                                                    value={phone}
+                                                    onChange={(e) => setPhone(e.target.value)}
+                                                    className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                                    placeholder="(555) 123-4567"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                                            <input
+                                                type="email"
+                                                value={email}
+                                                onChange={(e) => setEmail(e.target.value)}
+                                                className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                                placeholder="patient@example.com"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Known Allergies</label>
+                                            <input
+                                                type="text"
+                                                value={allergies}
+                                                onChange={(e) => setAllergies(e.target.value)}
+                                                className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                                placeholder="e.g., Penicillin, Shellfish (or 'None')"
+                                            />
+                                        </div>
+
+                                        {/* Error Display */}
+                                        {error && (
+                                            <div className="mt-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+                                                <div className="flex items-center">
+                                                    <span className="material-symbols-outlined text-sm mr-2">error</span>
+                                                    {error}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Submit Button */}
+                                        <div className="flex justify-end gap-3 mt-6">
+                                            <Link
+                                                href="/patients"
+                                                className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+                                            >
+                                                Cancel
+                                            </Link>
+                                            <button
+                                                type="submit"
+                                                disabled={loading}
+                                                className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {loading ? (
+                                                    <>
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                                        <span>Creating...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span className="material-symbols-outlined text-sm">check</span>
+                                                        <span>Create Patient</span>
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+
+                            {/* Right Sidebar */}
+                            <div className="lg:col-span-4">
+                                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-4">Patient Registration Tips</h3>
+                                    <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+                                        <div className="flex items-start gap-2">
+                                            <span className="text-green-500 mt-0.5 material-symbols-outlined text-sm">check_circle</span>
+                                            <span>Ensure full legal name matches ID documents</span>
+                                        </div>
+                                        <div className="flex items-start gap-2">
+                                            <span className="text-green-500 mt-0.5 material-symbols-outlined text-sm">check_circle</span>
+                                            <span>Verify contact information for appointment reminders</span>
+                                        </div>
+                                        <div className="flex items-start gap-2">
+                                            <span className="text-green-500 mt-0.5 material-symbols-outlined text-sm">check_circle</span>
+                                            <span>All fields marked with * are required</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div className="relative flex items-center w-full">
-                      <input 
-                        className="peer hidden" 
-                        id="sex_female" 
-                        name="sex" 
-                        type="radio" 
-                        value="F"
-                        checked={sex === "F"}
-                        onChange={(e) => setSex("F")}
-                      />
-                      <label className="flex flex-1 items-center justify-center h-11 px-4 cursor-pointer rounded-xl border border-gray-200 bg-white text-gray-500 font-medium hover:bg-gray-50 peer-checked:bg-[#5BB5E8] peer-checked:text-white peer-checked:border-[#5BB5E8] transition-all" htmlFor="sex_female">
-                        Female
-                      </label>
-                    </div>
-                  </div>
                 </div>
-              </div>
-
-              <div className="mt-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="size-10 rounded-full bg-[#5BB5E8]/10 flex items-center justify-center shrink-0">
-                    <span className="text-[#5BB5E8] text-xl">📞</span>
-                  </div>
-                  <h2 className="text-lg font-bold text-[#2D3748]">Contact Information</h2>
-                </div>
-                <div className="grid grid-cols-1 gap-6">
-                  <div className="col-span-1">
-                    <label className="block text-sm font-medium text-[#718096] mb-2" htmlFor="phone">
-                      Mobile Number <span className="text-red-500">*</span>
-                    </label>
-                    <input 
-                      className="w-full h-11 px-4 rounded-xl bg-white border border-gray-200 text-[#2D3748] placeholder:text-gray-400 focus:ring-2 focus:ring-[#5BB5E8] focus:border-[#5BB5E8] transition-all" 
-                      id="phone" 
-                      name="phone" 
-                      placeholder="(555) 000-0000" 
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Error Display */}
-              {error && (
-                <div className="mt-6">
-                  <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
-                    <div className="flex items-center">
-                      <span className="mr-2">⚠️</span>
-                      {error}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Footer / Actions */}
-              <div className="mt-8 flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
-                <button 
-                  className="w-full sm:w-auto px-6 h-11 rounded-xl border border-gray-200 text-gray-700 font-medium bg-white hover:bg-gray-50 transition-colors" 
-                  type="button"
-                  onClick={() => router.back()}
-                  disabled={loading}
-                >
-                  Cancel
-                </button>
-
-                <div className="flex gap-3 w-full sm:w-auto">
-                  <button 
-                    className="px-4 h-11 rounded-xl bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors" 
-                    type="button"
-                    onClick={async () => {
-                      // Save & Close
-                      setLoading(true);
-                      setError(null);
-                      try {
-                        const patient = await createPatient({ full_name: fullName, sex_at_birth: sex || null, phone: phone || null });
-                        router.push('/patients');
-                      } catch (err) {
-                        setError((err as Error).message);
-                      } finally {
-                        setLoading(false);
-                      }
-                    }}
-                    disabled={loading}
-                  >
-                    Save & Close
-                  </button>
-
-                  <button 
-                    className="px-4 h-11 rounded-xl bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors" 
-                    type="button"
-                    onClick={async () => {
-                      // Save & New Visit
-                      setLoading(true);
-                      setError(null);
-                      try {
-                        const patient = await createPatient({ full_name: fullName, sex_at_birth: sex || null, phone: phone || null });
-                        router.push(`/visits/new?patient_id=${patient.id}`);
-                      } catch (err) {
-                        setError((err as Error).message);
-                      } finally {
-                        setLoading(false);
-                      }
-                    }}
-                    disabled={loading}
-                  >
-                    Save & New Visit
-                  </button>
-
-                  <button 
-                    className="px-4 h-11 rounded-xl bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors" 
-                    type="button"
-                    onClick={async () => {
-                      // Save & Schedule Doctor
-                      setLoading(true);
-                      setError(null);
-                      try {
-                        const patient = await createPatient({ full_name: fullName, sex_at_birth: sex || null, phone: phone || null });
-                        router.push(`/calendar?patient_id=${patient.id}`);
-                      } catch (err) {
-                        setError((err as Error).message);
-                      } finally {
-                        setLoading(false);
-                      }
-                    }}
-                    disabled={loading}
-                  >
-                    Save & Schedule
-                  </button>
-                </div>
-
-                <button 
-                  className="w-full sm:w-auto px-6 h-11 rounded-xl bg-[#5BB5E8] text-white font-medium hover:bg-blue-600 transition-colors shadow-sm flex items-center justify-center gap-2" 
-                  type="submit"
-                  disabled={loading}
-                >
-                  <span className="text-[20px]">✓</span>
-                  {loading ? "Creating..." : "Create Patient"}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* Right Sidebar */}
-          <div className="lg:col-span-4 space-y-6">
-            {/* Tips Card */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm">
-              <h3 className="font-bold text-[#2D3748] mb-4">Patient Registration Tips</h3>
-              <div className="space-y-3 text-sm text-[#718096]">
-                <div className="flex items-start gap-2">
-                  <span className="text-green-500 mt-0.5">✓</span>
-                  <span>Ensure full legal name matches ID documents</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-green-500 mt-0.5">✓</span>
-                  <span>Verify contact information for appointment reminders</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-green-500 mt-0.5">✓</span>
-                  <span>All fields marked with * are required</span>
-                </div>
-              </div>
-            </div>
-          </div>
+            </main>
         </div>
-      </main>
-    </div>
-  );
+    );
 }
-

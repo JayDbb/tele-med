@@ -138,8 +138,7 @@ export default function Dashboard() {
             {/* Center Column */}
             <div className="col-span-12 lg:col-span-8 flex flex-col gap-8">
               {widgetLayout.grid.map((row, rowIndex) => (
-                // Use single-column on small screens and switch to two columns at md
-                <div key={rowIndex} className={`grid gap-8 ${row.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
+                <div key={rowIndex} className={`grid gap-8 ${row.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
                   {row.map((widget) => (
                     <DraggableWidget key={widget.id} id={widget.id}>
                       <div className={widget.span === 2 ? 'col-span-2' : ''}>

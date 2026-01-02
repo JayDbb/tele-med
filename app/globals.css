@@ -4,7 +4,12 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/icon?family=Material+Icons+Outlined');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block');
+
+ 
+*{
+  font-family: 'Inter', sans-serif;
+}
 
 .material-symbols-outlined, .material-icons-outlined {
   font-family: 'Material Symbols Outlined', 'Material Icons Outlined';
@@ -23,6 +28,11 @@
 
 .material-symbols-outlined.fill {
   font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+html:not(.icons-ready) .material-symbols-outlined,
+html:not(.icons-ready) .material-icons-outlined {
+  opacity: 0;
 }
 
 ::-webkit-scrollbar {

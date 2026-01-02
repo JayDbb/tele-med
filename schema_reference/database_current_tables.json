@@ -1,0 +1,161 @@
+{
+  "source": "schema_reference/reference_schema.sql",
+  "generated": "2026-01-02",
+  "tables": [
+    {
+      "name": "public.notes",
+      "columns": [
+        { "name": "id", "type": "uuid", "not_null": true, "default": "gen_random_uuid()", "fk": null },
+        { "name": "visit_id", "type": "uuid", "not_null": true, "default": null, "fk": "public.visits(id)" },
+        { "name": "note", "type": "jsonb", "not_null": false, "default": null, "fk": null },
+        { "name": "content", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "status", "type": "text", "not_null": false, "default": "'draft'", "fk": null },
+        { "name": "finalized_by", "type": "uuid", "not_null": false, "default": null, "fk": null },
+        { "name": "finalized_at", "type": "timestamp with time zone", "not_null": false, "default": null, "fk": null },
+        { "name": "created_at", "type": "timestamp with time zone", "not_null": false, "default": "now()", "fk": null },
+        { "name": "updated_at", "type": "timestamp with time zone", "not_null": false, "default": "now()", "fk": null },
+        { "name": "author_id", "type": "uuid", "not_null": false, "default": null, "fk": null }
+      ],
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "FOREIGN KEY (visit_id) REFERENCES public.visits(id)"
+      ]
+    },
+    {
+      "name": "public.patient_shares",
+      "columns": [
+        { "name": "id", "type": "uuid", "not_null": true, "default": "gen_random_uuid()", "fk": null },
+        { "name": "patient_id", "type": "uuid", "not_null": true, "default": null, "fk": "public.patients(id)" },
+        { "name": "owner_id", "type": "uuid", "not_null": true, "default": null, "fk": null },
+        { "name": "shared_user_id", "type": "uuid", "not_null": true, "default": null, "fk": null },
+        { "name": "created_at", "type": "timestamp with time zone", "not_null": false, "default": "now()", "fk": null }
+      ],
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "FOREIGN KEY (patient_id) REFERENCES public.patients(id)"
+      ]
+    },
+    {
+      "name": "public.patients",
+      "columns": [
+        { "name": "id", "type": "uuid", "not_null": true, "default": "gen_random_uuid()", "fk": null },
+        { "name": "full_name", "type": "text", "not_null": true, "default": null, "fk": null },
+        { "name": "dob", "type": "date", "not_null": false, "default": null, "fk": null },
+        { "name": "sex_at_birth", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "gender_identity", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "phone", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "email", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "address", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "primary_language", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "preferred_comm_method", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "allergies", "type": "jsonb", "not_null": false, "default": null, "fk": null },
+        { "name": "current_medications", "type": "jsonb", "not_null": false, "default": null, "fk": null },
+        { "name": "past_medical_history", "type": "jsonb", "not_null": false, "default": null, "fk": null },
+        { "name": "clinician_id", "type": "uuid", "not_null": false, "default": null, "fk": null },
+        { "name": "created_at", "type": "timestamp with time zone", "not_null": false, "default": "now()", "fk": null },
+        { "name": "updated_at", "type": "timestamp with time zone", "not_null": false, "default": "now()", "fk": null }
+      ],
+      "constraints": ["PRIMARY KEY (id)"]
+    },
+    {
+      "name": "public.recording_cache",
+      "columns": [
+        { "name": "id", "type": "uuid", "not_null": true, "default": "gen_random_uuid()", "fk": null },
+        { "name": "path", "type": "text", "not_null": true, "default": null, "fk": null },
+        { "name": "owner_id", "type": "uuid", "not_null": false, "default": null, "fk": null },
+        { "name": "size", "type": "bigint", "not_null": false, "default": null, "fk": null },
+        { "name": "metadata", "type": "jsonb", "not_null": false, "default": null, "fk": null },
+        { "name": "status", "type": "text", "not_null": false, "default": "'cached'", "fk": null },
+        { "name": "created_at", "type": "timestamp with time zone", "not_null": false, "default": "now()", "fk": null },
+        { "name": "deleted_at", "type": "timestamp with time zone", "not_null": false, "default": null, "fk": null }
+      ],
+      "constraints": ["PRIMARY KEY (id)"]
+    },
+    {
+      "name": "public.transcription_jobs",
+      "columns": [
+        { "name": "id", "type": "uuid", "not_null": true, "default": "gen_random_uuid()", "fk": null },
+        { "name": "visit_id", "type": "uuid", "not_null": false, "default": null, "fk": "public.visits(id)" },
+        { "name": "path", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "cache_id", "type": "uuid", "not_null": false, "default": null, "fk": null },
+        { "name": "status", "type": "text", "not_null": false, "default": "'pending'", "fk": null },
+        { "name": "attempts", "type": "integer", "not_null": false, "default": null, "fk": null },
+        { "name": "last_error", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "next_attempt_at", "type": "timestamp with time zone", "not_null": false, "default": null, "fk": null },
+        { "name": "processed_at", "type": "timestamp with time zone", "not_null": false, "default": null, "fk": null },
+        { "name": "created_at", "type": "timestamp with time zone", "not_null": false, "default": "now()", "fk": null },
+        { "name": "updated_at", "type": "timestamp with time zone", "not_null": false, "default": "now()", "fk": null }
+      ],
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "FOREIGN KEY (visit_id) REFERENCES public.visits(id)"
+      ]
+    },
+    {
+      "name": "public.transcripts",
+      "columns": [
+        { "name": "id", "type": "uuid", "not_null": true, "default": "gen_random_uuid()", "fk": null },
+        { "name": "visit_id", "type": "uuid", "not_null": true, "default": null, "fk": "public.visits(id)" },
+        { "name": "raw_text", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "text", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "segments", "type": "jsonb", "not_null": false, "default": null, "fk": null },
+        { "name": "provider", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "provider_metadata", "type": "jsonb", "not_null": false, "default": null, "fk": null },
+        { "name": "status", "type": "text", "not_null": false, "default": "'completed'", "fk": null },
+        { "name": "created_at", "type": "timestamp with time zone", "not_null": false, "default": "now()", "fk": null }
+      ],
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "FOREIGN KEY (visit_id) REFERENCES public.visits(id)"
+      ]
+    },
+    {
+      "name": "public.users",
+      "columns": [
+        { "name": "id", "type": "uuid", "not_null": true, "default": "gen_random_uuid()", "fk": null },
+        { "name": "email", "type": "text", "not_null": true, "default": null, "fk": null },
+        { "name": "name", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "role", "type": "text", "not_null": false, "default": "'patient'", "fk": null },
+        { "name": "avatar_url", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "metadata", "type": "jsonb", "not_null": false, "default": null, "fk": null },
+        { "name": "created_at", "type": "timestamp with time zone", "not_null": false, "default": "now()", "fk": null },
+        { "name": "updated_at", "type": "timestamp with time zone", "not_null": false, "default": "now()", "fk": null }
+      ],
+      "constraints": ["PRIMARY KEY (id)"]
+    },
+    {
+      "name": "public.visit_notes",
+      "columns": [
+        { "name": "id", "type": "uuid", "not_null": true, "default": "gen_random_uuid()", "fk": null },
+        { "name": "visit_id", "type": "uuid", "not_null": false, "default": null, "fk": "public.visits(id)" },
+        { "name": "author_id", "type": "uuid", "not_null": false, "default": null, "fk": null },
+        { "name": "section", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "content", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "source", "type": "text", "not_null": false, "default": "'manual'", "fk": null },
+        { "name": "created_at", "type": "timestamp with time zone", "not_null": false, "default": "now()", "fk": null }
+      ],
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "FOREIGN KEY (visit_id) REFERENCES public.visits(id)"
+      ]
+    },
+    {
+      "name": "public.visits",
+      "columns": [
+        { "name": "id", "type": "uuid", "not_null": true, "default": "gen_random_uuid()", "fk": null },
+        { "name": "patient_id", "type": "uuid", "not_null": true, "default": null, "fk": "public.patients(id)" },
+        { "name": "clinician_id", "type": "uuid", "not_null": false, "default": null, "fk": null },
+        { "name": "audio_url", "type": "text", "not_null": false, "default": null, "fk": null },
+        { "name": "status", "type": "text", "not_null": false, "default": "'draft'", "fk": null },
+        { "name": "created_at", "type": "timestamp with time zone", "not_null": false, "default": "now()", "fk": null },
+        { "name": "notes_status", "type": "text", "not_null": false, "default": "'draft'", "fk": null },
+        { "name": "notes_finalized_by", "type": "uuid", "not_null": false, "default": null, "fk": null },
+        { "name": "notes_finalized_at", "type": "timestamp with time zone", "not_null": false, "default": null, "fk": null }
+      ],
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "FOREIGN KEY (patient_id) REFERENCES public.patients(id)"
+      ]
+    }
+  ]
+}

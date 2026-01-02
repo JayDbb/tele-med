@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { PatientDataManager } from '@/utils/PatientDataManager'
 
 interface VitalsChartProps {
   patientId: string
@@ -12,7 +11,9 @@ const VitalsChart = ({ patientId, patientAge = 25 }: VitalsChartProps) => {
   const [selectedTimeRange, setSelectedTimeRange] = useState('3m')
   const [selectedVital, setSelectedVital] = useState('bp')
 
-  const vitalsHistory = PatientDataManager.getPatientSectionList(patientId, 'vitals')
+  // TODO: Replace with API call when vitals endpoint is available
+  // const vitalsHistory = await getVitals(patientId)
+  const vitalsHistory: any[] = []
   const latestVitals = vitalsHistory.reduce((latest: any, current: any) => {
     if (!latest?.recordedAt) return current
     if (!current?.recordedAt) return latest

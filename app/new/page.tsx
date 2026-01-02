@@ -3,18 +3,17 @@
 
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createVisit, getPatients, updateVisit, createRecordingCacheUpload, enqueueTranscriptionWithCache, getCurrentLocation } from "../../lib/api";
+import { createVisit, getPatients, transcribeVisitAudio, updateVisit } from "../../lib/api";
 import type { Patient } from "../../lib/types";
 import { useAuthGuard } from "../../lib/useAuthGuard";
-import { supabaseBrowser } from "../../lib/supabaseBrowser";
+import { uploadToPrivateBucket } from "../../lib/storage";
 
 function NewVisitPageContent() {
   const { ready } = useAuthGuard();
   const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientId, setPatientId] = useState("");
-  const [status, setStatus] = useState<'draft'|'registered'|'in_progress'|'completed'|'pending_review'|'finalized'>("draft");
-  const [visitType, setVisitType] = useState<string>('telehealth');
+  const [status, setStatus] = useState("draft");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -25,8 +24,6 @@ function NewVisitPageContent() {
     structured: any;
     summary: string;
   } | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000); }
 
   useEffect(() => {
     if (!ready) return;
@@ -51,41 +48,95 @@ function NewVisitPageContent() {
     try {
       let audio_url: string | undefined;
 
-      // Capture optional geolocation (best-effort)
-      const location = await getCurrentLocation();
-      const visitPayload: any = { patient_id: patientId, status, type: visitType, audio_url };
-      if (location) {
-        visitPayload.location_lat = location.latitude;
-        visitPayload.location_lng = location.longitude;
-        if (location.accuracy) visitPayload.location_accuracy = Math.round(location.accuracy);
-        if (location.timestamp) visitPayload.location_recorded_at = location.timestamp;
-      }
-
       // Create visit first to get the visit_id
-      const visit = await createVisit(visitPayload);
+      const visit = await createVisit({ patient_id: patientId, status, audio_url });
       const visitId = visit.id;
 
       if (file) {
-        // Create cache entry and signed upload for the file
-        const { cache, path, token, bucket } = await createRecordingCacheUpload({ filename: file.name, contentType: file.type, size: file.size });
+        // Upload audio file to Supabase storage
+        const upload = await uploadToPrivateBucket(file);
+        audio_url = upload.path;
 
-        // Upload to signed URL
-        const supabase = supabaseBrowser();
-        const { error: uploadErr } = await supabase.storage.from(bucket).uploadToSignedUrl(path, token, file, { contentType: file.type });
-        if (uploadErr) throw new Error(uploadErr.message);
+        // Update visit with audio URL
+        await updateVisit(visitId, { audio_url: upload.path });
 
-        audio_url = path;
-        await updateVisit(visitId, { audio_url: path });
-
-        // Enqueue async transcription job and notify user
+        // Transcribe the audio with visit_id so it gets saved to database
         setTranscribing(true);
         try {
-          const cacheId = cache && cache[0] ? cache[0].id : cache.id;
-          await enqueueTranscriptionWithCache(visitId, cacheId, path);
-          showToast('Recording saved and queued for transcription');
-        } catch (e) {
-          console.error('Failed to enqueue transcription', e);
-          setError('Failed to enqueue transcription');
+          const transcriptionResult = await transcribeVisitAudio(upload.path, visitId);
+          setTranscription(transcriptionResult);
+          console.log("Transcription completed:", transcriptionResult);
+          
+          // Import appendVisitNote for saving transcription to notes
+          const { appendVisitNote } = await import("../../lib/api");
+          
+          // Save the full transcript to visit notes as subjective (dictation source)
+          if (transcriptionResult.transcript) {
+            try {
+              await appendVisitNote(
+                visitId,
+                transcriptionResult.transcript,
+                "subjective",
+                "dictation"
+              );
+            } catch (noteError) {
+              console.warn("Failed to save transcript to notes:", noteError);
+            }
+          }
+
+          // Save the AI-generated summary to visit notes as assessment
+          if (transcriptionResult.summary) {
+            try {
+              await appendVisitNote(
+                visitId,
+                transcriptionResult.summary,
+                "assessment",
+                "dictation"
+              );
+            } catch (noteError) {
+              console.warn("Failed to save summary to notes:", noteError);
+            }
+          }
+
+          // Save structured data to notes if available
+          if (transcriptionResult.structured) {
+            const structured = transcriptionResult.structured;
+            
+            // Save diagnosis
+            if (structured.diagnosis) {
+              const diagnosis = Array.isArray(structured.diagnosis)
+                ? structured.diagnosis.join(', ')
+                : structured.diagnosis;
+              try {
+                await appendVisitNote(
+                  visitId,
+                  `Diagnosis: ${diagnosis}`,
+                  "assessment",
+                  "dictation"
+                );
+              } catch (noteError) {
+                console.warn("Failed to save diagnosis to notes:", noteError);
+              }
+            }
+
+            // Save treatment plan
+            if (structured.treatment_plan && Array.isArray(structured.treatment_plan) && structured.treatment_plan.length > 0) {
+              try {
+                await appendVisitNote(
+                  visitId,
+                  `Treatment Plan: ${structured.treatment_plan.join('\n')}`,
+                  "plan",
+                  "dictation"
+                );
+              } catch (noteError) {
+                console.warn("Failed to save treatment plan to notes:", noteError);
+              }
+            }
+          }
+        } catch (transcribeError) {
+          console.error("Transcription error:", transcribeError);
+          setError((transcribeError as Error).message);
+          // Don't fail the visit creation if transcription fails
         } finally {
           setTranscribing(false);
         }
@@ -131,25 +182,11 @@ function NewVisitPageContent() {
               <select
                 className="input"
                 value={status}
-                onChange={(e) => {
-                  const v = e.target.value as 'draft'|'registered'|'in_progress'|'completed'|'pending_review'|'finalized';
-                  setStatus(v);
-                }}
+                onChange={(e) => setStatus(e.target.value)}
               >
                 <option value="draft">Draft</option>
                 <option value="pending_review">Pending review</option>
                 <option value="finalized">Finalized</option>
-              </select>
-            </label>
-
-            <label className="stack">
-              <span className="label">Visit Type</span>
-              <select className="input" value={visitType} onChange={(e) => setVisitType(e.target.value)}>
-                <option value="telehealth">Telehealth</option>
-                <option value="mobile_acute">Mobile Acute Care</option>
-                <option value="triage">Triage</option>
-                <option value="nurse_visit">Nurse Visit</option>
-                <option value="doctor_visit">Doctor Visit</option>
               </select>
             </label>
             <label className="stack">
@@ -171,9 +208,6 @@ function NewVisitPageContent() {
                 <div className="pill" style={{ background: "#f0f9ff", color: "#0369a1" }}>
                   Transcription Complete
                 </div>
-                {toast && (
-                  <div className="fixed bottom-6 right-6 bg-gray-900 text-white px-4 py-2 rounded-md shadow-md">{toast}</div>
-                )}
 
                 {/* Summary */}
                 <div className="stack" style={{ background: "#f9fafb", padding: "16px", borderRadius: "8px" }}>

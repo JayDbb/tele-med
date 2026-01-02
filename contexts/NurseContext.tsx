@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { supabaseBrowser } from '@/lib/supabaseBrowser'
+import { getCurrentUser } from '@/lib/api'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 import type { User } from '@supabase/supabase-js'
 
 interface Nurse {
@@ -25,7 +27,7 @@ interface NurseContextType {
 const NurseContext = createContext<NurseContextType | undefined>(undefined)
 
 export function NurseProvider({ children }: { children: ReactNode }) {
-  const [nurse, setNurse] = useState<Nurse | null>(null)
+  const [nurse, setNurseState] = useState<Nurse | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -35,11 +37,11 @@ export function NurseProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const supabase = supabaseBrowser()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        const userRole = session.user.user_metadata?.role
-        if (userRole === 'nurse') {
-          loadUserData(session.user)
+        const current = await getCurrentUser()
+        if (current?.role === 'nurse') {
+          loadUserData(current)
         }
       } else if (event === 'SIGNED_OUT') {
         setNurse(null)
@@ -57,7 +59,7 @@ export function NurseProvider({ children }: { children: ReactNode }) {
       setLoading(true)
       const supabase = supabaseBrowser()
       const { data: { session }, error } = await supabase.auth.getSession()
-      
+
       if (error) {
         console.error('Error checking session:', error)
         setLoading(false)
@@ -65,9 +67,10 @@ export function NurseProvider({ children }: { children: ReactNode }) {
       }
 
       if (session?.user) {
-        const userRole = session.user.user_metadata?.role
-        if (userRole === 'nurse') {
-          await loadUserData(session.user)
+        // Use server-side users table to determine role
+        const current = await getCurrentUser()
+        if (current && current.role === 'nurse') {
+          await loadUserData(current)
         } else {
           setLoading(false)
         }
@@ -80,36 +83,17 @@ export function NurseProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const loadUserData = async (user: User) => {
+  const loadUserData = async (user: any) => {
     try {
-      // Try to fetch canonical profile from server
-      const token = (await supabaseBrowser().auth.getSession()).data.session?.access_token
-      let profile: any = null
-
-      if (token) {
-        try {
-          const res = await fetch('/api/user', {
-            method: 'GET',
-            headers: { Authorization: `Bearer ${token}` }
-          })
-          if (res.ok) {
-            const json = await res.json()
-            profile = json.user
-          }
-        } catch (err) {
-          console.warn('Failed to load server profile, falling back to metadata', err)
-        }
-      }
-
-      const fullName = profile?.name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
-      const department = profile?.metadata?.department || user.user_metadata?.department || 'General'
+      const fullName = user.name || user.email?.split('@')[0] || 'User'
+      const department = user.metadata?.department || user.department || 'General'
 
       const nurseData: Nurse = {
         id: user.id,
         name: fullName,
         email: user.email || '',
         department: department,
-        avatar: profile?.avatar_url || user.user_metadata?.avatar
+        avatar: user.avatar_url
       }
 
       setNurse(nurseData)
@@ -126,12 +110,26 @@ export function NurseProvider({ children }: { children: ReactNode }) {
     return false
   }
 
+  const setNurse = (nextNurse: Nurse | null) => {
+    setNurseState(nextNurse)
+    if (nextNurse) {
+      PatientDataManager.setCurrentUser({
+        id: nextNurse.id,
+        name: nextNurse.name,
+        email: nextNurse.email,
+        role: 'nurse'
+      })
+    } else {
+      PatientDataManager.setCurrentUser(null)
+    }
+  }
+
   const logout = async () => {
     try {
       const supabase = supabaseBrowser()
       await supabase.auth.signOut()
-      setNurse(null)
-      setIsAuthenticated(false)
+    setNurse(null)
+    setIsAuthenticated(false)
     } catch (error) {
       console.error('Error logging out:', error)
     }
