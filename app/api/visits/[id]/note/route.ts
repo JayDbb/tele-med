@@ -101,7 +101,10 @@ export async function POST(
   const payload = await req.json();
   const { content, section, source = "manual" } = payload; // source: 'manual' | 'dictation'
 
-  if (!content || typeof content !== "string") {
+  if (
+    !content ||
+    (typeof content !== "string" && typeof content !== "object")
+  ) {
     return NextResponse.json(
       { error: "Missing or invalid content" },
       { status: 400 }
@@ -125,7 +128,7 @@ export async function POST(
   const newEntry = {
     id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
-    content: content.trim(),
+    content: typeof content === "string" ? content.trim() : content,
     section,
     source,
     author_id: userId,

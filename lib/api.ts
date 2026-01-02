@@ -215,6 +215,150 @@ export async function createAllergy(
   return res.json();
 }
 
+export async function getPastMedicalHistory(patientId: string) {
+  const res = await authFetch(
+    `/api/patients/${patientId}/past-medical-history`
+  );
+  if (!res.ok) throw new Error("Failed to load past medical history");
+  return res.json() as Promise<
+    Array<{
+      id: string;
+      condition: string;
+      code?: string;
+      category?: string;
+      status: string;
+      date?: string;
+      impact?: string;
+      source?: string;
+      icon?: string;
+      iconBg?: string;
+      description?: string;
+      relevance?: string;
+      treatment?: string[];
+      complications?: string;
+      careGaps?: Array<{ label: string; icon: string }>;
+      created_at?: string;
+      updated_at?: string;
+    }>
+  >;
+}
+
+export async function createMedicalCondition(
+  patientId: string,
+  payload: {
+    condition: string;
+    code?: string;
+    category?: string;
+    status: string;
+    date?: string;
+    impact?: string;
+    source?: string;
+    description?: string;
+    relevance?: string;
+    treatment?: string[];
+    complications?: string;
+    careGaps?: Array<{ label: string; icon: string }>;
+  }
+) {
+  const res = await authFetch(
+    `/api/patients/${patientId}/past-medical-history`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMessage = "Failed to create medical condition";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
+}
+
+export async function updateMedicalCondition(
+  patientId: string,
+  conditionId: string,
+  payload: Partial<{
+    condition: string;
+    code?: string;
+    category?: string;
+    status: string;
+    date?: string;
+    impact?: string;
+    source?: string;
+    description?: string;
+    relevance?: string;
+    treatment?: string[];
+    complications?: string;
+    careGaps?: Array<{ label: string; icon: string }>;
+  }>
+) {
+  const res = await authFetch(
+    `/api/patients/${patientId}/past-medical-history`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ conditionId, ...payload }),
+    }
+  );
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMessage = "Failed to update medical condition";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
+}
+
+export async function deleteMedicalCondition(
+  patientId: string,
+  conditionId: string
+) {
+  const res = await authFetch(
+    `/api/patients/${patientId}/past-medical-history?conditionId=${conditionId}`,
+    {
+      method: "DELETE",
+    }
+  );
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMessage = "Failed to delete medical condition";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
+}
+
+export async function getVitals(patientId: string) {
+  const res = await authFetch(`/api/patients/${patientId}/vitals`);
+  if (!res.ok) throw new Error("Failed to load vitals");
+  return res.json() as Promise<
+    Array<{
+      visit_id: string;
+      recordedAt: string;
+      bp: string | null;
+      hr: number | null;
+      temp: number | null;
+      weight: number | null;
+    }>
+  >;
+}
+
 // Dictate audio to text (transcription only, no parsing)
 export async function dictateAudio(audioPath: string) {
   const res = await authFetch("/api/transcribe/dictate", {

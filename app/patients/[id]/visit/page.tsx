@@ -11,6 +11,7 @@ import type { Patient, Visit } from "../../../../lib/types";
 import { uploadToPrivateBucket } from "../../../../lib/storage";
 import { useAudioRecorder } from "../../../../lib/useAudioRecorder";
 import { convertToMP3 } from "../../../../lib/audioConverter";
+import { useAutosave } from "@/hooks/useAutosave";
 
 export default function PatientVisitPage() {
   const params = useParams<{ id: string }>();
@@ -38,6 +39,39 @@ export default function PatientVisitPage() {
   const [treatmentPlan, setTreatmentPlan] = useState("");
 
   const recorder = useAudioRecorder();
+
+  // Autosave form data
+  const { clearDraft } = useAutosave(
+    'visit-form',
+    {
+      chiefComplaint,
+      hpi,
+      bp,
+      hr,
+      temp,
+      weight,
+      physicalExam,
+      assessment,
+      treatmentPlan,
+      activeTab
+    },
+    params.id,
+    {
+      enabled: true,
+      onRestore: (data) => {
+        if (data.chiefComplaint) setChiefComplaint(data.chiefComplaint);
+        if (data.hpi) setHpi(data.hpi);
+        if (data.bp) setBp(data.bp);
+        if (data.hr) setHr(data.hr);
+        if (data.temp) setTemp(data.temp);
+        if (data.weight) setWeight(data.weight);
+        if (data.physicalExam) setPhysicalExam(data.physicalExam);
+        if (data.assessment) setAssessment(data.assessment);
+        if (data.treatmentPlan) setTreatmentPlan(data.treatmentPlan);
+        if (data.activeTab) setActiveTab(data.activeTab);
+      }
+    }
+  );
 
   useEffect(() => {
     (async () => {
@@ -653,6 +687,9 @@ export default function PatientVisitPage() {
       if (treatmentPlan.trim()) {
         await appendVisitNote(currentVisit.id, treatmentPlan, "plan", "manual");
       }
+
+      // Clear autosave draft after successful save
+      clearDraft();
     } catch (err) {
       setError((err as Error).message);
     } finally {

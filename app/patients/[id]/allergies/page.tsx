@@ -6,6 +6,7 @@ import Sidebar from '@/components/Sidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
 import { getPatient, getAllergies, createAllergy } from '@/lib/api'
+import { useAutosave } from '@/hooks/useAutosave'
 
 type Allergy = {
   id: string;
@@ -37,6 +38,24 @@ export default function PatientAllergiesPage() {
     type: ''
   })
   const [showSuccess, setShowSuccess] = useState(false)
+
+  // Autosave form data
+  const { clearDraft } = useAutosave(
+    'allergies-form',
+    { newAllergy, showForm },
+    patientId,
+    {
+      enabled: showForm, // Only autosave when form is open
+      onRestore: (data) => {
+        if (data.newAllergy) {
+          setNewAllergy(data.newAllergy)
+        }
+        if (data.showForm) {
+          setShowForm(true)
+        }
+      }
+    }
+  )
 
   useEffect(() => {
     async function loadData() {
@@ -100,6 +119,9 @@ export default function PatientAllergiesPage() {
       // Refresh allergies list
       const updatedAllergies = await getAllergies(patientId)
       setAllergies(updatedAllergies)
+
+      // Clear autosave draft after successful submit
+      clearDraft()
 
       // Reset form
       setNewAllergy({ name: '', severity: '', reactions: [], date: '', notes: '', type: '' })

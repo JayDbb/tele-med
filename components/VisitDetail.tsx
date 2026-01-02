@@ -100,7 +100,7 @@ export default function VisitDetail({ patientId, visitId }: VisitDetailProps) {
         <div className="xl:col-span-3 space-y-4">
           {/* Demographics Section */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-            <button 
+            <button
               onClick={() => toggleSection('demographics')}
               className="w-full flex justify-between items-center font-semibold p-5 text-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors rounded-2xl"
             >
@@ -144,7 +144,7 @@ export default function VisitDetail({ patientId, visitId }: VisitDetailProps) {
 
           {/* Chief Complaint Section */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-            <button 
+            <button
               onClick={() => toggleSection('complaint')}
               className="w-full flex justify-between items-center font-semibold p-5 text-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors rounded-2xl"
             >
@@ -180,7 +180,7 @@ export default function VisitDetail({ patientId, visitId }: VisitDetailProps) {
 
           {/* Assessment & Plan Section */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700">
-            <button 
+            <button
               onClick={() => toggleSection('assessment')}
               className="w-full flex justify-between items-center font-semibold p-5 text-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors rounded-2xl"
             >

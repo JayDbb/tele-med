@@ -16,12 +16,12 @@ const NurseHeader = () => {
             <div className="flex items-center justify-center pl-3 pr-2 text-[#617589] dark:text-gray-400">
               <span className="material-symbols-outlined text-[20px]">search</span>
             </div>
-            <input 
-              className="w-full bg-transparent border-none text-sm text-[#111418] dark:text-white placeholder-[#617589] dark:placeholder-gray-500 focus:ring-0" 
+            <input
+              className="w-full bg-transparent border-none text-sm text-[#111418] dark:text-white placeholder-[#617589] dark:placeholder-gray-500 focus:ring-0"
               placeholder="Search patients, doctors..."
             />
           </div>
-          <Link href="/nurse/new-patient" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-5 text-white shadow-lg shadow-primary/30 hover:bg-blue-600 transition-all">
+          <Link href="/patients/create" className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-5 text-white shadow-lg shadow-primary/30 hover:bg-blue-600 transition-all">
             <span className="material-symbols-outlined text-[20px]">add</span>
             <span className="text-sm font-bold">New Patient Intake</span>
           </Link>
