@@ -73,7 +73,6 @@ export default function PatientAllergiesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('Form submitted', newAllergy)
 
     if (!newAllergy.name || !newAllergy.severity) {
       setError('Name and severity are required')
@@ -83,7 +82,7 @@ export default function PatientAllergiesPage() {
     try {
       setSaving(true)
       setError(null)
-      console.log('Creating allergy...', { patientId, allergy: newAllergy })
+
 
       const result = await createAllergy(patientId, {
         name: newAllergy.name,
@@ -94,8 +93,6 @@ export default function PatientAllergiesPage() {
         notes: newAllergy.notes || undefined,
         status: 'Active'
       })
-
-      console.log('Allergy created successfully', result)
 
       // Refresh allergies list
       const updatedAllergies = await getAllergies(patientId)
@@ -621,12 +618,6 @@ export default function PatientAllergiesPage() {
                           type="submit"
                           disabled={saving || !newAllergy.name || !newAllergy.severity}
                           onClick={(e) => {
-                            console.log('Submit button clicked', {
-                              saving,
-                              name: newAllergy.name,
-                              severity: newAllergy.severity,
-                              disabled: saving || !newAllergy.name || !newAllergy.severity
-                            })
                             if (!newAllergy.name || !newAllergy.severity) {
                               e.preventDefault()
                               setError('Please fill in the allergen name and select a severity level')

@@ -31,17 +31,13 @@ export function NurseProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  console.log('[NurseContext] render', { nurse, isAuthenticated, loading })
-
   useEffect(() => {
     // Check for existing Supabase session with nurse role
-    console.log('[NurseContext] checkSession start')
     checkSession()
 
     // Listen for auth changes
     const supabase = supabaseBrowser()
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[NurseContext] onAuthStateChange', { event, session })
       if (event === 'SIGNED_IN' && session) {
         const current = await getCurrentUser()
         if (current?.role === 'nurse') {
@@ -61,20 +57,17 @@ export function NurseProvider({ children }: { children: ReactNode }) {
   const checkSession = async () => {
     let timeoutId: NodeJS.Timeout | null = null
     try {
-      console.log('[NurseContext] checkSession start')
       setLoading(true)
 
       // Dev-only safety: if checkSession stalls, stop loading after 2s
       timeoutId = setTimeout(() => {
         if (loading) {
-          console.warn('[NurseContext] checkSession timeout, forcing loading=false')
           setLoading(false)
         }
       }, 2000)
 
       // Prefer server-side session if available (cookie)
       const serverUser = await getCurrentUser()
-      console.log('[NurseContext] checkSession serverUser:', serverUser)
       if (serverUser && serverUser.role === 'nurse') {
         await loadUserData(serverUser)
         return
@@ -123,7 +116,6 @@ export function NurseProvider({ children }: { children: ReactNode }) {
 
       setNurse(nurseData)
       setIsAuthenticated(true)
-      console.log('[NurseContext] loadUserData -> set nurse and isAuthenticated true', nurseData)
     } catch (error) {
       console.error('Error loading user data:', error)
     } finally {

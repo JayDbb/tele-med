@@ -12,10 +12,6 @@ export async function POST(request: NextRequest) {
     //   create: { userId, layout }
     // })
     
-    // For now, just log the layout matrix
-    console.log('Saving widget layout for user:', userId)
-    console.log('Layout matrix:', JSON.stringify(layout, null, 2))
-    
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to save layout' }, { status: 500 })

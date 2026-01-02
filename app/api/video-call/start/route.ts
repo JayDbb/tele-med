@@ -40,8 +40,6 @@ export async function POST(request: NextRequest) {
     // 4. Return the meeting URL
     
     // Send email invitation to patient (mock)
-    console.log(`Sending video call invitation to ${patientEmail}`)
-    console.log(`Meeting URL: ${callUrl}`)
     
     return NextResponse.json({
       success: true,

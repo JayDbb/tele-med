@@ -75,7 +75,6 @@ const PatientsList = () => {
   const handleAddPatient = () => {
     // Generate new patient ID
     // const newPatientId = Date.now().toString()
-    console.log('pushing to /patients/new')
     router.push('/patients/create')
   }
 

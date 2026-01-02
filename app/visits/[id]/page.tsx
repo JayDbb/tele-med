@@ -21,18 +21,15 @@ export default function VisitDetailPage() {
   const [recording, setRecording] = useState(false);
   const [saving, setSaving] = useState(false);
   const recorder = useAudioRecorder();
-  console.log("VisitDetailPage component mounted");
 
   useEffect(() => {
     if (!ready) return;
-    console.log("Loading visit...");
     loadVisit();
   }, [params.id, ready]);
 
   const loadVisit = async () => {
     try {
       const data = await getVisit(params.id);
-      console.log("Visit data:", data);
       setVisit(data.visit);
       setPatient(data.patient);
       setLoading(false);

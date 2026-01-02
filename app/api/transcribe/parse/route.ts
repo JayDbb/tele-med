@@ -62,7 +62,6 @@ export async function POST(req: NextRequest) {
     try {
       // Try to parse as JSON directly
       parsedData = JSON.parse(predictionStr);
-      console.log("Parsed data:", parsedData);
     } catch {
       // If parsing fails, try to extract JSON from the response
       const jsonMatch = predictionStr.match(/\{[\s\S]*\}/);
@@ -82,8 +81,6 @@ export async function POST(req: NextRequest) {
 
     // Remove summary from structured data to keep them separate
     const { summary: _, ...structuredData } = parsedData;
-
-    console.log("Structured data:", structuredData);
 
     return NextResponse.json({
       structured: structuredData, // Structured JSON (without summary)

@@ -47,7 +47,6 @@ export async function POST(req: NextRequest) {
     }
 
     const audioUrl = urlData.signedUrl;
-    console.log("Using Supabase signed URL for transcription");
 
     // Initialize Replicate client
     const replicate = new Replicate({
@@ -66,8 +65,6 @@ export async function POST(req: NextRequest) {
     const transcriptionPrediction = await replicate.run(whisperModel, {
       input: transcriptionInput,
     });
-
-    console.log("Transcription prediction:", transcriptionPrediction);
 
     // Handle different response formats from Whisper models
     let transcript: string;

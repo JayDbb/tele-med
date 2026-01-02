@@ -21,21 +21,16 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    console.log('[LoginPage] submit', { email })
-
     try {
       const result = await doctorLogin(email, password)
-      console.log('[LoginPage] doctorLogin result:', result)
 
       if (result.success) {
         // Use the role returned by the login call when possible (avoids race with auth state)
         const role = result.role
-        console.log('[LoginPage] deciding route using role:', role)
 
         if (role === 'nurse') {
           // Nurse: set nurse context and auth then navigate client-side
           const user = await getCurrentUser()
-          console.log('[LoginPage] getCurrentUser after login (nurse):', user)
           setNurse({
             id: user?.id || '',
             name: user?.name || user?.email || 'User',
@@ -48,15 +43,12 @@ export default function LoginPage() {
         } else {
           // Doctor: to avoid client-side auth race where AuthWrapper re-renders back to login
           // force a full page navigation so server renders the correct dashboard post-login
-          console.log('[LoginPage] navigating to doctor dashboard (full reload)')
           window.location.href = '/doctor/dashboard'
         }
       } else {
-        console.log('[LoginPage] login failed:', result.error)
         setError(result.error || 'Invalid email or password')
       }
     } catch (err: any) {
-      console.log('[LoginPage] exception during login', err)
       setError(err?.message || 'An error occurred during login')
     } finally {
       setLoading(false)

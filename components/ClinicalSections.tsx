@@ -122,7 +122,6 @@ const ClinicalSections = ({ patientId, visitId, isEditable = false }: ClinicalSe
 
   const applySuggestion = (suggestion: string) => {
     // AI mapping logic would go here
-    console.log('Applying AI suggestion:', suggestion)
     setAiSuggestions(prev => prev.filter(s => s !== suggestion))
   }
 
@@ -138,7 +137,6 @@ const ClinicalSections = ({ patientId, visitId, isEditable = false }: ClinicalSe
 
   const saveToPatientChart = async () => {
     // This would save to the longitudinal patient chart
-    console.log('Saving to patient chart:', clinicalData)
     // API call to update patient profile
   }
 

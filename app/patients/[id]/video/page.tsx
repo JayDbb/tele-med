@@ -496,7 +496,6 @@ export default function PatientVideoPage() {
         if (track.mediaStreamTrack && track.mediaStreamTrack.enabled && track.mediaStreamTrack.readyState === 'live') {
           addTrackToMix(track.mediaStreamTrack);
           tracksAdded++;
-          console.log(`Added local audio track: ${track.mediaStreamTrack.id}`);
         }
       });
 
@@ -507,7 +506,6 @@ export default function PatientVideoPage() {
           if (track && track.mediaStreamTrack && track.mediaStreamTrack.enabled && track.mediaStreamTrack.readyState === 'live') {
             addTrackToMix(track.mediaStreamTrack);
             tracksAdded++;
-            console.log(`Added remote audio track from ${participant.identity}: ${track.mediaStreamTrack.id}`);
           }
         });
       });
@@ -518,8 +516,6 @@ export default function PatientVideoPage() {
         setIsRecording(false);
         return;
       }
-
-      console.log(`Recording with ${tracksAdded} audio track(s)`);
 
       // Store the audio context and destination for adding new tracks
       recordingContextRef.current = { audioContext, destination, addTrackToMix };
@@ -552,19 +548,12 @@ export default function PatientVideoPage() {
         return;
       }
 
-      console.log(`Destination stream has ${audioTracks.length} audio track(s)`);
-      audioTracks.forEach((track, idx) => {
-        console.log(`  Track ${idx + 1}: ${track.id}, enabled: ${track.enabled}, readyState: ${track.readyState}`);
-      });
-
       // Set up MediaRecorder
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/webm')
           ? 'audio/webm'
           : '';
-
-      console.log(`Using MediaRecorder mimeType: ${mimeType || 'default'}`);
 
       const mediaRecorder = new MediaRecorder(destination.stream, mimeType ? { mimeType } : undefined);
       mediaRecorderRef.current = mediaRecorder;
@@ -573,7 +562,6 @@ export default function PatientVideoPage() {
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           recordingChunksRef.current.push(e.data);
-          console.log(`Received data chunk: ${e.data.size} bytes`);
         } else {
           console.warn('WARNING: Received empty data chunk');
         }
@@ -588,7 +576,6 @@ export default function PatientVideoPage() {
       mediaRecorder.start(1000); // Collect data every second
       setIsRecording(true);
       setRecordingTime(0);
-      console.log('Recording started');
 
       // Start timer
       recordingTimerRef.current = setInterval(() => {
@@ -624,7 +611,6 @@ export default function PatientVideoPage() {
 
         mediaRecorder.onstop = () => {
           clearTimeout(timeout);
-          console.log('MediaRecorder stopped');
           resolve();
         };
 
@@ -647,8 +633,6 @@ export default function PatientVideoPage() {
         recordingContextRef.current = null;
       }
 
-      console.log('Recording stopped');
-
       // Wait a bit for all data to be available
       await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -660,7 +644,6 @@ export default function PatientVideoPage() {
 
       // Check total size of chunks
       const totalSize = recordingChunksRef.current.reduce((sum, chunk) => sum + chunk.size, 0);
-      console.log(`Recording chunks: ${recordingChunksRef.current.length}, Total size: ${totalSize} bytes`);
 
       if (totalSize === 0) {
         setRecordingError('Recording is empty (0 bytes). No audio was captured.');
@@ -674,8 +657,6 @@ export default function PatientVideoPage() {
 
       const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm;codecs=opus' });
       recordingChunksRef.current = [];
-
-      console.log(`Blob created: ${blob.size} bytes, type: ${blob.type}`);
 
       // Validate blob before conversion
       if (blob.size === 0) {
@@ -693,7 +674,6 @@ export default function PatientVideoPage() {
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
         originalDuration = audioBuffer.duration;
         await audioContext.close();
-        console.log(`Original audio duration: ${originalDuration.toFixed(2)} seconds (${formatTime(Math.floor(originalDuration))})`);
       } catch (durationError) {
         console.warn('Could not get original audio duration via AudioContext, trying Audio element:', durationError);
         // Fallback to Audio element
@@ -720,7 +700,6 @@ export default function PatientVideoPage() {
             };
           });
           if (originalDuration > 0) {
-            console.log(`Original audio duration (via Audio element): ${originalDuration.toFixed(2)} seconds (${formatTime(Math.floor(originalDuration))})`);
           } else {
             console.warn('Audio duration is not available or invalid');
           }
@@ -730,11 +709,9 @@ export default function PatientVideoPage() {
       }
 
       // Convert to MP3
-      console.log('Converting audio to MP3...');
       let mp3Blob: Blob;
       try {
         mp3Blob = await convertToMP3(blob);
-        console.log(`MP3 conversion complete: ${mp3Blob.size} bytes`);
 
         if (mp3Blob.size === 0) {
           setRecordingError('MP3 conversion resulted in empty file');
@@ -753,8 +730,6 @@ export default function PatientVideoPage() {
         const hasMP3Sync = mp3View.length >= 2 && mp3View[0] === 0xFF &&
           (mp3View[1] & 0xE0) === 0xE0; // MP3 sync word: 0xFF followed by 0xE0-0xFF
 
-        console.log(`MP3 file validation: size=${mp3Blob.size} bytes, hasID3v2=${hasID3v2}, hasMP3Sync=${hasMP3Sync}`);
-
         if (!hasID3v2 && !hasMP3Sync) {
           console.error('ERROR: MP3 file does not have valid MP3 headers');
           console.error(`First 20 bytes: ${Array.from(mp3View.slice(0, 20)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ')}`);
@@ -771,7 +746,6 @@ export default function PatientVideoPage() {
           const audioBuffer = await audioContext.decodeAudioData(mp3ArrayBuffer.slice(0));
           mp3Duration = audioBuffer.duration;
           await audioContext.close();
-          console.log(`MP3 audio duration (via AudioContext): ${mp3Duration.toFixed(2)} seconds (${formatTime(Math.floor(mp3Duration))})`);
 
           if (mp3Duration === 0 || !isFinite(mp3Duration)) {
             throw new Error('MP3 duration is 0 or invalid');
@@ -802,7 +776,6 @@ export default function PatientVideoPage() {
               };
             });
             if (mp3Duration > 0) {
-              console.log(`MP3 audio duration (via Audio element): ${mp3Duration.toFixed(2)} seconds (${formatTime(Math.floor(mp3Duration))})`);
             } else {
               throw new Error('MP3 duration is 0 or invalid');
             }
@@ -825,14 +798,10 @@ export default function PatientVideoPage() {
         if (originalDuration > 0) {
           const durationDiff = Math.abs(originalDuration - mp3Duration);
           const durationPercent = ((durationDiff / originalDuration) * 100).toFixed(2);
-          console.log(`Duration difference: ${durationDiff.toFixed(2)} seconds (${durationPercent}%)`);
           if (durationDiff > 0.5) {
             console.warn(`WARNING: Significant duration difference detected (${durationDiff.toFixed(2)}s)`);
           }
         }
-
-        console.log(`MP3 file validated: ${mp3Blob.size} bytes, ${mp3Duration.toFixed(2)}s duration - ready for upload`);
-
         // Final validation: Try to create an Audio element and verify it can load
         try {
           const testUrl = URL.createObjectURL(mp3Blob);
@@ -861,7 +830,6 @@ export default function PatientVideoPage() {
           if (!canPlay) {
             console.warn('WARNING: MP3 file could not be loaded by Audio element - may be corrupted');
           } else {
-            console.log('MP3 file validation passed: file can be loaded and played');
           }
         } catch (testError) {
           console.warn('Could not test MP3 playback:', testError);
@@ -876,22 +844,15 @@ export default function PatientVideoPage() {
       const mp3File = new File([mp3Blob], `video-call-${patientId}-${Date.now()}.mp3`, { type: 'audio/mpeg' });
 
       // Create visit
-      console.log('Creating visit...');
       const newVisit = await createVisit({ patient_id: patientId, status: 'draft' });
 
       // Upload audio
-      console.log(`Uploading audio: ${mp3File.name}, ${mp3File.size} bytes, type: ${mp3File.type}`);
       const upload = await uploadToPrivateBucket(mp3File);
-      console.log(`Upload complete: path=${upload.path}, bucket=${upload.bucket}`);
       await updateVisit(newVisit.id, { audio_url: upload.path });
-      console.log(`Visit updated with audio_url: ${upload.path}`);
 
-      // Transcribe
-      console.log('Transcribing audio...');
       setIsTranscribing(true);
       try {
         const transcriptionResult = await transcribeVisitAudio(upload.path, newVisit.id);
-        console.log('Transcription completed');
         
         // Import appendVisitNote for saving transcription to notes
         const { appendVisitNote } = await import('../../../../lib/api');

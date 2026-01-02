@@ -36,15 +36,9 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   // If any provider is still checking session, don't decide yet — prevent flash-to-login
   if (isLoading || doctorLoading || nurseLoading) {
     if (!timedOut) {
-      console.log('[AuthWrapper] waiting for providers to finish loading', { pathname, doctorLoading, nurseLoading })
       return null
-    } else {
-      console.log('[AuthWrapper] providers still loading but timed out, rendering children for debugging', { pathname })
     }
   }
-  
-  // Debug: show route and auth states
-  console.log('[AuthWrapper] pathname, doctorAuth, nurseAuth:', pathname, doctorAuth, nurseAuth)
   
   // Treat public routes as prefix matches so trailing slashes or query params don't cause mis-matches
   if (publicRoutes.some(route => pathname?.startsWith(route))) {

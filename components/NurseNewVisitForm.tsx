@@ -306,7 +306,6 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
     const newPatientId = savePatientData()
     if (!newPatientId) return
     // TODO: Navigate to scheduling page
-    console.log('Navigate to scheduling for patient:', newPatientId)
   }
 
   const handleSavePatientAndClose = () => {
