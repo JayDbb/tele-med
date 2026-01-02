@@ -159,6 +159,8 @@ Primary database tables (from `schema_reference/reference_schema.sql` / document
 ## State management & contexts 🔁
 This project uses React Contexts (client-side) to manage user identity, session-derived state, ephemeral UI state, and light persistence via `localStorage`. Contexts and hooks centralize common behaviors and make them easy to consume across components.
 
+**Note:** The `PatientDataManager` utility (`utils/PatientDataManager.ts`) centralizes patient-scoped `localStorage` persistence, drafts, and audit logging and is used by nurse flows and autosave hooks.
+
 - `DoctorContext` — Manages doctor user identity and authentication state. Exposes: `doctor` (metadata), `login(email, password)`, `logout()`, `isAuthenticated`, and `loading`. Implementation notes: Uses Supabase session via `supabaseBrowser()` and `supabase.auth.onAuthStateChange` to keep state in sync.
 
 - `NurseContext` — Similar to `DoctorContext` but focused on nurse role and department metadata. Exposes: `nurse`, `login` (placeholder), `logout`, `isAuthenticated`, `setNurse`, `setIsAuthenticated`, and `loading`.
