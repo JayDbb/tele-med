@@ -150,19 +150,36 @@ export async function POST(
   // Append new entry
   entries.push(newEntry);
 
-  // Upsert note with updated entries array
-  const { data, error: dbError } = await supabase
-    .from("notes")
-    .upsert(
-      {
+  // Insert or update note with updated entries array
+  let data, dbError;
+  if (existingNote) {
+    // Update existing note
+    const { data: updated, error: updateError } = await supabase
+      .from("notes")
+      .update({
+        note: entries,
+        status: existingNote.status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("visit_id", id)
+      .select()
+      .maybeSingle();
+    data = updated;
+    dbError = updateError;
+  } else {
+    // Insert new note
+    const { data: inserted, error: insertError } = await supabase
+      .from("notes")
+      .insert({
         visit_id: id,
         note: entries,
-        status: existingNote?.status ?? "draft",
-      },
-      { onConflict: "visit_id" }
-    )
-    .select()
-    .maybeSingle();
+        status: "draft",
+      })
+      .select()
+      .maybeSingle();
+    data = inserted;
+    dbError = insertError;
+  }
 
   if (dbError)
     return NextResponse.json({ error: dbError.message }, { status: 400 });
@@ -222,11 +239,28 @@ export async function PUT(
     updateData.finalized_at = null;
   }
 
-  const { data, error: dbError } = await supabase
-    .from("notes")
-    .upsert(updateData, { onConflict: "visit_id" })
-    .select()
-    .maybeSingle();
+  // Insert or update note
+  let data, dbError;
+  if (existingNote) {
+    // Update existing note
+    const { data: updated, error: updateError } = await supabase
+      .from("notes")
+      .update(updateData)
+      .eq("visit_id", id)
+      .select()
+      .maybeSingle();
+    data = updated;
+    dbError = updateError;
+  } else {
+    // Insert new note
+    const { data: inserted, error: insertError } = await supabase
+      .from("notes")
+      .insert(updateData)
+      .select()
+      .maybeSingle();
+    data = inserted;
+    dbError = insertError;
+  }
 
   if (dbError)
     return NextResponse.json({ error: dbError.message }, { status: 400 });

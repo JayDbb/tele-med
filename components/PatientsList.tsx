@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import { useVideoCall } from '../contexts/VideoCallContext'
 import { getPatients } from '@/lib/api'
 import { useDoctor } from '@/contexts/DoctorContext'
-import { useNurse } from '@/contexts/NurseContext'
+import { usePatientRoutes } from '@/lib/usePatientRoutes'
 import type { Patient } from '@/lib/types'
 
 const PatientsList = () => {
@@ -16,23 +16,7 @@ const PatientsList = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { doctor } = useDoctor()
-  const { nurse } = useNurse()
-
-  const getPatientUrl = (patientId: string) => {
-    if (nurse) {
-      return `/nurse-portal/patients/${patientId}`
-    } else {
-      return `/doctor/patients/${patientId}`
-    }
-  }
-
-  const getNewVisitUrl = (patientId: string) => {
-    if (nurse) {
-      return `/nurse-portal/patients/${patientId}/new-visit`
-    } else {
-      return `/doctor/patients/${patientId}/new-visit`
-    }
-  }
+  const { getPatientUrl, getNewVisitUrl } = usePatientRoutes()
 
   useEffect(() => {
     loadAllPatients()
@@ -90,8 +74,9 @@ const PatientsList = () => {
 
   const handleAddPatient = () => {
     // Generate new patient ID
-    const newPatientId = Date.now().toString()
-    router.push(getNewVisitUrl(newPatientId))
+    // const newPatientId = Date.now().toString()
+    console.log('pushing to /patients/new')
+    router.push('/patients/create')
   }
 
   return (

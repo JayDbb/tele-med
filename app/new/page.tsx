@@ -3,7 +3,7 @@
 
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createVisit, getPatients, transcribeAudio, updateVisit } from "../../lib/api";
+import { createVisit, getPatients, transcribeVisitAudio, updateVisit } from "../../lib/api";
 import type { Patient } from "../../lib/types";
 import { useAuthGuard } from "../../lib/useAuthGuard";
 import { uploadToPrivateBucket } from "../../lib/storage";
@@ -66,6 +66,73 @@ function NewVisitPageContent() {
           const transcriptionResult = await transcribeVisitAudio(upload.path, visitId);
           setTranscription(transcriptionResult);
           console.log("Transcription completed:", transcriptionResult);
+          
+          // Import appendVisitNote for saving transcription to notes
+          const { appendVisitNote } = await import("../../lib/api");
+          
+          // Save the full transcript to visit notes as subjective (dictation source)
+          if (transcriptionResult.transcript) {
+            try {
+              await appendVisitNote(
+                visitId,
+                transcriptionResult.transcript,
+                "subjective",
+                "dictation"
+              );
+            } catch (noteError) {
+              console.warn("Failed to save transcript to notes:", noteError);
+            }
+          }
+
+          // Save the AI-generated summary to visit notes as assessment
+          if (transcriptionResult.summary) {
+            try {
+              await appendVisitNote(
+                visitId,
+                transcriptionResult.summary,
+                "assessment",
+                "dictation"
+              );
+            } catch (noteError) {
+              console.warn("Failed to save summary to notes:", noteError);
+            }
+          }
+
+          // Save structured data to notes if available
+          if (transcriptionResult.structured) {
+            const structured = transcriptionResult.structured;
+            
+            // Save diagnosis
+            if (structured.diagnosis) {
+              const diagnosis = Array.isArray(structured.diagnosis)
+                ? structured.diagnosis.join(', ')
+                : structured.diagnosis;
+              try {
+                await appendVisitNote(
+                  visitId,
+                  `Diagnosis: ${diagnosis}`,
+                  "assessment",
+                  "dictation"
+                );
+              } catch (noteError) {
+                console.warn("Failed to save diagnosis to notes:", noteError);
+              }
+            }
+
+            // Save treatment plan
+            if (structured.treatment_plan && Array.isArray(structured.treatment_plan) && structured.treatment_plan.length > 0) {
+              try {
+                await appendVisitNote(
+                  visitId,
+                  `Treatment Plan: ${structured.treatment_plan.join('\n')}`,
+                  "plan",
+                  "dictation"
+                );
+              } catch (noteError) {
+                console.warn("Failed to save treatment plan to notes:", noteError);
+              }
+            }
+          }
         } catch (transcribeError) {
           console.error("Transcription error:", transcribeError);
           setError((transcribeError as Error).message);

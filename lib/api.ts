@@ -229,12 +229,20 @@ export async function dictateAudio(audioPath: string) {
 }
 
 // Default medical prompt for parsing transcripts
+// This is used when no custom prompt is provided to transcribeVisitAudio
 const DEFAULT_MEDICAL_PROMPT = `You are a medical transcription assistant. Parse the following medical consultation transcript into structured JSON format and create a summary.
 
 Extract the following information:
 1. past_medical_history: Array of past medical conditions, surgeries, and relevant medical history
 2. current_symptoms: Object or array describing current symptoms, including onset, duration, severity, and characteristics
-3. physical_exam_findings: Object describing physical examination findings (vital signs, general appearance, system-specific findings)
+3. physical_exam_findings: Object describing physical examination findings. CRITICAL: Vital signs MUST be nested in a "vital_signs" object with these exact keys:
+   - "blood_pressure" (string, format: "120/80" - extract ONLY the numbers, e.g., "120/80" not "120 over 80")
+   - "heart_rate" or "hr" (string, extract ONLY the number, e.g., "72" not "72 bpm")
+   - "temperature" or "temp" (string, extract ONLY the number in Fahrenheit, e.g., "98.6" not "98.6 degrees Fahrenheit")
+   - "weight" (string, extract ONLY the number in pounds, e.g., "165" not "165 pounds")
+   Example structure: { "vital_signs": { "blood_pressure": "120/80", "heart_rate": "72", "temperature": "98.6", "weight": "165" }, "general_appearance": "...", "other_findings": "..." }
+   All other physical exam findings (excluding vitals) should be in separate keys at the same level as "vital_signs".
+   DO NOT put vital signs at the top level of physical_exam_findings. They MUST be inside the "vital_signs" nested object.
 4. diagnosis: String or array with the diagnosis or working diagnosis
 5. treatment_plan: Array of treatment recommendations, procedures, and follow-up plans
 6. prescriptions: Array of prescribed medications with dosage, frequency, and duration if mentioned
@@ -244,21 +252,46 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, no add
 {
   "past_medical_history": [],
   "current_symptoms": [{ "symptom": "string", "characteristics": "mild | moderate | severe | unspecified" }],
-  "physical_exam_findings": {},
+  "physical_exam_findings": {
+    "vital_signs": {
+      "blood_pressure": "",
+      "heart_rate": "",
+      "temperature": "",
+      "weight": ""
+    },
+    "general_appearance": "",
+    "other_findings": ""
+  },
   "diagnosis": "",
   "treatment_plan": [],
   "prescriptions": [],
   "summary": ""
 }
 
-If any field is not mentioned in the transcript, use an empty array [] or empty object {} or empty string "" as appropriate.
+CRITICAL RULES FOR VITAL SIGNS:
+- Vital signs MUST be in the "vital_signs" nested object, NOT at the top level of physical_exam_findings
+- Extract ONLY numeric values for vitals (remove units and descriptive text):
+  * Blood pressure: "120/80" (not "120 over 80" or "120/80 mmHg")
+  * Heart rate: "72" (not "72 bpm" or "72 beats per minute")
+  * Temperature: "98.6" (not "98.6 degrees Fahrenheit" or "98.6°F")
+  * Weight: "165" (not "165 pounds" or "165 lbs")
+- If any field is not mentioned in the transcript, use an empty array [], empty object {}, or empty string "" as appropriate
 
 Transcript:
 `;
 
+/**
+ * Transcribe audio and parse it into structured medical data.
+ *
+ * @param audioPath - Path to the audio file in storage
+ * @param visitId - Optional visit ID for tracking
+ * @param prompt - Optional custom prompt for parsing. If not provided, uses DEFAULT_MEDICAL_PROMPT
+ * @returns Object containing transcript, structured data, and summary
+ */
 export async function transcribeVisitAudio(
   audioPath: string,
-  visitId?: string
+  visitId?: string,
+  prompt?: string
 ) {
   // Step 1: Transcribe audio using the dictate endpoint
   const dictateRes = await authFetch("/api/transcribe/dictate", {
@@ -278,11 +311,12 @@ export async function transcribeVisitAudio(
   }
 
   // Step 2: Parse transcript using the parse endpoint
+  // Use custom prompt if provided, otherwise use default medical prompt
   const parseRes = await authFetch("/api/transcribe/parse", {
     method: "POST",
     body: JSON.stringify({
       transcript,
-      prompt: DEFAULT_MEDICAL_PROMPT,
+      prompt: prompt || DEFAULT_MEDICAL_PROMPT,
     }),
   });
 

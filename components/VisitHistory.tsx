@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getPatient } from '@/lib/api'
-import { useDoctor } from '@/contexts/DoctorContext'
-import { useNurse } from '@/contexts/NurseContext'
+import { usePatientRoutes } from '@/lib/usePatientRoutes'
 import type { Visit } from '@/lib/types'
 
 interface VisitHistoryProps {
@@ -16,16 +15,8 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
   const [selectedVisit, setSelectedVisit] = useState<string | null>(null)
   const [visits, setVisits] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const { nurse } = useNurse()
   const router = useRouter()
-
-  const getNewVisitUrl = () => {
-    if (nurse) {
-      return `/nurse-portal/patients/${patientId}/new-visit`
-    } else {
-      return `/doctor/patients/${patientId}/new-visit`
-    }
-  }
+  const { getNewVisitUrl } = usePatientRoutes()
 
   useEffect(() => {
     loadVisits()
@@ -183,7 +174,7 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
         </div>
         {!selectedVisit && (
           <Link
-            href={getNewVisitUrl()}
+            href={getNewVisitUrl(patientId)}
             className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium shadow-sm transition-colors"
           >
             <span className="material-symbols-outlined text-sm">add</span>

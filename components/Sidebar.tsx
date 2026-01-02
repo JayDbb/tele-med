@@ -40,7 +40,7 @@ const Sidebar = () => {
 
   const navItems = [
     { icon: 'home', label: 'Home', href: '/doctor/dashboard' },
-    { icon: 'groups', label: 'My Patients', href: '/doctor/patients' },
+    { icon: 'groups', label: 'My Patients', href: '/patients' },
   ]
 
   const bottomItems: Array<{ icon: string; label: string; href: string }> = []
@@ -70,7 +70,7 @@ const Sidebar = () => {
       <nav className="flex flex-col gap-2 flex-grow">
         {navItems.map((item) => {
           const isActive = pathname === item.href || 
-            (item.href === '/doctor/patients' && pathname.startsWith('/doctor/patients')) ||
+            (item.href === '/patients' && pathname.startsWith('/patients')) ||
             (item.href === '/medications' && pathname.startsWith('/medications'))
           return (
             <Link

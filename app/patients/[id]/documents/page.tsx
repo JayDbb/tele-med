@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import NurseSidebar from '@/components/NurseSidebar'
+import Sidebar from '@/components/Sidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
 import { PatientDataManager } from '@/utils/PatientDataManager'
@@ -26,7 +26,7 @@ export default function PatientDocumentsPage() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
-      <NurseSidebar />
+      <Sidebar />
       <PatientDetailSidebar patientId={patientId} />
       
       <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
@@ -107,3 +107,4 @@ export default function PatientDocumentsPage() {
     </div>
   )
 }
+

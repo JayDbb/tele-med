@@ -1,12 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import VitalsChart from './VitalsChart'
 import VisitHistory from './VisitHistory'
-import { getPatient } from '@/lib/api'
-import { PatientDataManager } from '@/utils/PatientDataManager'
+import { getPatient, getAllergies } from '@/lib/api'
 import type { Patient } from '@/lib/types'
 
 interface PatientDetailProps {
@@ -17,12 +15,25 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
   const [patient, setPatient] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [allergies, setAllergies] = useState<any[]>([])
+  const [editMode, setEditMode] = useState(false)
+  const [draft, setDraft] = useState({
+    name: '',
+    dob: '',
+    phone: '',
+    address: '',
+    email: '',
+    gender: '',
+    language: '',
+    height: '',
+    physician: '',
+    lastConsultation: '',
+    appointment: '',
+    notes: '',
+    tags: ''
+  })
 
-  useEffect(() => {
-    loadPatient()
-  }, [patientId])
-
-  const loadPatient = async () => {
+  const loadPatient = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -79,21 +90,47 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
       }
 
       setPatient(mappedPatient)
+
+      // Load allergies from API
+      try {
+        const allergiesData = await getAllergies(patientId)
+        setAllergies(Array.isArray(allergiesData) ? allergiesData : [])
+      } catch (allergyError) {
+        console.warn('Could not load allergies:', allergyError)
+        setAllergies([])
+      }
     } catch (err: any) {
       console.error('Error loading patient:', err)
       setError(err?.message || 'Failed to load patient')
     } finally {
       setLoading(false)
     }
-  }
+  }, [patientId])
 
-  // Still using PatientDataManager for section lists (vitals, allergies, etc.)
-  // These can be migrated to API later if needed
-  const vitals = PatientDataManager.getPatientSectionList(patientId, 'vitals')
-  const allergies = PatientDataManager.getPatientSectionList(patientId, 'allergies')
-  const medications = PatientDataManager.getPatientSectionList(patientId, 'medications')
-  const history = PatientDataManager.getPatientSectionList(patientId, 'past-medical-history')
-  const isNewPatient = vitals.length === 0 && allergies.length === 0 && medications.length === 0 && history.length === 0
+  useEffect(() => {
+    loadPatient()
+  }, [loadPatient])
+
+  useEffect(() => {
+    if (patient) {
+      const tags = Array.isArray(patient.tags) ? patient.tags : []
+      setDraft({
+        name: patient.name || '',
+        dob: patient.dob || '',
+        phone: patient.phone || '',
+        address: patient.address || '',
+        email: patient.email || '',
+        gender: patient.gender || '',
+        language: patient.language || '',
+        height: patient.height || '',
+        physician: patient.physician || '',
+        lastConsultation: patient.lastConsultation || '',
+        appointment: patient.appointment || '',
+        notes: patient.notes || '',
+        tags: tags.join(', ')
+      })
+    }
+  }, [patient])
 
   if (loading) {
     return (
@@ -125,6 +162,13 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
     )
   }
 
+  // Using API for data - vitals, medications, and history endpoints not yet available
+  // For now, using empty arrays until API endpoints are created
+  const vitals: any[] = []
+  const medications: any[] = []
+  const history: any[] = []
+  const isNewPatient = vitals.length === 0 && allergies.length === 0 && medications.length === 0 && history.length === 0
+
   const getAge = (dob?: string) => {
     if (!dob) return 'Not provided'
     const birthDate = new Date(dob)
@@ -138,42 +182,8 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
     return `${age}`
   }
 
-  const tags = Array.isArray(patient.tags) ? patient.tags : []
-  const patientAge = patient.dob ? Number(getAge(patient.dob)) : undefined
-  const [editMode, setEditMode] = useState(false)
-  const [draft, setDraft] = useState({
-    name: patient.name || '',
-    dob: patient.dob || '',
-    phone: patient.phone || '',
-    address: patient.address || '',
-    email: patient.email || '',
-    gender: patient.gender || '',
-    language: patient.language || '',
-    height: patient.height || '',
-    physician: patient.physician || '',
-    lastConsultation: patient.lastConsultation || '',
-    appointment: patient.appointment || '',
-    notes: patient.notes || '',
-    tags: tags.join(', ')
-  })
-
-  useEffect(() => {
-    setDraft({
-      name: patient.name || '',
-      dob: patient.dob || '',
-      phone: patient.phone || '',
-      address: patient.address || '',
-      email: patient.email || '',
-      gender: patient.gender || '',
-      language: patient.language || '',
-      height: patient.height || '',
-      physician: patient.physician || '',
-      lastConsultation: patient.lastConsultation || '',
-      appointment: patient.appointment || '',
-      notes: patient.notes || '',
-      tags: tags.join(', ')
-    })
-  }, [patientId, patient.name, patient.dob, patient.phone, patient.address, patient.email, patient.gender, patient.language, patient.height, patient.physician, patient.lastConsultation, patient.appointment, patient.notes, tags.join(', ')])
+  const tags = patient ? (Array.isArray(patient.tags) ? patient.tags : []) : []
+  const patientAge = patient?.dob ? Number(getAge(patient.dob)) : undefined
 
   const getNameParts = () => {
     const parts = draft.name.trim().split(' ')
@@ -197,31 +207,11 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
     return `Dr. ${name}`
   }
 
-  const handleSaveProfile = () => {
-    const nextTags = draft.tags
-      .split(',')
-      .map(tag => tag.trim())
-      .filter(Boolean)
-    PatientDataManager.savePatient(
-      {
-        ...patient,
-        name: draft.name,
-        dob: draft.dob,
-        phone: draft.phone,
-        address: draft.address,
-        email: draft.email,
-        gender: draft.gender,
-        language: draft.language,
-        height: draft.height,
-        physician: draft.physician,
-        lastConsultation: draft.lastConsultation,
-        appointment: draft.appointment,
-        notes: draft.notes,
-        tags: nextTags
-      },
-      'update',
-      patient.doctorId || patient.nurseId || 'current-user'
-    )
+  const handleSaveProfile = async () => {
+    // TODO: Implement API endpoint for updating patient
+    // For now, just exit edit mode
+    // When API is available, call: updatePatient(patientId, { ...draft fields })
+    console.warn('Patient update API not yet implemented')
     setEditMode(false)
   }
 

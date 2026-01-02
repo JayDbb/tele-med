@@ -8,11 +8,10 @@ const PRECACHE_URLS = [
   '/login',
   '/doctor',
   '/doctor/dashboard',
-  '/doctor/patients',
+  '/patients',
   '/doctor/calendar',
   '/doctor/inbox',
   '/nurse-portal',
-  '/nurse-portal/patients',
   '/nurse-portal/schedule',
   '/nurse-portal/messages'
 ]

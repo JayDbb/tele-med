@@ -125,12 +125,8 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
     setQuery('')
     setShowDropdown(false)
     
-    // Route to appropriate portal based on user type
-    if (nurse) {
-      router.push(`/nurse-portal/patients/${patient.id}`)
-    } else {
-      router.push(`/doctor/patients/${patient.id}`)
-    }
+    // Route to patient page
+    router.push(`/patients/${patient.id}`)
   }
 
   const handleFocus = () => {

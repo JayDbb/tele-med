@@ -39,7 +39,7 @@ const NurseSidebar = () => {
 
   const navItems = [
     { icon: 'home', label: 'Dashboard', href: '/nurse-portal' },
-    { icon: 'groups', label: 'Patients', href: '/nurse-portal/patients' },
+    { icon: 'groups', label: 'Patients', href: '/patients' },
   ]
 
   const bottomItems: Array<{ icon: string; label: string; href: string }> = []
@@ -69,7 +69,7 @@ const NurseSidebar = () => {
       <nav className="flex flex-col gap-2 flex-grow">
         {navItems.map((item) => {
           const isActive = pathname === item.href || 
-            (item.href === '/nurse-portal/patients' && pathname.startsWith('/nurse-portal/patients'))
+            (item.href === '/patients' && pathname.startsWith('/patients'))
           return (
             <Link
               key={item.label}

@@ -8,6 +8,7 @@ import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
 import { PatientDataManager } from '@/utils/PatientDataManager'
 import { useNurse } from '@/contexts/NurseContext'
+import { usePatientRoutes } from '@/lib/usePatientRoutes'
 
 interface NurseNewVisitFormProps {
   patientId: string
@@ -16,6 +17,7 @@ interface NurseNewVisitFormProps {
 const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   const router = useRouter()
   const { nurse } = useNurse()
+  const { getPatientUrl } = usePatientRoutes()
   const isNewPatient = patientId.length > 10
   const [activeTab, setActiveTab] = useState('record')
   const profilePhotoInputRef = useRef<HTMLInputElement | null>(null)
@@ -316,7 +318,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   const handleSavePatient = () => {
     const newPatientId = savePatientData()
     if (!newPatientId) return
-    router.push(`/nurse-portal/patients/${newPatientId}`)
+    router.push(getPatientUrl(newPatientId))
   }
 
   const patient = isNewPatient ? {

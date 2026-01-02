@@ -892,6 +892,74 @@ export default function PatientVideoPage() {
       try {
         const transcriptionResult = await transcribeVisitAudio(upload.path, newVisit.id);
         console.log('Transcription completed');
+        
+        // Import appendVisitNote for saving transcription to notes
+        const { appendVisitNote } = await import('../../../../lib/api');
+        
+        // Save the full transcript to visit notes as subjective (dictation source)
+        if (transcriptionResult.transcript) {
+          try {
+            await appendVisitNote(
+              newVisit.id,
+              transcriptionResult.transcript,
+              "subjective",
+              "dictation"
+            );
+          } catch (noteError) {
+            console.warn("Failed to save transcript to notes:", noteError);
+          }
+        }
+
+        // Save the AI-generated summary to visit notes as assessment
+        if (transcriptionResult.summary) {
+          try {
+            await appendVisitNote(
+              newVisit.id,
+              transcriptionResult.summary,
+              "assessment",
+              "dictation"
+            );
+          } catch (noteError) {
+            console.warn("Failed to save summary to notes:", noteError);
+          }
+        }
+
+        // Save structured data to notes if available
+        if (transcriptionResult.structured) {
+          const structured = transcriptionResult.structured;
+          
+          // Save diagnosis
+          if (structured.diagnosis) {
+            const diagnosis = Array.isArray(structured.diagnosis)
+              ? structured.diagnosis.join(', ')
+              : structured.diagnosis;
+            try {
+              await appendVisitNote(
+                newVisit.id,
+                `Diagnosis: ${diagnosis}`,
+                "assessment",
+                "dictation"
+              );
+            } catch (noteError) {
+              console.warn("Failed to save diagnosis to notes:", noteError);
+            }
+          }
+
+          // Save treatment plan
+          if (structured.treatment_plan && Array.isArray(structured.treatment_plan) && structured.treatment_plan.length > 0) {
+            try {
+              await appendVisitNote(
+                newVisit.id,
+                `Treatment Plan: ${structured.treatment_plan.join('\n')}`,
+                "plan",
+                "dictation"
+              );
+            } catch (noteError) {
+              console.warn("Failed to save treatment plan to notes:", noteError);
+            }
+          }
+        }
+        
         showToast('Recording saved and transcribed successfully');
       } catch (transcribeErr) {
         console.error('Transcription error:', transcribeErr);

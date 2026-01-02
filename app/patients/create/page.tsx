@@ -18,6 +18,8 @@ export default function NewPatientPage() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showVisitPrompt, setShowVisitPrompt] = useState(false);
+    const [createdPatientId, setCreatedPatientId] = useState<string | null>(null);
 
     const onSubmit = async (e: FormEvent) => {
         e.preventDefault();
@@ -50,11 +52,25 @@ export default function NewPatientPage() {
                 return;
             }
 
-            router.push(`/patients/${patient.id}`);
+            // Show prompt to start a new visit
+            setCreatedPatientId(patient.id);
+            setShowVisitPrompt(true);
         } catch (err: any) {
             setError(err?.message || "Failed to create patient. Please try again.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleStartVisit = () => {
+        if (createdPatientId) {
+            router.push(`/patients/${createdPatientId}/new-visit`);
+        }
+    };
+
+    const handleSkipVisit = () => {
+        if (createdPatientId) {
+            router.push(`/patients/${createdPatientId}`);
         }
     };
 
@@ -237,6 +253,45 @@ export default function NewPatientPage() {
                     </div>
                 </div>
             </main>
+
+            {/* Start New Visit Prompt Modal */}
+            {showVisitPrompt && (
+                <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-2 rounded-lg">
+                                <span className="material-symbols-outlined text-2xl">check_circle</span>
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Patient Created Successfully!</h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Would you like to start a new visit?</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                            <p className="text-sm text-blue-800 dark:text-blue-200">
+                                Starting a visit now will allow you to record the consultation, document symptoms, and create clinical notes.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                            <button
+                                onClick={handleSkipVisit}
+                                className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+                            >
+                                Not Now
+                            </button>
+                            <button
+                                onClick={handleStartVisit}
+                                className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center justify-center gap-2"
+                            >
+                                <span className="material-symbols-outlined text-sm">add</span>
+                                Start New Visit
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

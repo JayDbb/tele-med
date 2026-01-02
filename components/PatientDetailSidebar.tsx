@@ -1,9 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { PatientDataManager } from '@/utils/PatientDataManager'
 
 interface PatientDetailSidebarProps {
   patientId: string
@@ -12,10 +11,8 @@ interface PatientDetailSidebarProps {
 const PatientDetailSidebar = ({ patientId }: PatientDetailSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const pathname = usePathname()
-  const isNursePortal = pathname.startsWith('/nurse-portal')
-  const lastLoggedPath = useRef<string | null>(null)
 
-  const baseUrl = isNursePortal ? '/nurse-portal/patients' : '/doctor/patients'
+  const baseUrl = '/patients'
   
   const menuItems = [
     { label: 'Overview', href: `${baseUrl}/${patientId}`, hasAlert: false },
@@ -33,24 +30,11 @@ const PatientDetailSidebar = ({ patientId }: PatientDetailSidebarProps) => {
     { label: 'Log History', href: `${baseUrl}/${patientId}/log-history`, hasAlert: false },
   ]
 
-  useEffect(() => {
-    if (!patientId || !pathname.includes(`/patients/${patientId}`)) return
-    if (lastLoggedPath.current === pathname) return
-    lastLoggedPath.current = pathname
-
-    const segments = pathname.split(`/patients/${patientId}`)[1]?.split('/').filter(Boolean) || []
-    const sectionSegment = segments[0] || 'overview'
-    const section = sectionSegment === 'history' ? 'visit-history' : sectionSegment
-    PatientDataManager.logActionAuto(patientId, 'view', section, {
-      notes: `Viewed ${section}`
-    })
-  }, [patientId, pathname])
-
   return (
     <aside className={`${isCollapsed ? 'w-16' : 'w-64'} bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 overflow-y-auto transition-all duration-300`}>
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-2">
-          <Link href={isNursePortal ? "/nurse-portal/patients" : "/doctor/patients"} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+          <Link href="/patients" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
             <span className="material-symbols-outlined text-sm">arrow_back</span>
           </Link>
           {!isCollapsed && <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Patient Details</h1>}
