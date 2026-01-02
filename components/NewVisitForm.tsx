@@ -14,6 +14,7 @@ import { useDoctor } from '@/contexts/DoctorContext'
 import { useNurse } from '@/contexts/NurseContext'
 import { usePatientRoutes } from '@/lib/usePatientRoutes'
 import { useAutosave } from '@/hooks/useAutosave'
+import AssignPatientModal from './AssignPatientModal'
 
 interface NewVisitFormProps {
   patientId: string
@@ -33,6 +34,8 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
   const [recording, setRecording] = useState(false)
   const [transcribing, setTranscribing] = useState(false)
   const [transcription, setTranscription] = useState<any>(null)
+  const [assignModalOpen, setAssignModalOpen] = useState(false)
+  const [showAssignPrompt, setShowAssignPrompt] = useState(false)
 
   const recorder = useAudioRecorder()
 
@@ -709,8 +712,8 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
       // Clear autosave draft after successful save
       clearDraft()
 
-      // Navigate back to patient page
-      router.push(getPatientUrl(patientId))
+      // Show prompt to assign patient
+      setShowAssignPrompt(true)
     } catch (err: any) {
       console.error('Error saving visit:', err)
       setError(err?.message || 'Failed to save visit')
@@ -1082,6 +1085,58 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
           </div>
         </div>
       </main>
+
+      {/* Assign Patient Prompt Modal */}
+      {showAssignPrompt && (
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-2 rounded-lg">
+                <span className="material-symbols-outlined text-2xl">check_circle</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Visit Saved Successfully!</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Would you like to assign this patient to another doctor or nurse?</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setShowAssignPrompt(false)
+                  router.push(getPatientUrl(patientId))
+                }}
+                className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+              >
+                Not Now
+              </button>
+              <button
+                onClick={() => {
+                  setShowAssignPrompt(false)
+                  setAssignModalOpen(true)
+                }}
+                className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined text-sm">person_add</span>
+                Assign Patient
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AssignPatientModal
+        isOpen={assignModalOpen}
+        onClose={() => {
+          setAssignModalOpen(false)
+          router.push(getPatientUrl(patientId))
+        }}
+        patientId={patientId}
+        patientName={patient?.name}
+        onSuccess={() => {
+          router.push(getPatientUrl(patientId))
+        }}
+      />
     </div>
   )
 }

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Sidebar from '@/components/Sidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
-import { createPatient, createAllergy } from "../../../lib/api";
+import { createPatient, createAllergy, checkDuplicatePatient } from "../../../lib/api";
+import type { Patient } from "../../../lib/types";
 
 export default function NewPatientPage() {
     const router = useRouter();
@@ -19,6 +20,8 @@ export default function NewPatientPage() {
     const [error, setError] = useState<string | null>(null);
     const [showVisitPrompt, setShowVisitPrompt] = useState(false);
     const [createdPatientId, setCreatedPatientId] = useState<string | null>(null);
+    const [duplicatePatients, setDuplicatePatients] = useState<Patient[]>([]);
+    const [checkingDuplicate, setCheckingDuplicate] = useState(false);
 
     // Allergy form state
     const [showAllergyForm, setShowAllergyForm] = useState(false);
@@ -71,7 +74,33 @@ export default function NewPatientPage() {
         e.preventDefault();
         setLoading(true);
         setError(null);
+        setDuplicatePatients([]);
+
         try {
+            // Check for duplicate patients first
+            if (email || phone) {
+                setCheckingDuplicate(true);
+                try {
+                    const duplicateCheck = await checkDuplicatePatient(
+                        email || null,
+                        phone || null
+                    );
+
+                    if (duplicateCheck.isDuplicate && duplicateCheck.patients.length > 0) {
+                        setDuplicatePatients(duplicateCheck.patients);
+                        setError(`A patient with this ${email && phone ? 'email or phone number' : email ? 'email' : 'phone number'} already exists.`);
+                        setLoading(false);
+                        setCheckingDuplicate(false);
+                        return;
+                    }
+                } catch (checkError: any) {
+                    console.error('Error checking for duplicates:', checkError);
+                    // Continue with creation if check fails (don't block user)
+                } finally {
+                    setCheckingDuplicate(false);
+                }
+            }
+
             // Convert gender to sex_at_birth format (M/F/null)
             let sex_at_birth: "M" | "F" | null = null;
             if (gender === "Male") sex_at_birth = "M";
@@ -270,8 +299,8 @@ export default function NewPatientPage() {
                                                         >
                                                             <span className="text-sm font-medium text-gray-900 dark:text-white">{allergy.name}</span>
                                                             <span className={`text-xs px-2 py-0.5 rounded ${allergy.severity === 'Severe' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
-                                                                    allergy.severity === 'Moderate' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
-                                                                        'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                                                                allergy.severity === 'Moderate' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
+                                                                    'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
                                                                 }`}>
                                                                 {allergy.severity}
                                                             </span>
@@ -504,10 +533,64 @@ export default function NewPatientPage() {
 
                                         {/* Error Display */}
                                         {error && (
-                                            <div className="mt-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
-                                                <div className="flex items-center">
-                                                    <span className="material-symbols-outlined text-sm mr-2">error</span>
-                                                    {error}
+                                            <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+                                                <div className="flex items-start gap-2">
+                                                    <span className="material-symbols-outlined text-sm mt-0.5">error</span>
+                                                    <div className="flex-1">
+                                                        <p className="font-semibold mb-1">{error}</p>
+                                                        {duplicatePatients.length > 0 && (
+                                                            <div className="mt-3 space-y-2">
+                                                                <p className="text-xs font-medium text-red-700 dark:text-red-300 mb-2">
+                                                                    Existing patient{duplicatePatients.length > 1 ? 's' : ''} found:
+                                                                </p>
+                                                                {duplicatePatients.map((patient) => (
+                                                                    <div
+                                                                        key={patient.id}
+                                                                        className="bg-white dark:bg-gray-800 border border-red-200 dark:border-red-700 rounded-lg p-3 space-y-1"
+                                                                    >
+                                                                        <div className="flex items-center justify-between">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="material-symbols-outlined text-sm text-red-600 dark:text-red-400">person</span>
+                                                                                <span className="font-semibold text-gray-900 dark:text-white">
+                                                                                    {patient.full_name || 'Unknown Patient'}
+                                                                                </span>
+                                                                            </div>
+                                                                            <a
+                                                                                href={`/patients/${patient.id}`}
+                                                                                className="text-xs text-primary hover:underline font-medium"
+                                                                            >
+                                                                                View Patient →
+                                                                            </a>
+                                                                        </div>
+                                                                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400 mt-2">
+                                                                            {patient.email && (
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <span className="material-symbols-outlined text-xs">email</span>
+                                                                                    <span>{patient.email}</span>
+                                                                                </div>
+                                                                            )}
+                                                                            {patient.phone && (
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <span className="material-symbols-outlined text-xs">phone</span>
+                                                                                    <span>{patient.phone}</span>
+                                                                                </div>
+                                                                            )}
+                                                                            {patient.dob && (
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <span className="material-symbols-outlined text-xs">calendar_today</span>
+                                                                                    <span>{new Date(patient.dob).toLocaleDateString()}</span>
+                                                                                </div>
+                                                                            )}
+                                                                            <div className="flex items-center gap-1">
+                                                                                <span className="material-symbols-outlined text-xs">schedule</span>
+                                                                                <span>Created {patient.created_at ? new Date(patient.created_at).toLocaleDateString() : 'Unknown'}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}
@@ -522,10 +605,15 @@ export default function NewPatientPage() {
                                             </Link>
                                             <button
                                                 type="submit"
-                                                disabled={loading}
+                                                disabled={loading || checkingDuplicate}
                                                 className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
-                                                {loading ? (
+                                                {checkingDuplicate ? (
+                                                    <>
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                                        <span>Checking for duplicates...</span>
+                                                    </>
+                                                ) : loading ? (
                                                     <>
                                                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                                                         <span>Creating...</span>

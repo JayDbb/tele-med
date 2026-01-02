@@ -81,6 +81,17 @@ export async function PUT(
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
+  // Get existing visit data for audit trail
+  const { data: existingVisit } = await supabase
+    .from("visits")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (!existingVisit) {
+    return NextResponse.json({ error: "Visit not found" }, { status: 404 });
+  }
+
   const payload = await req.json();
   const { data, error: dbError } = await supabase
     .from("visits")
@@ -91,6 +102,50 @@ export async function PUT(
 
   if (dbError) {
     return NextResponse.json({ error: dbError.message }, { status: 400 });
+  }
+
+  // Log audit trail for visit changes
+  try {
+    const changes: any = {};
+    Object.keys(payload).forEach(key => {
+      if (existingVisit[key] !== payload[key]) {
+        changes[key] = {
+          from: existingVisit[key],
+          to: payload[key]
+        };
+      }
+    });
+
+    if (Object.keys(changes).length > 0) {
+      // Get user info for audit log
+      const { data: userData } = await supabase.auth.admin.getUserById(userId);
+      const userName = userData?.user?.user_metadata?.full_name || 
+                       userData?.user?.email?.split("@")[0] || 
+                       "Unknown User";
+
+      // Insert audit log directly
+      const { error: auditError } = await supabase
+        .from("visit_audit_trail")
+        .insert({
+          visit_id: id,
+          patient_id: existingVisit.patient_id,
+          action: 'visit_updated',
+          entity_type: 'visit',
+          entity_id: id,
+          user_id: userId,
+          user_name: userName,
+          changes,
+          notes: 'Visit information updated'
+        });
+
+      if (auditError && auditError.code !== '42P01') {
+        // Only log if it's not a "table doesn't exist" error
+        console.warn('Failed to log audit trail:', auditError);
+      }
+    }
+  } catch (auditError) {
+    console.warn('Error logging audit trail:', auditError);
+    // Continue even if audit logging fails
   }
 
   return NextResponse.json(data);

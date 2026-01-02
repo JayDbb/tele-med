@@ -12,6 +12,7 @@ import { uploadToPrivateBucket } from "../../../../lib/storage";
 import { useAudioRecorder } from "../../../../lib/useAudioRecorder";
 import { convertToMP3 } from "../../../../lib/audioConverter";
 import { useAutosave } from "@/hooks/useAutosave";
+import AssignPatientModal from "@/components/AssignPatientModal";
 
 export default function PatientVisitPage() {
   const params = useParams<{ id: string }>();
@@ -690,6 +691,9 @@ export default function PatientVisitPage() {
 
       // Clear autosave draft after successful save
       clearDraft();
+      
+      // Show prompt to assign patient
+      setShowAssignPrompt(true);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -1117,6 +1121,55 @@ export default function PatientVisitPage() {
           </div>
         </div>
       </main>
+
+      {/* Assign Patient Prompt Modal */}
+      {showAssignPrompt && (
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-2 rounded-lg">
+                <span className="material-symbols-outlined text-2xl">check_circle</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Visit Saved Successfully!</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Would you like to assign this patient to another doctor or nurse?</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setShowAssignPrompt(false);
+                }}
+                className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+              >
+                Not Now
+              </button>
+              <button
+                onClick={() => {
+                  setShowAssignPrompt(false);
+                  setAssignModalOpen(true);
+                }}
+                className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined text-sm">person_add</span>
+                Assign Patient
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AssignPatientModal
+        isOpen={assignModalOpen}
+        onClose={() => {
+          setAssignModalOpen(false);
+        }}
+        patientId={params.id}
+        onSuccess={() => {
+          // Optionally refresh or navigate
+        }}
+      />
     </div>
   );
 }

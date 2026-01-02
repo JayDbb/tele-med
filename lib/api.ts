@@ -41,6 +41,18 @@ export async function getPatients(): Promise<Patient[]> {
   return res.json();
 }
 
+export async function checkDuplicatePatient(email?: string | null, phone?: string | null): Promise<{
+  isDuplicate: boolean;
+  patients: Patient[];
+}> {
+  const res = await authFetch("/api/patients/check-duplicate", {
+    method: "POST",
+    body: JSON.stringify({ email, phone }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 export async function createPatient(payload: Partial<Patient>) {
   const res = await authFetch("/api/patients", {
     method: "POST",
@@ -153,6 +165,46 @@ export async function updateVisitNoteStatus(
   const res = await authFetch(`/api/visits/${visitId}/note`, {
     method: "PUT",
     body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function getVisitAuditTrail(visitId: string): Promise<Array<{
+  id: string;
+  visit_id: string;
+  patient_id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  user_id: string;
+  user_name: string;
+  changes: any;
+  notes: string | null;
+  created_at: string;
+}>> {
+  const res = await authFetch(`/api/visits/${visitId}/audit`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function logAuditEvent(
+  visitId: string,
+  action: string,
+  entityType: string,
+  changes?: any,
+  notes?: string,
+  entityId?: string
+) {
+  const res = await authFetch(`/api/visits/${visitId}/audit`, {
+    method: "POST",
+    body: JSON.stringify({
+      action,
+      entity_type: entityType,
+      entity_id: entityId || visitId,
+      changes,
+      notes,
+    }),
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json();

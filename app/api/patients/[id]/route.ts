@@ -58,7 +58,7 @@ export async function GET(
       try {
         const { data: note } = await supabase
           .from("notes")
-          .select("note, status")
+          .select("note, status, finalized_by, finalized_at")
           .eq("visit_id", visit.id)
           .maybeSingle();
         

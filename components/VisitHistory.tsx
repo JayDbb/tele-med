@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { getPatient } from '@/lib/api'
+import { getPatient, updateVisitNoteStatus, getVisitAuditTrail, appendVisitNote, updateVisit } from '@/lib/api'
 import { usePatientRoutes } from '@/lib/usePatientRoutes'
 import type { Visit } from '@/lib/types'
 
@@ -16,6 +16,25 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
   const [visits, setVisits] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showAuditTrail, setShowAuditTrail] = useState(false)
+  const [showSignModal, setShowSignModal] = useState(false)
+  const [showStatusModal, setShowStatusModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const [auditTrail, setAuditTrail] = useState<any[]>([])
+  const [loadingAudit, setLoadingAudit] = useState(false)
+  const [editForm, setEditForm] = useState({
+    chiefComplaint: '',
+    hpi: '',
+    assessment: '',
+    plan: '',
+    bp: '',
+    hr: '',
+    temp: '',
+    weight: '',
+    physicalExam: ''
+  })
+  const [savingEdit, setSavingEdit] = useState(false)
   const router = useRouter()
   const { getNewVisitUrl } = usePatientRoutes()
 
@@ -23,13 +42,44 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
     loadVisits()
   }, [patientId])
 
+  useEffect(() => {
+    if (selectedVisit && showAuditTrail) {
+      loadAuditTrail()
+    }
+  }, [selectedVisit, showAuditTrail])
+
   const loadVisits = async () => {
     try {
       setLoading(true)
       const { visits: apiVisits } = await getPatient(patientId)
 
+      // Helper function to get user name from ID
+      const getUserName = async (userId: string | null | undefined): Promise<string> => {
+        if (!userId) return 'Unknown'
+        try {
+          const { supabaseBrowser } = await import('@/lib/supabaseBrowser')
+          const supabase = supabaseBrowser()
+          const { data: { session } } = await supabase.auth.getSession()
+
+          if (session?.access_token) {
+            const res = await fetch(`/api/clinicians/${userId}`, {
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+            })
+            if (res.ok) {
+              const userData = await res.json()
+              return userData.full_name || userData.email?.split('@')[0] || 'Unknown User'
+            }
+          }
+        } catch (err) {
+          console.warn('Could not fetch user name:', err)
+        }
+        return 'Unknown User'
+      }
+
       // Map database visits to component format
-      const mappedVisits = (apiVisits || []).map((visit: Visit) => {
+      const mappedVisits = await Promise.all((apiVisits || []).map(async (visit: Visit) => {
         // Extract note entries from notes field
         const noteEntries = visit.notes?.note || []
         const noteArray = Array.isArray(noteEntries) ? noteEntries : []
@@ -242,15 +292,19 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
           ros,
           physicalExam,
           signature: {
-            signedBy: visit.notes?.status === 'signed' ? 'Signed' : 'Unsigned',
-            signedDate: visit.notes?.status === 'signed' ? formatDate(visit.created_at) : '',
-            status: visit.notes?.status === 'signed' ? 'Signed' : (visit.notes?.status || 'Draft'),
+            signedBy: visit.notes?.status === 'signed'
+              ? await getUserName((visit.notes as any)?.finalized_by)
+              : 'Unsigned',
+            signedDate: visit.notes?.status === 'signed' ? formatDate((visit.notes as any)?.finalized_at || visit.created_at) : '',
+            status: visit.notes?.status === 'signed' ? 'Signed' :
+              visit.notes?.status === 'pending' ? 'Pending' :
+                (visit.notes?.status === 'draft' ? 'Draft' : 'Draft'),
             cosignRequired: false
           },
           // Store raw data for detailed view
           rawVisit: visit
         }
-      })
+      }))
 
       setVisits(mappedVisits)
     } catch (err: any) {
@@ -300,6 +354,147 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
   }
 
   const selectedVisitData = visits.find(v => v.id === selectedVisit)
+
+  const loadAuditTrail = async () => {
+    if (!selectedVisit) return
+    try {
+      setLoadingAudit(true)
+      const trail = await getVisitAuditTrail(selectedVisit)
+      setAuditTrail(trail)
+    } catch (err: any) {
+      console.error('Error loading audit trail:', err)
+    } finally {
+      setLoadingAudit(false)
+    }
+  }
+
+  const handleEditVisit = () => {
+    if (!selectedVisitData) return
+
+    // Populate edit form with current data
+    setEditForm({
+      chiefComplaint: selectedVisitData.chiefComplaint || '',
+      hpi: selectedVisitData.hpi || '',
+      assessment: selectedVisitData.structuredData?.diagnosis
+        ? (Array.isArray(selectedVisitData.structuredData.diagnosis)
+          ? selectedVisitData.structuredData.diagnosis.join(', ')
+          : selectedVisitData.structuredData.diagnosis)
+        : selectedVisitData.assessmentPlan?.split('Plan:')[0]?.trim() || '',
+      plan: selectedVisitData.structuredData?.treatment_plan
+        ? (Array.isArray(selectedVisitData.structuredData.treatment_plan)
+          ? selectedVisitData.structuredData.treatment_plan.join('\n')
+          : selectedVisitData.structuredData.treatment_plan)
+        : selectedVisitData.assessmentPlan?.split('Plan:')[1]?.trim() || '',
+      bp: selectedVisitData.vitals?.bp || '',
+      hr: selectedVisitData.vitals?.hr || '',
+      temp: selectedVisitData.vitals?.temp || '',
+      weight: selectedVisitData.vitals?.weight || '',
+      physicalExam: selectedVisitData.physicalExam
+        ? Object.entries(selectedVisitData.physicalExam).map(([k, v]) => `${k}: ${v}`).join('\n')
+        : ''
+    })
+    setShowEditModal(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!selectedVisit || !selectedVisitData) return
+
+    // Don't allow editing if signed
+    if (selectedVisitData.signature.status === 'Signed') {
+      setStatusError('Cannot edit a signed note. Please revert to draft first.')
+      return
+    }
+
+    try {
+      setSavingEdit(true)
+      setStatusError(null)
+
+      // Get the raw visit to access note entries
+      const visit = selectedVisitData.rawVisit
+      if (!visit) {
+        throw new Error('Visit data not available')
+      }
+
+      // Save changes to notes
+      if (editForm.chiefComplaint && editForm.chiefComplaint !== selectedVisitData.chiefComplaint) {
+        await appendVisitNote(selectedVisit, editForm.chiefComplaint, 'subjective', 'manual')
+      }
+
+      if (editForm.hpi && editForm.hpi !== selectedVisitData.hpi) {
+        await appendVisitNote(selectedVisit, editForm.hpi, 'subjective', 'manual')
+      }
+
+      // Combine objective data
+      const objectiveParts = []
+      if (editForm.bp) objectiveParts.push(`BP: ${editForm.bp}`)
+      if (editForm.hr) objectiveParts.push(`HR: ${editForm.hr}`)
+      if (editForm.temp) objectiveParts.push(`Temp: ${editForm.temp}`)
+      if (editForm.weight) objectiveParts.push(`Weight: ${editForm.weight}`)
+      if (editForm.physicalExam) objectiveParts.push(editForm.physicalExam)
+
+      if (objectiveParts.length > 0) {
+        await appendVisitNote(selectedVisit, objectiveParts.join('\n'), 'objective', 'manual')
+      }
+
+      if (editForm.assessment && editForm.assessment !== selectedVisitData.assessmentPlan) {
+        await appendVisitNote(selectedVisit, editForm.assessment, 'assessment', 'manual')
+      }
+
+      if (editForm.plan && editForm.plan !== selectedVisitData.assessmentPlan) {
+        await appendVisitNote(selectedVisit, editForm.plan, 'plan', 'manual')
+      }
+
+      // Reload visits to show updated data
+      await loadVisits()
+      setShowEditModal(false)
+    } catch (err: any) {
+      console.error('Error saving edit:', err)
+      setStatusError(err?.message || 'Failed to save changes')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const handleSignNote = async () => {
+    if (!selectedVisit) return
+
+    try {
+      setUpdatingStatus(true)
+      setStatusError(null)
+      await updateVisitNoteStatus(selectedVisit, 'signed')
+      await loadVisits() // Reload to get updated status
+      setShowSignModal(false)
+    } catch (err: any) {
+      console.error('Error signing note:', err)
+      setStatusError(err?.message || 'Failed to sign note')
+    } finally {
+      setUpdatingStatus(false)
+    }
+  }
+
+  const handleStatusChange = async (newStatus: 'draft' | 'signed' | 'pending') => {
+    if (!selectedVisit) return
+
+    // If changing from signed to draft, show confirmation
+    if (selectedVisitData?.signature.status === 'Signed' && newStatus === 'draft') {
+      if (!confirm('Are you sure you want to revert this signed note back to draft? This will allow editing again.')) {
+        return
+      }
+    }
+
+    try {
+      setUpdatingStatus(true)
+      setStatusError(null)
+      await updateVisitNoteStatus(selectedVisit, newStatus)
+      await loadVisits() // Reload to get updated status
+      setShowStatusModal(false)
+    } catch (err: any) {
+      console.error('Error updating status:', err)
+      setStatusError(err?.message || 'Failed to update status')
+    } finally {
+      setUpdatingStatus(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -393,7 +588,7 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
                 </button>
 
                 <button
-                  onClick={() => {/* Edit functionality */ }}
+                  onClick={handleEditVisit}
                   className="p-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
                   title="Edit Record"
                   disabled={selectedVisitData?.signature.status === 'Signed'}
@@ -401,9 +596,30 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
                   <span className="material-symbols-outlined text-sm">edit_document</span>
                 </button>
 
+                {selectedVisitData?.signature.status !== 'Signed' && (
+                  <button
+                    onClick={() => setShowSignModal(true)}
+                    className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+                    title="Sign Note"
+                  >
+                    <span className="material-symbols-outlined text-sm">draw</span>
+                    Sign Note
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setShowStatusModal(true)}
+                  className="p-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  title="Change Status"
+                >
+                  <span className="material-symbols-outlined text-sm">tune</span>
+                </button>
+
                 <span className={`text-xs px-2 py-1 rounded-full ${selectedVisitData?.signature.status === 'Signed'
                   ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                  : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
+                  : selectedVisitData?.signature.status === 'Pending'
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                    : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
                   }`}>
                   {selectedVisitData?.signature.status}
                 </span>
@@ -568,7 +784,10 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
                     </span>
                   </div>
                   <button
-                    onClick={() => setShowAuditTrail(true)}
+                    onClick={async () => {
+                      setShowAuditTrail(true)
+                      await loadAuditTrail()
+                    }}
                     className="text-xs text-primary hover:text-primary/80 font-medium mt-2"
                   >
                     View Full Audit Trail →
@@ -734,6 +953,358 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
                 className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sign Note Modal */}
+      {showSignModal && selectedVisitData && (
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-2 rounded-lg">
+                <span className="material-symbols-outlined text-2xl">draw</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Sign Visit Note</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  This will finalize the note and mark it as signed.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Note:</strong> Once signed, the note cannot be edited. This action will mark the document as finalized.
+              </p>
+            </div>
+
+            {statusError && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+                {statusError}
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setShowSignModal(false)
+                  setStatusError(null)
+                }}
+                className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+                disabled={updatingStatus}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSignNote}
+                disabled={updatingStatus}
+                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {updatingStatus ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Signing...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-sm">draw</span>
+                    <span>Sign Note</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Status Modal */}
+      {showStatusModal && selectedVisitData && (
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/10 text-primary p-2 rounded-lg">
+                  <span className="material-symbols-outlined text-2xl">tune</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Change Note Status</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Current status: <strong>{selectedVisitData.signature.status}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowStatusModal(false)
+                  setStatusError(null)
+                }}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">close</span>
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Select New Status
+              </label>
+              <div className="space-y-2">
+                {[
+                  { value: 'draft', label: 'Draft', description: 'Note is still being edited', color: 'yellow' },
+                  { value: 'pending', label: 'Pending', description: 'Note is awaiting review', color: 'blue' },
+                  { value: 'signed', label: 'Signed', description: 'Note is finalized and signed', color: 'green' },
+                ].map((status) => {
+                  const isCurrent = selectedVisitData.signature.status.toLowerCase() === status.label.toLowerCase()
+                  const isSigned = selectedVisitData.signature.status === 'Signed'
+
+                  return (
+                    <button
+                      key={status.value}
+                      onClick={() => handleStatusChange(status.value as 'draft' | 'signed' | 'pending')}
+                      disabled={isCurrent || updatingStatus || (isSigned && status.value !== 'draft')}
+                      className={`w-full text-left p-3 rounded-lg border-2 transition-all ${isCurrent
+                        ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-primary/50 dark:hover:border-primary/50'
+                        } ${isSigned && status.value !== 'draft'
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'cursor-pointer'
+                        }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className={`material-symbols-outlined ${status.color === 'green' ? 'text-green-600 dark:text-green-400' :
+                            status.color === 'blue' ? 'text-blue-600 dark:text-blue-400' :
+                              'text-yellow-600 dark:text-yellow-400'
+                            }`}>
+                            {status.value === 'signed' ? 'draw' :
+                              status.value === 'pending' ? 'schedule' :
+                                'edit'}
+                          </span>
+                          <div>
+                            <div className="font-medium text-gray-900 dark:text-white">{status.label}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">{status.description}</div>
+                          </div>
+                        </div>
+                        {isCurrent && (
+                          <span className="text-xs bg-primary text-white px-2 py-1 rounded-full">Current</span>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {statusError && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+                {statusError}
+              </div>
+            )}
+
+            {updatingStatus && (
+              <div className="flex items-center justify-center py-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Visit Modal */}
+      {showEditModal && selectedVisitData && (
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-3xl w-full p-6 space-y-4 my-8">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/10 text-primary p-2 rounded-lg">
+                  <span className="material-symbols-outlined text-2xl">edit_document</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Edit Visit Note</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {selectedVisitData.date} - {selectedVisitData.type}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowEditModal(false)
+                  setStatusError(null)
+                }}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">close</span>
+              </button>
+            </div>
+
+            {selectedVisitData.signature.status === 'Signed' && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200 px-4 py-3 rounded-lg text-sm">
+                <strong>Note:</strong> This visit is signed. You must change the status to "Draft" before editing.
+              </div>
+            )}
+
+            {statusError && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+                {statusError}
+              </div>
+            )}
+
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+              {/* Chief Complaint */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Chief Complaint
+                </label>
+                <textarea
+                  value={editForm.chiefComplaint}
+                  onChange={(e) => setEditForm({ ...editForm, chiefComplaint: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                  rows={2}
+                  disabled={selectedVisitData.signature.status === 'Signed'}
+                />
+              </div>
+
+              {/* HPI */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  History of Present Illness
+                </label>
+                <textarea
+                  value={editForm.hpi}
+                  onChange={(e) => setEditForm({ ...editForm, hpi: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                  rows={3}
+                  disabled={selectedVisitData.signature.status === 'Signed'}
+                />
+              </div>
+
+              {/* Vitals */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Vitals
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Blood Pressure</label>
+                    <input
+                      type="text"
+                      value={editForm.bp}
+                      onChange={(e) => setEditForm({ ...editForm, bp: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                      placeholder="120/80"
+                      disabled={selectedVisitData.signature.status === 'Signed'}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Heart Rate</label>
+                    <input
+                      type="text"
+                      value={editForm.hr}
+                      onChange={(e) => setEditForm({ ...editForm, hr: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                      placeholder="72"
+                      disabled={selectedVisitData.signature.status === 'Signed'}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Temperature</label>
+                    <input
+                      type="text"
+                      value={editForm.temp}
+                      onChange={(e) => setEditForm({ ...editForm, temp: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                      placeholder="98.6"
+                      disabled={selectedVisitData.signature.status === 'Signed'}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Weight</label>
+                    <input
+                      type="text"
+                      value={editForm.weight}
+                      onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                      placeholder="150"
+                      disabled={selectedVisitData.signature.status === 'Signed'}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Physical Exam */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Physical Examination
+                </label>
+                <textarea
+                  value={editForm.physicalExam}
+                  onChange={(e) => setEditForm({ ...editForm, physicalExam: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                  rows={3}
+                  placeholder="Enter physical exam findings..."
+                  disabled={selectedVisitData.signature.status === 'Signed'}
+                />
+              </div>
+
+              {/* Assessment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Assessment
+                </label>
+                <textarea
+                  value={editForm.assessment}
+                  onChange={(e) => setEditForm({ ...editForm, assessment: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                  rows={3}
+                  disabled={selectedVisitData.signature.status === 'Signed'}
+                />
+              </div>
+
+              {/* Plan */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Treatment Plan
+                </label>
+                <textarea
+                  value={editForm.plan}
+                  onChange={(e) => setEditForm({ ...editForm, plan: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                  rows={4}
+                  disabled={selectedVisitData.signature.status === 'Signed'}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => {
+                  setShowEditModal(false)
+                  setStatusError(null)
+                }}
+                className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+                disabled={savingEdit}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={savingEdit || selectedVisitData.signature.status === 'Signed'}
+                className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {savingEdit ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-sm">save</span>
+                    <span>Save Changes</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

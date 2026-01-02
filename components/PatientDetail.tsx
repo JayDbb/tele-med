@@ -6,6 +6,7 @@ import VitalsChart from './VitalsChart'
 import VisitHistory from './VisitHistory'
 import { getPatient, getAllergies } from '@/lib/api'
 import type { Patient } from '@/lib/types'
+import AssignPatientModal from './AssignPatientModal'
 
 interface PatientDetailProps {
   patientId: string
@@ -17,6 +18,7 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
   const [error, setError] = useState<string | null>(null)
   const [allergies, setAllergies] = useState<any[]>([])
   const [editMode, setEditMode] = useState(false)
+  const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [draft, setDraft] = useState({
     name: '',
     dob: '',
@@ -255,6 +257,13 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
             </>
           ) : (
             <>
+              <button
+                onClick={() => setAssignModalOpen(true)}
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-sm">person_add</span>
+                Assign Patient
+              </button>
               <button
                 onClick={() => setEditMode(true)}
                 className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
