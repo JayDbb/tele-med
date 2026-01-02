@@ -19,7 +19,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   }, [])
   
   // Public routes that don't require authentication
-  const publicRoutes = ['/login']
+  const publicRoutes = ['/login', '/signup']
   
   // Nurse portal routes
   const nurseRoutes = ['/nurse-portal']
@@ -28,7 +28,8 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     return null // Prevent flash during initial load
   }
   
-  if (publicRoutes.includes(pathname)) {
+  // Treat public routes as prefix matches so trailing slashes or query params don't cause mis-matches
+  if (publicRoutes.some(route => pathname?.startsWith(route))) {
     return <>{children}</>
   }
   
