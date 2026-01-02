@@ -3,21 +3,57 @@
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useDoctor } from '@/contexts/DoctorContext'
+import { supabaseBrowser } from '@/lib/supabaseBrowser'
 
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [isDark, setIsDark] = useState(false)
   const [hasUnreadMessages, setHasUnreadMessages] = useState(true)
+  const [role, setRole] = useState<string | null>(null)
+  const [userName, setUserName] = useState<string | null>(null)
+  const [userSubtitle, setUserSubtitle] = useState<string | null>(null)
   const pathname = usePathname()
   const router = useRouter()
-  const { doctor, logout } = useDoctor()
 
   useEffect(() => {
     const stored = localStorage.getItem('theme')
     if (stored === 'dark') {
       setIsDark(true)
       document.documentElement.classList.add('dark')
+    }
+
+    const supabase = supabaseBrowser()
+    // Load initial session info
+    supabase.auth.getSession().then(({ data }) => {
+      const sessionUser = data?.session?.user
+      if (sessionUser) {
+        const r = sessionUser.user_metadata?.role || null
+        const fullName = sessionUser.user_metadata?.full_name || sessionUser.email?.split('@')[0]
+        const subtitle = r === 'nurse' ? sessionUser.user_metadata?.department : sessionUser.user_metadata?.specialty
+        setRole(r)
+        setUserName(fullName)
+        setUserSubtitle(subtitle)
+      }
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const sessionUser = session?.user
+      if (sessionUser) {
+        const r = sessionUser.user_metadata?.role || null
+        const fullName = sessionUser.user_metadata?.full_name || sessionUser.email?.split('@')[0]
+        const subtitle = r === 'nurse' ? sessionUser.user_metadata?.department : sessionUser.user_metadata?.specialty
+        setRole(r)
+        setUserName(fullName)
+        setUserSubtitle(subtitle)
+      } else {
+        setRole(null)
+        setUserName(null)
+        setUserSubtitle(null)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
     }
   }, [])
 
@@ -33,15 +69,21 @@ const Sidebar = () => {
     }
   }
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    const supabase = supabaseBrowser()
+    await supabase.auth.signOut()
     router.push('/login')
   }
 
-  const navItems = [
-    { icon: 'home', label: 'Home', href: '/doctor/dashboard' },
-    { icon: 'groups', label: 'My Patients', href: '/patients' },
-  ]
+  const navItems = role === 'nurse'
+    ? [
+        { icon: 'home', label: 'Dashboard', href: '/nurse-portal' },
+        { icon: 'groups', label: 'My Patients', href: '/patients' },
+      ]
+    : [
+        { icon: 'home', label: 'Home', href: '/doctor/dashboard' },
+        { icon: 'groups', label: 'My Patients', href: '/patients' },
+      ]
 
   const bottomItems: Array<{ icon: string; label: string; href: string }> = []
 
@@ -136,12 +178,12 @@ const Sidebar = () => {
             <div 
               className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10"
               style={{
-                backgroundImage: doctor?.avatar ? `url("${doctor.avatar}")` : 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBevzzTiuFvj77hHgIQO-zsMGw3JH6wML3gRur0C6z0xrjqm75RCjxpea_yuq9YxdfbrSCVugctD9ckg66H_Es4AnRjNeKVKJN-3hhwq3uoZVX4xXctMFHvTAZDBz3PUNqzdAGDvX-raEXyNcmiBKZItUurchM50ZCy5v92O7NEIIYv1seAmACOaiGlWAfwACk8nZhn6Wvww3wdpeK0QrFBb8yGpQA7M9plB7puFkf9xxic63ekREoqqelmGMm-v3TzjOMdbL4291I")'
+                backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBevzzTiuFvj77hHgIQO-zsMGw3JH6wML3gRur0C6z0xrjqm75RCjxpea_yuq9YxdfbrSCVugctD9ckg66H_Es4AnRjNeKVKJN-3hhwq3uoZVX4xXctMFHvTAZDBz3PUNqzdAGDvX-raEXyNcmiBKZItUurchM50ZCy5v92O7NEIIYv1seAmACOaiGlWAfwACk8nZhn6Wvww3wdpeK0QrFBb8yGpQA7M9plB7puFkf9xxic63ekREoqqelmGMm-v3TzjOMdbL4291I")'
               }}
             />
             <div>
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">{doctor?.name || 'Doctor'}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{doctor?.specialty || 'Physician'}</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">{userName || 'User'}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{userSubtitle || (role === 'nurse' ? 'Nurse' : 'Physician')}</p>
             </div>
           </div>
         </div>
