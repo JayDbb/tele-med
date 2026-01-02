@@ -8,67 +8,9 @@ import { useState } from 'react'
 
 export default function SurgicalHistoryPage() {
   const params = useParams()
-  const [expandedRow, setExpandedRow] = useState<number | null>(0)
+  const [expandedRow, setExpandedRow] = useState<number | null>(null)
 
-  const surgeries = [
-    {
-      id: 1,
-      procedure: 'Total Knee Arthroplasty',
-      code: 'ICD-10: Z96.652',
-      site: 'Left Knee',
-      date: 'Oct 12, 2022',
-      surgeon: 'Dr. R. Miller',
-      facility: "St. Mary's Hospital",
-      outcome: 'No Issues',
-      status: 'Completed',
-      icon: 'orthopedics',
-      iconBg: 'bg-blue-100 text-blue-600',
-      indication: 'Severe Osteoarthritis, failed conservative tx',
-      approach: 'Open, Medial Parapatellar',
-      implants: 'Zimmer Biomet Persona',
-      complications: 'None reported intra-op or post-op.',
-      summary: 'Uncomplicated recovery. Discharged to home with PT on POD 2. Range of motion at 6 weeks: 0-110 degrees.'
-    },
-    {
-      id: 2,
-      procedure: 'Cholecystectomy',
-      code: 'Laparoscopic',
-      site: 'Gallbladder',
-      date: 'Jun 2015',
-      surgeon: 'Dr. S. Chen',
-      facility: 'City General',
-      outcome: 'No Issues',
-      status: 'Completed',
-      icon: 'gastroenterology',
-      iconBg: 'bg-slate-100 text-slate-500'
-    },
-    {
-      id: 3,
-      procedure: 'Cesarean Section',
-      code: 'Emergency',
-      site: 'Uterus / Pelvis',
-      date: '2012',
-      surgeon: 'Unknown',
-      facility: 'External Record',
-      outcome: 'Hemorrhage',
-      status: 'Completed',
-      icon: 'child_care',
-      iconBg: 'bg-red-50 text-red-500'
-    },
-    {
-      id: 4,
-      procedure: 'Appendectomy',
-      code: 'Open',
-      site: 'Abdomen (RLQ)',
-      date: '~1995',
-      surgeon: 'N/A',
-      facility: 'Patient Reported',
-      outcome: 'No Issues',
-      status: 'Completed',
-      icon: 'content_cut',
-      iconBg: 'bg-slate-100 text-slate-500'
-    }
-  ]
+  const surgeries: any[] = []
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -108,7 +50,7 @@ export default function SurgicalHistoryPage() {
                   </div>
                 </div>
                 <div className="flex items-baseline gap-2 mb-1">
-                  <span className="text-2xl font-bold text-slate-900 dark:text-white">4</span>
+                  <span className="text-2xl font-bold text-slate-900 dark:text-white">0</span>
                   <span className="text-xs text-slate-400 font-medium">Lifetime Procedures</span>
                 </div>
               </div>
@@ -119,11 +61,11 @@ export default function SurgicalHistoryPage() {
                     <span className="material-symbols-outlined text-[18px]">event</span>
                     <span className="text-xs font-semibold uppercase tracking-wider">Most Recent</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-gray-700 px-2 py-0.5 rounded">2022</span>
+                  <span className="text-xs font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-gray-700 px-2 py-0.5 rounded">—</span>
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-lg font-bold text-slate-900 dark:text-white truncate">Total Knee Arthroplasty</span>
-                  <span className="text-xs text-slate-500 dark:text-gray-400">Left Side • Dr. R. Miller</span>
+                  <span className="text-lg font-bold text-slate-900 dark:text-white truncate">Not recorded</span>
+                  <span className="text-xs text-slate-500 dark:text-gray-400">No recent procedures</span>
                 </div>
               </div>
 
@@ -136,13 +78,8 @@ export default function SurgicalHistoryPage() {
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">High Visibility</span>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-1">
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-red-50 text-red-700 dark:bg-red-900/40 dark:text-red-300 text-xs font-bold border border-red-100 dark:border-red-800">
-                    <span className="size-1.5 rounded-full bg-red-500"></span>
-                    Implanted Device
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 text-xs font-bold border border-amber-100 dark:border-amber-800">
-                    <span className="size-1.5 rounded-full bg-amber-500"></span>
-                    Organ Removal
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-slate-100 text-slate-700 dark:bg-gray-700 dark:text-gray-300 text-xs font-medium border border-slate-200 dark:border-gray-600">
+                    No risk flags recorded
                   </span>
                 </div>
               </div>
@@ -155,10 +92,10 @@ export default function SurgicalHistoryPage() {
                   </div>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-lg font-bold text-blue-900 dark:text-blue-300">Oct 24, 2023</span>
+                  <span className="text-lg font-bold text-blue-900 dark:text-blue-300">Not recorded</span>
                 </div>
                 <div className="flex items-center gap-1 text-[10px] text-blue-700 dark:text-blue-400">
-                  <span>by Dr. J. Doe (Primary Care)</span>
+                  <span>by Not recorded</span>
                 </div>
               </div>
             </div>
@@ -444,7 +381,7 @@ export default function SurgicalHistoryPage() {
                     <textarea 
                       className="w-full h-full min-h-[80px] resize-none text-sm text-slate-700 dark:text-gray-300 border-0 focus:ring-0 p-0 bg-transparent placeholder-slate-300 dark:placeholder-gray-500 leading-relaxed" 
                       placeholder="Add surgical history context..."
-                      defaultValue="Complex surgical history involving orthopedic and abdominal procedures. Patient tolerated TKA well with excellent functional recovery. Note family history of adverse anesthesia reactions."
+                      defaultValue=""
                     />
                   </div>
                   <div className="p-2 border-t border-slate-100 dark:border-gray-700 flex justify-end">

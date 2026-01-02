@@ -11,38 +11,7 @@ export default function PatientOrdersPage() {
   const [showNewOrderModal, setShowNewOrderModal] = useState(false)
   const [activeFilter, setActiveFilter] = useState('All Types')
 
-  const orders = [
-    {
-      id: 1,
-      orderDetails: 'Cisplatin 50mg/m2 IV',
-      alert: 'Interaction Alert',
-      type: 'Medication',
-      priority: 'STAT',
-      status: 'Pending',
-      date: 'Today, 09:15 AM',
-      orderedBy: 'Dr. Alex Robin'
-    },
-    {
-      id: 2,
-      orderDetails: 'CBC with Differential',
-      alert: 'Routine monitoring',
-      type: 'Lab',
-      priority: 'Routine',
-      status: 'Completed',
-      date: 'Yesterday, 04:30 PM',
-      orderedBy: 'Dr. Alex Robin'
-    },
-    {
-      id: 3,
-      orderDetails: 'CT Scan Chest/Abd/Pelvis',
-      alert: 'Evaluate progression',
-      type: 'Imaging',
-      priority: 'Urgent',
-      status: 'In Progress',
-      date: 'Oct 24, 02:15 PM',
-      orderedBy: 'Dr. Sarah Chen'
-    }
-  ]
+  const orders: any[] = []
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -75,8 +44,8 @@ export default function PatientOrdersPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Orders Today</p>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-white">3</p>
-                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">+12%</p>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-white">0</p>
+                    <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">No data</p>
                   </div>
                   <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <span className="material-symbols-outlined text-blue-600 dark:text-blue-400">assignment</span>
@@ -87,8 +56,8 @@ export default function PatientOrdersPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Pending Approval</p>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-white">1</p>
-                    <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">Needs Review</p>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-white">0</p>
+                    <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">No data</p>
                   </div>
                   <div className="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                     <span className="material-symbols-outlined text-orange-600 dark:text-orange-400">pending_actions</span>
@@ -99,8 +68,8 @@ export default function PatientOrdersPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-600 dark:text-gray-400">STAT Orders</p>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-white">1</p>
-                    <p className="text-xs text-red-600 dark:text-red-400 font-medium">Action Req.</p>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-white">0</p>
+                    <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">No data</p>
                   </div>
                   <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
                     <span className="material-symbols-outlined text-red-600 dark:text-red-400">emergency</span>
@@ -111,8 +80,8 @@ export default function PatientOrdersPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-600 dark:text-gray-400">Completed</p>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-white">1</p>
-                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">+8%</p>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-white">0</p>
+                    <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">No data</p>
                   </div>
                   <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <span className="material-symbols-outlined text-green-600 dark:text-green-400">check_circle</span>
@@ -171,51 +140,59 @@ export default function PatientOrdersPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 dark:divide-gray-700">
-                    {orders.map(order => (
-                      <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-gray-700/50">
-                        <td className="py-4 px-6">
-                          <div>
-                            <div className="font-medium text-slate-900 dark:text-white">{order.orderDetails}</div>
-                            <div className={`text-sm flex items-center gap-1 ${
-                              order.alert === 'Interaction Alert' ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-gray-400'
-                            }`}>
-                              {order.alert === 'Interaction Alert' && (
-                                <span className="material-symbols-outlined text-sm">warning</span>
-                              )}
-                              {order.alert}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-4 px-6 text-slate-600 dark:text-gray-300">{order.type}</td>
-                        <td className="py-4 px-6">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            order.priority === 'STAT' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
-                            order.priority === 'Urgent' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400' :
-                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                          }`}>
-                            {order.priority === 'STAT' && <span className="material-symbols-outlined text-xs">bolt</span>}
-                            {order.priority}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            order.status === 'Completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
-                            order.status === 'In Progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
-                            'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
-                          }`}>
-                            {order.status === 'In Progress' && <span className="material-symbols-outlined text-xs">progress_activity</span>}
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6 text-slate-600 dark:text-gray-300">{order.date}</td>
-                        <td className="py-4 px-6 text-slate-600 dark:text-gray-300">{order.orderedBy}</td>
-                        <td className="py-4 px-6">
-                          <button className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-gray-300 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700">
-                            <span className="material-symbols-outlined text-sm">more_vert</span>
-                          </button>
+                    {orders.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-8 px-6 text-center text-sm text-slate-500 dark:text-gray-400">
+                          No orders recorded yet.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      orders.map(order => (
+                        <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-gray-700/50">
+                          <td className="py-4 px-6">
+                            <div>
+                              <div className="font-medium text-slate-900 dark:text-white">{order.orderDetails}</div>
+                              <div className={`text-sm flex items-center gap-1 ${
+                                order.alert === 'Interaction Alert' ? 'text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-gray-400'
+                              }`}>
+                                {order.alert === 'Interaction Alert' && (
+                                  <span className="material-symbols-outlined text-sm">warning</span>
+                                )}
+                                {order.alert}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 px-6 text-slate-600 dark:text-gray-300">{order.type}</td>
+                          <td className="py-4 px-6">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              order.priority === 'STAT' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
+                              order.priority === 'Urgent' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400' :
+                              'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                            }`}>
+                              {order.priority === 'STAT' && <span className="material-symbols-outlined text-xs">bolt</span>}
+                              {order.priority}
+                            </span>
+                          </td>
+                          <td className="py-4 px-6">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              order.status === 'Completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
+                              order.status === 'In Progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' :
+                              'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
+                            }`}>
+                              {order.status === 'In Progress' && <span className="material-symbols-outlined text-xs">progress_activity</span>}
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="py-4 px-6 text-slate-600 dark:text-gray-300">{order.date}</td>
+                          <td className="py-4 px-6 text-slate-600 dark:text-gray-300">{order.orderedBy}</td>
+                          <td className="py-4 px-6">
+                            <button className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-gray-300 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700">
+                              <span className="material-symbols-outlined text-sm">more_vert</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -243,11 +220,7 @@ function NewOrderModal({ onClose }: { onClose: () => void }) {
   const [instructions, setInstructions] = useState('')
   const [priority, setPriority] = useState('Routine')
 
-  const aiSuggestions = [
-    { code: 'J06.9', description: 'Acute upper respiratory infection, unspecified', confidence: 95 },
-    { code: 'K59.00', description: 'Constipation, unspecified', confidence: 87 },
-    { code: 'M79.3', description: 'Panniculitis, unspecified', confidence: 72 }
-  ]
+  const aiSuggestions: any[] = []
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

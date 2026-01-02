@@ -140,7 +140,7 @@ export default function PatientFamilyHistoryPage() {
                     <div className="w-1.5 h-1.5 mt-1.5 rounded-full bg-green-500 shrink-0"></div>
                     <div>
                       <p className="text-xs font-medium text-gray-900 dark:text-white">Mother's record verified</p>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Dr. Smith • Oct 24, 2023</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Not recorded</p>
                     </div>
                   </div>
                   <div className="flex gap-3 items-start">

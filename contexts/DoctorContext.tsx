@@ -1,9 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { supabaseBrowser } from '@/lib/supabaseBrowser'
-import { login as supabaseLogin } from '@/lib/api'
-import type { User } from '@supabase/supabase-js'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 interface Doctor {
   id: string
@@ -15,124 +13,98 @@ interface Doctor {
 
 interface DoctorContextType {
   doctor: Doctor | null
-  login: (email: string, password: string) => Promise<{ success: boolean; role?: string; error?: string }>
-  logout: () => Promise<void>
+  login: (email: string, password: string) => Promise<{ success: boolean; role?: string }>
+  logout: () => void
   isAuthenticated: boolean
-  loading: boolean
 }
 
 const DoctorContext = createContext<DoctorContextType | undefined>(undefined)
 
+const toDisplayName = (email: string) => {
+  const local = email.split('@')[0] || ''
+  const words = local.split(/[._-]+/).filter(Boolean)
+  return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') || 'User'
+}
+
 export function DoctorProvider({ children }: { children: ReactNode }) {
   const [doctor, setDoctor] = useState<Doctor | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check for existing Supabase session
-    checkSession()
-
-    // Listen for auth changes
-    const supabase = supabaseBrowser()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        loadUserData(session.user)
-      } else if (event === 'SIGNED_OUT') {
-        setDoctor(null)
-        setIsAuthenticated(false)
-      }
-    })
-
-    return () => {
-      subscription.unsubscribe()
+    // Check for existing session
+    const savedDoctor = localStorage.getItem('authenticated-doctor')
+    if (savedDoctor) {
+      const parsedDoctor = JSON.parse(savedDoctor)
+      setDoctor(parsedDoctor)
+      setIsAuthenticated(true)
+      PatientDataManager.setCurrentUser({
+        id: parsedDoctor.id,
+        name: parsedDoctor.name,
+        email: parsedDoctor.email,
+        role: 'doctor'
+      })
     }
   }, [])
 
-  const checkSession = async () => {
-    try {
-      setLoading(true)
-      const supabase = supabaseBrowser()
-      const { data: { session }, error } = await supabase.auth.getSession()
-
-      if (error) {
-        console.error('Error checking session:', error)
-        setLoading(false)
-        return
-      }
-
-      if (session?.user) {
-        await loadUserData(session.user)
-      } else {
-        setLoading(false)
-      }
-    } catch (error) {
-      console.error('Error in checkSession:', error)
-      setLoading(false)
+  const login = async (email: string, password: string): Promise<{ success: boolean; role?: string }> => {
+    if (!email || !password) {
+      return { success: false }
     }
-  }
 
-  const loadUserData = async (user: User) => {
-    try {
-      // Get user metadata to determine role
-      const role = user.user_metadata?.role || 'doctor' // Default to doctor
-      const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
-      const specialty = user.user_metadata?.specialty || 'General Practice'
-
-      const doctorData: Doctor = {
-        id: user.id,
-        name: fullName,
-        email: user.email || '',
-        specialty: specialty,
-        avatar: user.user_metadata?.avatar
-      }
-
-      setDoctor(doctorData)
-        setIsAuthenticated(true)
-    } catch (error) {
-      console.error('Error loading user data:', error)
-    } finally {
-      setLoading(false)
+    const normalized = email.trim().toLowerCase()
+    const roleOverride = localStorage.getItem(`staff-role-${normalized}`)
+    const knownNurseEmails = new Set(['emily.rodriguez@telemedclinic.com'])
+    const resolvedRole = roleOverride === 'nurse' || roleOverride === 'doctor'
+      ? roleOverride
+      : (knownNurseEmails.has(normalized) || normalized.includes('nurse') ? 'nurse' : 'doctor')
+    const role = resolvedRole
+    const userRecord = {
+      id: `user-${normalized.replace(/[^a-z0-9]+/g, '-')}`,
+      name: toDisplayName(normalized),
+      email: normalized,
+      specialty: role === 'doctor' ? '' : 'Nursing',
+      avatar: '',
+      role
     }
-  }
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; role?: string; error?: string }> => {
-    try {
-      // Use Supabase auth
-      await supabaseLogin(email, password)
-
-      // Get the session and user
-      const supabase = supabaseBrowser()
-      const { data: { session }, error } = await supabase.auth.getSession()
-
-      if (error || !session?.user) {
-        return { success: false, error: error?.message || 'Failed to get session' }
-      }
-
-      const user = session.user
-      const role = user.user_metadata?.role || 'doctor' // Default to doctor
-
-      // Load user data
-      await loadUserData(user)
-
-      return { success: true, role }
-    } catch (error: any) {
-      return { success: false, error: error?.message || 'Login failed' }
+    if (role === 'doctor') {
+      setDoctor(userRecord)
+      setIsAuthenticated(true)
+      localStorage.setItem('authenticated-doctor', JSON.stringify(userRecord))
+      PatientDataManager.setCurrentUser({
+        id: userRecord.id,
+        name: userRecord.name,
+        email: userRecord.email,
+        role: 'doctor'
+      })
+      return { success: true, role: 'doctor' }
     }
-  }
 
-  const logout = async () => {
-    try {
-      const supabase = supabaseBrowser()
-      await supabase.auth.signOut()
     setDoctor(null)
     setIsAuthenticated(false)
-    } catch (error) {
-      console.error('Error logging out:', error)
-    }
+    localStorage.removeItem('authenticated-doctor')
+    localStorage.setItem('authenticated-nurse', JSON.stringify(userRecord))
+    localStorage.setItem('nurse-authenticated', 'true')
+    PatientDataManager.setCurrentUser({
+      id: userRecord.id,
+      name: userRecord.name,
+      email: userRecord.email,
+      role: 'nurse'
+    })
+    return { success: true, role: 'nurse' }
+    
+    return { success: false }
+  }
+
+  const logout = () => {
+    setDoctor(null)
+    setIsAuthenticated(false)
+    localStorage.removeItem('authenticated-doctor')
+    PatientDataManager.setCurrentUser(null)
   }
 
   return (
-    <DoctorContext.Provider value={{ doctor, login, logout, isAuthenticated, loading }}>
+    <DoctorContext.Provider value={{ doctor, login, logout, isAuthenticated }}>
       {children}
     </DoctorContext.Provider>
   )

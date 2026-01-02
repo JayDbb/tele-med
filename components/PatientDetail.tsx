@@ -1,174 +1,41 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import VitalsChart from './VitalsChart'
 import VisitHistory from './VisitHistory'
-import { getPatient, getAllergies } from '@/lib/api'
-import type { Patient } from '@/lib/types'
-import AssignPatientModal from './AssignPatientModal'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 interface PatientDetailProps {
   patientId: string
 }
 
 const PatientDetail = ({ patientId }: PatientDetailProps) => {
-  const [patient, setPatient] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [allergies, setAllergies] = useState<any[]>([])
-  const [editMode, setEditMode] = useState(false)
-  const [assignModalOpen, setAssignModalOpen] = useState(false)
-  const [draft, setDraft] = useState({
-    name: '',
-    dob: '',
-    phone: '',
-    address: '',
-    email: '',
-    gender: '',
-    language: '',
-    height: '',
-    physician: '',
-    lastConsultation: '',
-    appointment: '',
-    notes: '',
-    tags: ''
-  })
-
-  const loadPatient = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const { patient: apiPatient, visits } = await getPatient(patientId)
-
-      // Fetch clinician information if clinician_id exists
-      let physicianName = 'Unassigned'
-      if (apiPatient.clinician_id) {
-        try {
-          // Get auth token for API call
-          const { supabaseBrowser } = await import('@/lib/supabaseBrowser')
-          const supabase = supabaseBrowser()
-          const { data: { session } } = await supabase.auth.getSession()
-
-          if (session?.access_token) {
-            const clinicianRes = await fetch(`/api/clinicians/${apiPatient.clinician_id}`, {
-              headers: {
-                'Authorization': `Bearer ${session.access_token}`,
-              },
-            })
-
-            if (clinicianRes.ok) {
-              const clinicianData = await clinicianRes.json()
-              physicianName = clinicianData.full_name || clinicianData.email?.split('@')[0] || 'Unknown Clinician'
-            }
-          }
-        } catch (clinicianError) {
-          console.warn('Could not fetch clinician info:', clinicianError)
-          // Continue with 'Unassigned' if fetch fails
-        }
-      }
-
-      // Map database fields to component format
-      const mappedPatient = {
-        id: apiPatient.id,
-        name: apiPatient.full_name || 'Unknown',
-        email: apiPatient.email || '',
-        dob: apiPatient.dob || '',
-        phone: apiPatient.phone || '',
-        gender: apiPatient.sex_at_birth || apiPatient.gender_identity || 'Not provided',
-        address: apiPatient.address || '',
-        language: apiPatient.primary_language || 'Not provided',
-        physician: physicianName,
-        lastConsultation: visits && visits.length > 0
-          ? new Date(visits[0].created_at || '').toLocaleDateString()
-          : 'Not recorded',
-        appointment: '', // Can be populated from appointments table if needed
-        status: 'Active',
-        statusColor: 'green',
-        image: undefined,
-        notes: undefined,
-        tags: [],
-        height: undefined,
-      }
-
-      setPatient(mappedPatient)
-
-      // Load allergies from API
-      try {
-        const allergiesData = await getAllergies(patientId)
-        setAllergies(Array.isArray(allergiesData) ? allergiesData : [])
-      } catch (allergyError) {
-        console.warn('Could not load allergies:', allergyError)
-        setAllergies([])
-      }
-    } catch (err: any) {
-      console.error('Error loading patient:', err)
-      setError(err?.message || 'Failed to load patient')
-    } finally {
-      setLoading(false)
-    }
-  }, [patientId])
-
-  useEffect(() => {
-    loadPatient()
-  }, [loadPatient])
-
-  useEffect(() => {
-    if (patient) {
-      const tags = Array.isArray(patient.tags) ? patient.tags : []
-      setDraft({
-        name: patient.name || '',
-        dob: patient.dob || '',
-        phone: patient.phone || '',
-        address: patient.address || '',
-        email: patient.email || '',
-        gender: patient.gender || '',
-        language: patient.language || '',
-        height: patient.height || '',
-        physician: patient.physician || '',
-        lastConsultation: patient.lastConsultation || '',
-        appointment: patient.appointment || '',
-        notes: patient.notes || '',
-        tags: tags.join(', ')
-      })
-    }
-  }, [patient])
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading patient...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error || !patient) {
+  const pathname = usePathname()
+  const patient = PatientDataManager.getPatient(patientId)
+  const basePath = pathname.startsWith('/nurse-portal')
+    ? '/nurse-portal/patients'
+    : pathname.startsWith('/doctor')
+      ? '/doctor/patients'
+      : '/patients'
+  const patientBasePath = `${basePath}/${patientId}`
+  
+  if (!patient) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">Patient Not Found</h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            {error || 'The requested patient could not be found.'}
-          </p>
-          <button
-            onClick={loadPatient}
-            className="mt-4 text-primary hover:text-primary/80 text-sm font-medium"
-          >
-            Retry
-          </button>
+          <p className="text-gray-600 dark:text-gray-400">The requested patient could not be found.</p>
         </div>
       </div>
     )
   }
-
-  // Using API for data - vitals, medications, and history endpoints not yet available
-  // For now, using empty arrays until API endpoints are created
-  const vitals: any[] = []
-  const medications: any[] = []
-  const history: any[] = []
+  
+  const vitals = PatientDataManager.getPatientSectionList(patientId, 'vitals')
+  const allergies = PatientDataManager.getPatientSectionList(patientId, 'allergies')
+  const medications = PatientDataManager.getPatientSectionList(patientId, 'medications')
+  const history = PatientDataManager.getPatientSectionList(patientId, 'past-medical-history')
   const isNewPatient = vitals.length === 0 && allergies.length === 0 && medications.length === 0 && history.length === 0
 
   const getAge = (dob?: string) => {
@@ -184,8 +51,42 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
     return `${age}`
   }
 
-  const tags = patient ? (Array.isArray(patient.tags) ? patient.tags : []) : []
-  const patientAge = patient?.dob ? Number(getAge(patient.dob)) : undefined
+  const tags = Array.isArray(patient.tags) ? patient.tags : []
+  const patientAge = patient.dob ? Number(getAge(patient.dob)) : undefined
+  const [editMode, setEditMode] = useState(false)
+  const [draft, setDraft] = useState({
+    name: patient.name || '',
+    dob: patient.dob || '',
+    phone: patient.phone || '',
+    address: patient.address || '',
+    email: patient.email || '',
+    gender: patient.gender || '',
+    language: patient.language || '',
+    height: patient.height || '',
+    physician: patient.physician || '',
+    lastConsultation: patient.lastConsultation || '',
+    appointment: patient.appointment || '',
+    notes: patient.notes || '',
+    tags: tags.join(', ')
+  })
+
+  useEffect(() => {
+    setDraft({
+      name: patient.name || '',
+      dob: patient.dob || '',
+      phone: patient.phone || '',
+      address: patient.address || '',
+      email: patient.email || '',
+      gender: patient.gender || '',
+      language: patient.language || '',
+      height: patient.height || '',
+      physician: patient.physician || '',
+      lastConsultation: patient.lastConsultation || '',
+      appointment: patient.appointment || '',
+      notes: patient.notes || '',
+      tags: tags.join(', ')
+    })
+  }, [patientId, patient.name, patient.dob, patient.phone, patient.address, patient.email, patient.gender, patient.language, patient.height, patient.physician, patient.lastConsultation, patient.appointment, patient.notes, tags.join(', ')])
 
   const getNameParts = () => {
     const parts = draft.name.trim().split(' ')
@@ -209,11 +110,31 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
     return `Dr. ${name}`
   }
 
-  const handleSaveProfile = async () => {
-    // TODO: Implement API endpoint for updating patient
-    // For now, just exit edit mode
-    // When API is available, call: updatePatient(patientId, { ...draft fields })
-    console.warn('Patient update API not yet implemented')
+  const handleSaveProfile = () => {
+    const nextTags = draft.tags
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(Boolean)
+    PatientDataManager.savePatient(
+      {
+        ...patient,
+        name: draft.name,
+        dob: draft.dob,
+        phone: draft.phone,
+        address: draft.address,
+        email: draft.email,
+        gender: draft.gender,
+        language: draft.language,
+        height: draft.height,
+        physician: draft.physician,
+        lastConsultation: draft.lastConsultation,
+        appointment: draft.appointment,
+        notes: draft.notes,
+        tags: nextTags
+      },
+      'update',
+      patient.doctorId || patient.nurseId || 'current-user'
+    )
     setEditMode(false)
   }
 
@@ -258,20 +179,13 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
           ) : (
             <>
               <button
-                onClick={() => setAssignModalOpen(true)}
-                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
-              >
-                <span className="material-symbols-outlined text-sm">person_add</span>
-                Assign Patient
-              </button>
-              <button
                 onClick={() => setEditMode(true)}
                 className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               >
                 <span className="material-symbols-outlined text-sm">edit</span>
                 Edit Profile
               </button>
-              <Link href={`/patients/${patientId}/new-visit`} className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg flex items-center gap-2 shadow-sm transition-colors">
+              <Link href={`${patientBasePath}/new-visit`} className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg flex items-center gap-2 shadow-sm transition-colors">
                 <span className="material-symbols-outlined text-sm">edit_calendar</span>
                 Log New Visit
               </Link>
@@ -284,9 +198,9 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
           <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm">
             <div className="mb-4">
               {patient.image ? (
-                <img
-                  alt={patient.name}
-                  className="w-24 h-24 rounded-xl object-cover mx-auto"
+                <img 
+                  alt={patient.name} 
+                  className="w-24 h-24 rounded-xl object-cover mx-auto" 
                   src={patient.image}
                 />
               ) : (
@@ -297,7 +211,7 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
             </div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">{patient.name}</h2>
             <p className="text-green-500 text-sm font-medium mb-4">{patient.status}</p>
-
+            
             <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm">
               <span className="text-gray-500 dark:text-gray-400">Gender</span>
               {editMode ? (
@@ -390,8 +304,8 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
                 <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-3">
                   {patient.notes}
                 </p>
-                <Link
-                  href={`/patients/${patientId}/notes`}
+                <Link 
+                  href={`${patientBasePath}/notes`}
                   className="text-primary hover:text-primary/80 text-sm font-medium transition-colors flex items-center gap-1"
                 >
                   View all notes
@@ -413,19 +327,19 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
               </div>
               <p className="text-yellow-700 dark:text-yellow-300 mb-4">This is a new patient profile. Complete the following sections to provide comprehensive care:</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Link href={`/patients/${patientId}/vitals`} className="flex items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors">
+                <Link href={`${patientBasePath}/vitals`} className="flex items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors">
                   <span className="material-symbols-outlined text-yellow-600 dark:text-yellow-400 text-sm">monitor_heart</span>
                   <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Add Vitals</span>
                 </Link>
-                <Link href={`/patients/${patientId}/allergies`} className="flex items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors">
+                <Link href={`${patientBasePath}/allergies`} className="flex items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors">
                   <span className="material-symbols-outlined text-yellow-600 dark:text-yellow-400 text-sm">warning</span>
                   <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Add Allergies</span>
                 </Link>
-                <Link href={`/patients/${patientId}/medications`} className="flex items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors">
+                <Link href={`${patientBasePath}/medications`} className="flex items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors">
                   <span className="material-symbols-outlined text-yellow-600 dark:text-yellow-400 text-sm">medication</span>
                   <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Add Medications</span>
                 </Link>
-                <Link href={`/patients/${patientId}/past-medical-history`} className="flex items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors">
+                <Link href={`${patientBasePath}/past-medical-history`} className="flex items-center gap-2 p-3 bg-white dark:bg-gray-800 rounded-lg border border-yellow-200 dark:border-yellow-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 transition-colors">
                   <span className="material-symbols-outlined text-yellow-600 dark:text-yellow-400 text-sm">history</span>
                   <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Add History</span>
                 </Link>
@@ -436,7 +350,7 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
           <div className="bg-white dark:bg-gray-900 rounded-xl p-8 shadow-sm">
             <div className="mb-8">
               <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-6">Personal Details</h3>
-
+              
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Last name</label>
@@ -524,7 +438,7 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
 
             <div>
               <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-6">Medical Information</h3>
-
+              
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Physician</label>
@@ -577,36 +491,36 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
               <h3 className="text-base font-semibold text-gray-900 dark:text-white">Health Trends & Analysis</h3>
               <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full font-medium">Insights</span>
             </div>
-
+            
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Latest: No trend data yet</p>
-
+            
             <div className="grid grid-cols-4 gap-3 mb-3">
-              <Link href={`/patients/${patientId}/trends/blood-pressure`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              <Link href={`${patientBasePath}/trends/blood-pressure`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                 <p className="text-xs text-gray-500 dark:text-gray-400">BP</p>
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">--</p>
                 <span className="text-xs text-gray-500">—</span>
               </Link>
-              <Link href={`/patients/${patientId}/trends/pulse`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              <Link href={`${patientBasePath}/trends/pulse`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                 <p className="text-xs text-gray-500 dark:text-gray-400">Pulse</p>
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">--</p>
                 <span className="text-xs text-gray-500">—</span>
               </Link>
-              <Link href={`/patients/${patientId}/trends/weight`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              <Link href={`${patientBasePath}/trends/weight`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                 <p className="text-xs text-gray-500 dark:text-gray-400">Weight</p>
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">--</p>
                 <span className="text-xs text-gray-500">—</span>
               </Link>
-              <Link href={`/patients/${patientId}/trends/temperature`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              <Link href={`${patientBasePath}/trends/temperature`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                 <p className="text-xs text-gray-500 dark:text-gray-400">Temp</p>
                 <p className="text-sm font-semibold text-gray-900 dark:text-white">--</p>
                 <span className="text-xs text-gray-500">—</span>
               </Link>
             </div>
-
+            
             <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-3">
               <p className="text-xs text-blue-800 dark:text-blue-200">No automated insights yet.</p>
             </div>
-
+            
             <div className="flex items-center justify-between text-xs">
               <div>
                 <span className="text-gray-500 dark:text-gray-400">Meds: </span>
@@ -624,7 +538,7 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
                 Add
               </Link>
             </div>
-
+            
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">

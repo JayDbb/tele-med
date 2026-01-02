@@ -30,7 +30,7 @@ export default function PatientVaccinesPage() {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-gray-400 dark:text-gray-500 text-sm font-medium">Patients</span>
                   <span className="material-symbols-outlined text-gray-400 dark:text-gray-500 text-sm">chevron_right</span>
-                  <span className="text-primary text-sm font-medium">Sarah Jenkins (DOB: 04/12/1985)</span>
+                  <span className="text-primary text-sm font-medium">Not recorded (DOB: Not provided)</span>
                 </div>
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Immunization Management</h2>
               </div>
@@ -292,7 +292,7 @@ export default function PatientVaccinesPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Date</label>
-                        <input className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2 text-gray-900 dark:text-white" type="date" defaultValue="2024-05-12"/>
+                        <input className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary py-2 text-gray-900 dark:text-white" type="date"/>
                       </div>
                       <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Dose #</label>
@@ -417,7 +417,7 @@ export default function PatientVaccinesPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <div className="bg-primary/10 text-primary rounded-full size-6 flex items-center justify-center text-[10px] font-bold">JD</div>
-                          <span className="text-xs font-medium">Dr. J. Doe</span>
+                          <span className="text-xs font-medium">Not recorded</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

@@ -56,16 +56,6 @@ const PatientsSidebar = () => {
         ))}
       </nav>
 
-      <div className="p-6">
-        <div className="bg-blue-800/40 rounded-full p-1 flex items-center relative cursor-pointer">
-          <div className="w-1/2 text-center py-1.5 rounded-full text-xs font-medium text-white flex items-center justify-center gap-1 transition-all duration-300 dark:bg-transparent dark:text-blue-200 bg-[#0d47a1]">
-            <span className="material-icons-outlined text-sm">light_mode</span> Light
-          </div>
-          <div className="w-1/2 text-center py-1.5 rounded-full text-xs font-medium text-blue-200 flex items-center justify-center gap-1 transition-all duration-300 dark:bg-[#0d47a1] dark:text-white">
-            <span className="material-icons-outlined text-sm">dark_mode</span> Dark
-          </div>
-        </div>
-      </div>
     </aside>
   )
 }

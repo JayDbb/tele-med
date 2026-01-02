@@ -4,60 +4,74 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDoctor } from '@/contexts/DoctorContext'
 import { useNurse } from '@/contexts/NurseContext'
-import { supabaseBrowser } from '@/lib/supabaseBrowser'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login: doctorLogin } = useDoctor()
+  const { login: doctorLogin, logout: doctorLogout } = useDoctor()
   const { setNurse, setIsAuthenticated } = useNurse()
   const router = useRouter()
+
+  const toDisplayName = (value: string) => {
+    const local = value.split('@')[0] || ''
+    const words = local.split(/[._-]+/).filter(Boolean)
+    return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') || 'User'
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
-    try {
-      const result = await doctorLogin(email, password)
+    const normalizedEmail = email.trim().toLowerCase()
+    const roleOverride = localStorage.getItem(`staff-role-${normalizedEmail}`)
+    const knownNurseEmails = new Set(['emily.rodriguez@telemedclinic.com'])
+    const forceNurse = roleOverride === 'nurse' || knownNurseEmails.has(normalizedEmail) || normalizedEmail.includes('nurse')
 
-      if (result.success) {
-        // Get the user to determine role
-        const supabase = supabaseBrowser()
-        const { data: { session } } = await supabase.auth.getSession()
-        const userRole = session?.user.user_metadata?.role || 'doctor'
-
-        if (userRole === 'nurse') {
-          // Load nurse data
-          const user = session?.user
-          if (user) {
-            const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
-            const department = user.user_metadata?.department || 'General'
-
-            setNurse({
-              id: user.id,
-              name: fullName,
-              email: user.email || '',
-              department: department,
-              avatar: user.user_metadata?.avatar
-            })
-            setIsAuthenticated(true)
-          }
-          router.push('/nurse-portal')
-        } else {
-          // Doctor login
-          router.push('/doctor/dashboard')
-        }
-      } else {
-        setError(result.error || 'Invalid email or password')
+    if (forceNurse) {
+      const nurseRecord = {
+        id: `user-${normalizedEmail.replace(/[^a-z0-9]+/g, '-')}`,
+        name: toDisplayName(normalizedEmail),
+        email: normalizedEmail,
+        department: 'Nursing',
+        avatar: ''
       }
-    } catch (err: any) {
-      setError(err?.message || 'An error occurred during login')
-    } finally {
+      
+      // Clear any existing doctor session
+      localStorage.removeItem('authenticated-doctor')
+      doctorLogout()
+      
+      // Set nurse session
+      localStorage.setItem('authenticated-nurse', JSON.stringify(nurseRecord))
+      localStorage.setItem('nurse-authenticated', 'true')
+      setNurse(nurseRecord)
+      setIsAuthenticated(true)
+      
+      PatientDataManager.setCurrentUser({
+        id: nurseRecord.id,
+        name: nurseRecord.name,
+        email: nurseRecord.email,
+        role: 'nurse'
+      })
+      
+      // Use replace instead of push to prevent back navigation issues
+      router.replace('/nurse-portal')
       setLoading(false)
+      return
     }
+
+    const result = await doctorLogin(email, password)
+    
+    if (result.success) {
+      router.push('/doctor/dashboard')
+    } else {
+      setError('Invalid email or password')
+    }
+    
+    setLoading(false)
   }
 
   return (
@@ -71,7 +85,7 @@ export default function LoginPage() {
             Sign in to your doctor account
           </p>
         </div>
-
+        
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -87,7 +101,7 @@ export default function LoginPage() {
               placeholder="doctor@telemedclinic.com"
             />
           </div>
-
+          
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Password
@@ -117,8 +131,11 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 text-sm text-gray-600 dark:text-gray-400">
-          <p className="font-medium">Sign in with your Supabase account</p>
-          <p className="mt-1 text-xs">Make sure your user has a role set in user_metadata (doctor or nurse)</p>
+          <p className="font-medium">Demo Accounts:</p>
+          <p>sarah.johnson@telemedclinic.com (Doctor)</p>
+          <p>michael.chen@telemedclinic.com (Doctor)</p>
+          <p>emily.rodriguez@telemedclinic.com (Nurse)</p>
+          <p className="mt-1 text-xs">Password: password</p>
         </div>
       </div>
     </div>

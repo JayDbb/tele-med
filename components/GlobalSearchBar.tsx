@@ -2,17 +2,17 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { getPatients } from '@/lib/api'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 import { useDoctor } from '@/contexts/DoctorContext'
 import { useNurse } from '@/contexts/NurseContext'
-import type { Patient as PatientType } from '@/lib/types'
 
-interface PatientSearchResult {
+interface Patient {
   id: string
   name: string
   email: string
   dob: string
   phone: string
+  mrn?: string
   doctorId?: string
 }
 
@@ -22,9 +22,9 @@ interface SearchBarProps {
 
 export default function GlobalSearchBar({ placeholder = "Search patients, MRN, or DOB" }: SearchBarProps) {
   const [query, setQuery] = useState('')
-  const [patients, setPatients] = useState<PatientSearchResult[]>([])
-  const [filteredPatients, setFilteredPatients] = useState<PatientSearchResult[]>([])
-  const [recentPatients, setRecentPatients] = useState<PatientSearchResult[]>([])
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [filteredPatients, setFilteredPatients] = useState<Patient[]>([])
+  const [recentPatients, setRecentPatients] = useState<Patient[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -34,6 +34,10 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
   
   const currentUser = doctor || nurse
   const userId = doctor?.id || nurse?.id
+  const isValidPatientId = (patientId: unknown) => {
+    const value = `${patientId ?? ''}`.trim()
+    return value.length > 0 && value !== 'undefined' && value !== 'null'
+  }
 
   useEffect(() => {
     if (currentUser) {
@@ -62,26 +66,24 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const fetchPatients = async () => {
+  const fetchPatients = () => {
     if (!currentUser) return
     
     try {
-      setLoading(true)
-      const apiPatients = await getPatients()
-      
-      const allPatients = apiPatients.map((p: PatientType) => ({
-        id: p.id,
-        name: p.full_name || 'Unknown',
-        email: p.email || '',
-        dob: p.dob || '',
-        phone: p.phone || '',
-        doctorId: p.clinician_id || ''
-      }))
+      const allPatients = PatientDataManager.getAllPatients()
+        .filter((patient) => isValidPatientId(patient?.id))
+        .map(p => ({
+          id: p.id,
+          name: p.name,
+          email: p.email,
+          dob: p.dob,
+          phone: p.phone,
+          mrn: p.mrn,
+          doctorId: p.doctorId
+        }))
       setPatients(allPatients)
     } catch (error) {
       console.error('Error fetching patients:', error)
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -90,11 +92,21 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
     
     const recent = localStorage.getItem(`recent-patients-${userId}`)
     if (recent) {
-      setRecentPatients(JSON.parse(recent))
+      const parsed = JSON.parse(recent)
+      const sanitized = Array.isArray(parsed)
+        ? parsed.filter((patient) => {
+            const idValue = `${patient?.id ?? ''}`.trim()
+            return idValue.length > 0 && idValue !== 'undefined' && idValue !== 'null'
+          })
+        : []
+      if (sanitized.length !== parsed.length) {
+        localStorage.setItem(`recent-patients-${userId}`, JSON.stringify(sanitized))
+      }
+      setRecentPatients(sanitized)
     }
   }
 
-  const addToRecentPatients = (patient: PatientSearchResult) => {
+  const addToRecentPatients = (patient: Patient) => {
     if (!userId) return
     
     const recent = recentPatients.filter(p => p.id !== patient.id)
@@ -109,6 +121,7 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
       const filtered = patients.filter(patient => 
         patient.name.toLowerCase().includes(value.toLowerCase()) ||
         patient.id.toLowerCase().includes(value.toLowerCase()) ||
+        patient.mrn?.toLowerCase().includes(value.toLowerCase()) ||
         patient.email.toLowerCase().includes(value.toLowerCase()) ||
         patient.phone.includes(value) ||
         patient.dob.includes(value)
@@ -120,13 +133,20 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
     }
   }
 
-  const handlePatientSelect = (patient: PatientSearchResult) => {
+  const handlePatientSelect = (patient: Patient) => {
+    if (!isValidPatientId(patient?.id)) {
+      return
+    }
     addToRecentPatients(patient)
     setQuery('')
     setShowDropdown(false)
     
-    // Route to patient page
-    router.push(`/patients/${patient.id}`)
+    // Route to appropriate portal based on user type
+    if (nurse) {
+      router.push(`/nurse-portal/patients/${patient.id}`)
+    } else {
+      router.push(`/doctor/patients/${patient.id}`)
+    }
   }
 
   const handleFocus = () => {

@@ -38,11 +38,6 @@ export default function PatientDocumentsPage() {
           <div className="max-w-7xl mx-auto w-full flex flex-col gap-6">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-gray-400 dark:text-gray-500 text-sm font-medium">Patients</span>
-                  <span className="material-symbols-outlined text-gray-400 dark:text-gray-500 text-sm">chevron_right</span>
-                  <span className="text-primary text-sm font-medium">{patient?.name || 'Patient'}</span>
-                </div>
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Documents</h2>
               </div>
               <div className="text-xs text-gray-500 dark:text-gray-400">

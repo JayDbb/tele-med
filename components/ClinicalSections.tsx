@@ -57,45 +57,38 @@ const ClinicalSections = ({ patientId, visitId, isEditable = false }: ClinicalSe
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([])
   const [clinicalData, setClinicalData] = useState<ClinicalData>({
     reviewOfSystems: {
-      constitutional: 'No fever, chills, or unintentional weight loss',
-      cardiovascular: 'No chest pain, palpitations, or shortness of breath',
-      respiratory: 'No cough, dyspnea, or wheezing',
-      gastrointestinal: 'No nausea, vomiting, or abdominal pain',
-      genitourinary: 'No dysuria or frequency',
-      musculoskeletal: 'No joint pain or stiffness',
-      neurological: 'No headaches, dizziness, or weakness',
-      psychiatric: 'Mood stable, no depression or anxiety',
-      endocrine: 'No heat/cold intolerance, no polyuria/polydipsia',
-      hematologic: 'No easy bruising or bleeding',
-      allergic: 'No known drug allergies'
+      constitutional: '',
+      cardiovascular: '',
+      respiratory: '',
+      gastrointestinal: '',
+      genitourinary: '',
+      musculoskeletal: '',
+      neurological: '',
+      psychiatric: '',
+      endocrine: '',
+      hematologic: '',
+      allergic: ''
     },
     socialHistory: {
-      smoking: 'Never smoker',
-      alcohol: 'Occasional social drinking',
-      drugs: 'Denies illicit drug use',
-      occupation: 'Office worker',
-      maritalStatus: 'Married',
-      livingArrangement: 'Lives with spouse',
-      exercise: 'Walks 30 minutes 3x/week',
-      diet: 'Regular diet, trying to reduce sodium'
+      smoking: '',
+      alcohol: '',
+      drugs: '',
+      occupation: '',
+      maritalStatus: '',
+      livingArrangement: '',
+      exercise: '',
+      diet: ''
     },
     familyHistory: {
-      father: 'Hypertension, diabetes (age 65)',
-      mother: 'Breast cancer (age 58), alive',
-      siblings: '1 brother - healthy',
-      children: '2 children - healthy',
-      maternalGrandparents: 'Grandmother - stroke (age 78)',
-      paternalGrandparents: 'Grandfather - MI (age 70)'
+      father: '',
+      mother: '',
+      siblings: '',
+      children: '',
+      maternalGrandparents: '',
+      paternalGrandparents: ''
     },
     surgicalHistory: {
-      procedures: [
-        {
-          procedure: 'Appendectomy',
-          date: '2010-03-15',
-          surgeon: 'Dr. Smith',
-          complications: 'None'
-        }
-      ]
+      procedures: []
     }
   })
 
@@ -108,15 +101,8 @@ const ClinicalSections = ({ patientId, visitId, isEditable = false }: ClinicalSe
 
   const handleDictation = () => {
     setIsListening(!isListening)
-    // Simulate AI processing
     if (!isListening) {
-      setTimeout(() => {
-        setAiSuggestions([
-          'Patient mentions father has diabetes',
-          'Social drinking mentioned - 2-3 drinks per week',
-          'Denies chest pain or shortness of breath'
-        ])
-      }, 2000)
+      setAiSuggestions([])
     }
   }
 

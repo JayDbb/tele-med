@@ -58,7 +58,7 @@ export default function TrendPage({ params }: { params: { id: string, type: stri
             <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-3">
               Vitals Trends
             </h1>
-            <p className="text-sm text-gray-500 mt-1">Patient: <span className="font-semibold text-gray-800 dark:text-gray-200">Leslie Alexander</span> (ID: #PT-8839) | Male, 24y</p>
+            <p className="text-sm text-gray-500 mt-1">Patient: <span className="font-semibold text-gray-800 dark:text-gray-200">Not recorded</span> (ID: --) | Not recorded</p>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <button className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 px-4 py-2.5 rounded-xl flex items-center shadow-sm transition-all text-sm font-medium whitespace-nowrap">
@@ -211,7 +211,7 @@ export default function TrendPage({ params }: { params: { id: string, type: stri
                   <td className="px-6 py-4">70.0</td>
                   <td className="px-6 py-4 flex items-center gap-2">
                     <div className="h-6 w-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">RR</div>
-                    Dr. Ronald Richards
+                    Not recorded
                   </td>
                 </tr>
                 <tr className="bg-white dark:bg-gray-900 border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -222,7 +222,7 @@ export default function TrendPage({ params }: { params: { id: string, type: stri
                   <td className="px-6 py-4">70.5</td>
                   <td className="px-6 py-4 flex items-center gap-2">
                     <div className="h-6 w-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-xs font-bold">JD</div>
-                    Nurse Jane Doe
+                    Not recorded
                   </td>
                 </tr>
                 <tr className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -233,7 +233,7 @@ export default function TrendPage({ params }: { params: { id: string, type: stri
                   <td className="px-6 py-4">71.2</td>
                   <td className="px-6 py-4 flex items-center gap-2">
                     <div className="h-6 w-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">RR</div>
-                    Dr. Ronald Richards
+                    Not recorded
                   </td>
                 </tr>
               </tbody>

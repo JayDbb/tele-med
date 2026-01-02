@@ -101,11 +101,32 @@ export class PatientDataManager {
     return 'patient-sync-outbox'
   }
 
+  private static isValidPatientId(patientId: unknown): boolean {
+    const value = `${patientId ?? ''}`.trim()
+    return value.length > 0 && value !== 'undefined' && value !== 'null'
+  }
+
   // Save patient data with audit logging
   static savePatient(patientData: PatientData, action: string = 'create', userId: string = 'current-user'): void {
     try {
+      if (!this.isValidPatientId(patientData?.id)) {
+        console.warn('Skipping save for invalid patient id:', patientData?.id)
+        return
+      }
+      const nameValue = `${patientData?.name ?? ''}`.trim()
+      const dobValue = `${patientData?.dob ?? ''}`.trim()
+      if (!nameValue || !dobValue) {
+        console.warn('Skipping save for incomplete patient identity:', {
+          id: patientData?.id,
+          name: patientData?.name,
+          dob: patientData?.dob
+        })
+        return
+      }
       // Save patient data in isolated container
       const patientKey = this.getPatientKey(patientData.id)
+      patientData.name = nameValue
+      patientData.dob = dobValue
       patientData.updatedAt = new Date().toISOString()
       
       if (!patientData.createdAt) {
@@ -137,6 +158,7 @@ export class PatientDataManager {
   // Get patient data from isolated container
   static getPatient(patientId: string): PatientData | null {
     try {
+      if (!this.isValidPatientId(patientId)) return null
       // Don't seed patients anymore
       if (this.patientCache.has(patientId)) {
         return this.patientCache.get(patientId) || null
@@ -411,11 +433,19 @@ export class PatientDataManager {
           key &&
           key.startsWith('patient-') &&
           !key.startsWith('patient-section-') &&
-          !key.startsWith('patient-audit-')
+          !key.startsWith('patient-audit-') &&
+          !key.startsWith('patient-draft-')
         ) {
           const data = localStorage.getItem(key)
           if (data) {
-            patients.push(JSON.parse(data))
+            const parsed = JSON.parse(data)
+            const hasIdentity = Boolean(
+              this.isValidPatientId(parsed?.id)
+              && (parsed?.name || parsed?.email || parsed?.phone || parsed?.dob || parsed?.mrn)
+            )
+            if (hasIdentity) {
+              patients.push(parsed)
+            }
           }
         }
       }
@@ -424,6 +454,63 @@ export class PatientDataManager {
     } catch (error) {
       console.error('Error loading all patients:', error)
       return []
+    }
+  }
+
+  static cleanupBlankPatients(): void {
+    try {
+      const keysToRemove: string[] = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (
+          key &&
+          key.startsWith('patient-') &&
+          !key.startsWith('patient-section-') &&
+          !key.startsWith('patient-audit-') &&
+          !key.startsWith('patient-draft-')
+        ) {
+          const data = localStorage.getItem(key)
+          if (!data) continue
+          const parsed = JSON.parse(data)
+          const hasIdentity = Boolean(
+            this.isValidPatientId(parsed?.id)
+            && (parsed?.name || parsed?.email || parsed?.phone || parsed?.dob || parsed?.mrn)
+          )
+          if (!hasIdentity) {
+            keysToRemove.push(key)
+          }
+        }
+      }
+      keysToRemove.forEach((key) => localStorage.removeItem(key))
+      this.patientCache.clear()
+    } catch (error) {
+      console.error('Error cleaning up blank patients:', error)
+    }
+  }
+
+  static deletePatient(patientId: string): void {
+    try {
+      if (!this.isValidPatientId(patientId)) return
+      const keysToRemove: string[] = []
+      const patientKey = this.getPatientKey(patientId)
+      const auditKey = this.getAuditKey(patientId)
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (!key) continue
+        if (
+          key === patientKey ||
+          key === auditKey ||
+          key.startsWith(this.getSectionKey(patientId, '')) ||
+          key.startsWith(this.getDraftKey(patientId, ''))
+        ) {
+          keysToRemove.push(key)
+        }
+      }
+      keysToRemove.forEach((key) => localStorage.removeItem(key))
+      this.patientCache.delete(patientId)
+      this.auditCache.delete(patientId)
+    } catch (error) {
+      console.error('Error deleting patient data:', error)
     }
   }
 }

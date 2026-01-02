@@ -1,37 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useDoctor } from '@/contexts/DoctorContext'
 
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(true)
-  const [isDark, setIsDark] = useState(false)
   const [hasUnreadMessages, setHasUnreadMessages] = useState(true)
   const pathname = usePathname()
   const router = useRouter()
   const { doctor, logout } = useDoctor()
-
-  useEffect(() => {
-    const stored = localStorage.getItem('theme')
-    if (stored === 'dark') {
-      setIsDark(true)
-      document.documentElement.classList.add('dark')
-    }
-  }, [])
-
-  const toggleTheme = () => {
-    const newTheme = !isDark
-    setIsDark(newTheme)
-    if (newTheme) {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('theme', 'dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('theme', 'light')
-    }
-  }
 
   const handleLogout = () => {
     logout()
@@ -111,16 +90,6 @@ const Sidebar = () => {
               {!isCollapsed && <p className="text-sm font-medium">{item.label}</p>}
             </Link>
           ))}
-          
-          <button
-            onClick={toggleTheme}
-            className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800`}
-          >
-            <span className="material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center">
-              {isDark ? 'light_mode' : 'dark_mode'}
-            </span>
-            {!isCollapsed && <p className="text-sm font-medium">{isDark ? 'Light Mode' : 'Dark Mode'}</p>}
-          </button>
           
           <button
             onClick={handleLogout}

@@ -159,41 +159,9 @@ export default function NurseSchedulePage() {
         // Refresh shared context
         refreshAppointments()
       } else if (response.status === 401) {
-        // Create mock appointment for demo
-        const mockEvent = {
-          id: Date.now().toString(),
-          summary: event.summary,
-          start: { dateTime: event.start.dateTime },
-          end: { dateTime: event.end.dateTime },
-          type: appointmentData.type,
-          patient: appointmentData.patientName,
-          location: event.location
-        }
-        setEvents([...events, mockEvent])
-        setShowNewAppointmentModal(false)
-        setSelectedTimeSlot(null)
-        alert('Appointment created (demo mode - Google Calendar unavailable)')
-        
-        // Add to shared context
-        addAppointment(mockEvent)
+        alert('Google Calendar unavailable. Please sign in again.')
       } else {
-        // For now, create a mock appointment to show functionality
-        const mockEvent = {
-          id: Date.now().toString(),
-          summary: event.summary,
-          start: { dateTime: event.start.dateTime },
-          end: { dateTime: event.end.dateTime },
-          type: appointmentData.type,
-          patient: appointmentData.patientName,
-          location: event.location
-        }
-        setEvents([...events, mockEvent])
-        setShowNewAppointmentModal(false)
-        setSelectedTimeSlot(null)
-        alert('Appointment created (demo mode)')
-        
-        // Add to shared context
-        addAppointment(mockEvent)
+        alert('Appointment could not be created. Please try again.')
       }
     } catch (error) {
       console.error('Error creating appointment:', error)

@@ -2,10 +2,19 @@
 
 import Sidebar from '@/components/Sidebar'
 import { useState } from 'react'
+import { useDoctor } from '@/contexts/DoctorContext'
+import { useNurse } from '@/contexts/NurseContext'
 
 const PrescriptionPage = () => {
   const [draggedMed, setDraggedMed] = useState<any>(null)
   const [droppedMeds, setDroppedMeds] = useState<any[]>([])
+  const { doctor } = useDoctor()
+  const { nurse } = useNurse()
+  const backHref = nurse
+    ? '/nurse-portal/patients'
+    : doctor
+      ? '/doctor/patients'
+      : '/patients'
 
   const handleDragStart = (e: React.DragEvent, med: any) => {
     setDraggedMed(med)
@@ -25,11 +34,7 @@ const PrescriptionPage = () => {
     setDraggedMed(null)
   }
 
-  const medications = [
-    { id: 1, name: 'Cisplatin', details: 'Injection • 1mg/mL', category: 'Chemotherapy' },
-    { id: 2, name: 'Pemetrexed', details: 'Injection • 500mg', category: 'Chemotherapy' },
-    { id: 3, name: 'Carboplatin', details: 'Injection • 10mg/mL', category: 'Chemotherapy' }
-  ]
+  const medications: any[] = []
   return (
     <div className="flex h-screen bg-background-light dark:bg-background-dark">
       <Sidebar />
@@ -38,7 +43,7 @@ const PrescriptionPage = () => {
         {/* Patient Context Banner */}
         <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 shrink-0 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <a href="/patients/1" className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-primary transition-colors">
+            <a href={backHref} className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-primary transition-colors">
               <span className="material-symbols-outlined">arrow_back</span>
               <span className="text-sm font-medium">Back to Patient Profile</span>
             </a>
@@ -48,35 +53,35 @@ const PrescriptionPage = () => {
               <div className="w-16 h-16 bg-gray-300 rounded-full"></div>
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">Jane Doe</h1>
-                  <span className="bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 rounded">ID: #49203</span>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">No patient selected</h1>
+                  <span className="bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 rounded">ID: --</span>
                   <span className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                    <span className="material-symbols-outlined text-sm">warning</span> Penicillin Allergy
+                    <span className="material-symbols-outlined text-sm">warning</span> No recorded allergies
                   </span>
                 </div>
-                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Stage III Non-Small Cell Lung Cancer (NSCLC) • ECOG 1</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Patient profile not loaded.</p>
               </div>
             </div>
             
             <div className="flex gap-4 overflow-x-auto pb-2 lg:pb-0 w-full lg:w-auto">
               <div className="flex flex-col min-w-[80px]">
                 <span className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase">Weight</span>
-                <span className="text-lg font-bold text-gray-900 dark:text-white">62 kg</span>
+                <span className="text-lg font-bold text-gray-900 dark:text-white">—</span>
               </div>
               <div className="w-px bg-gray-200 dark:bg-gray-700 h-full"></div>
               <div className="flex flex-col min-w-[80px]">
                 <span className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase">Height</span>
-                <span className="text-lg font-bold text-gray-900 dark:text-white">165 cm</span>
+                <span className="text-lg font-bold text-gray-900 dark:text-white">—</span>
               </div>
               <div className="w-px bg-gray-200 dark:bg-gray-700 h-full"></div>
               <div className="flex flex-col min-w-[80px]">
                 <span className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase">BSA</span>
-                <span className="text-lg font-bold text-gray-900 dark:text-white">1.68 m²</span>
+                <span className="text-lg font-bold text-gray-900 dark:text-white">—</span>
               </div>
               <div className="w-px bg-gray-200 dark:bg-gray-700 h-full"></div>
               <div className="flex flex-col min-w-[80px]">
                 <span className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase">CrCl</span>
-                <span className="text-lg font-bold text-red-600 flex items-center gap-1">45 mL/min <span className="material-symbols-outlined text-sm">arrow_downward</span></span>
+                <span className="text-lg font-bold text-red-600 flex items-center gap-1">— <span className="material-symbols-outlined text-sm">arrow_downward</span></span>
               </div>
             </div>
           </div>
@@ -110,25 +115,31 @@ const PrescriptionPage = () => {
                   <span className="text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded">High Confidence</span>
                 </div>
                 
-                {medications.map((med) => (
-                  <div 
-                    key={med.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, med)}
-                    className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing group transition-all"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-bold text-gray-900 dark:text-white text-sm">{med.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{med.details}</p>
-                      </div>
-                      <span className="material-symbols-outlined text-gray-400 group-hover:text-primary">drag_indicator</span>
-                    </div>
-                    <div className="mt-2">
-                      <span className="text-xs bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">{med.category}</span>
-                    </div>
+                {medications.length === 0 ? (
+                  <div className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600 text-sm text-gray-500 dark:text-gray-400">
+                    No medications available yet.
                   </div>
-                ))}
+                ) : (
+                  medications.map((med) => (
+                    <div 
+                      key={med.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, med)}
+                      className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing group transition-all"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-bold text-gray-900 dark:text-white text-sm">{med.name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{med.details}</p>
+                        </div>
+                        <span className="material-symbols-outlined text-gray-400 group-hover:text-primary">drag_indicator</span>
+                      </div>
+                      <div className="mt-2">
+                        <span className="text-xs bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">{med.category}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </aside>
@@ -179,7 +190,7 @@ const PrescriptionPage = () => {
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                         <div>
                           <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Dose (mg/m²)</label>
-                          <input className="block w-full border-gray-200 dark:border-gray-600 rounded-md py-2 pl-3 pr-8 text-sm focus:border-primary focus:ring-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white" type="text" defaultValue="75" />
+                          <input className="block w-full border-gray-200 dark:border-gray-600 rounded-md py-2 pl-3 pr-8 text-sm focus:border-primary focus:ring-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-white" type="text" />
                         </div>
                         <div>
                           <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Route</label>

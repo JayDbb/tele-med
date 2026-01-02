@@ -1,75 +1,106 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { useMemo, useState, useEffect } from 'react'
 import { useVideoCall } from '../contexts/VideoCallContext'
-import { getPatients } from '@/lib/api'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 import { useDoctor } from '@/contexts/DoctorContext'
-import { usePatientRoutes } from '@/lib/usePatientRoutes'
-import type { Patient } from '@/lib/types'
-import AssignPatientModal from './AssignPatientModal'
+import { useNurse } from '@/contexts/NurseContext'
 
 const PatientsList = () => {
   const { startVideoCall } = useVideoCall()
   const router = useRouter()
+  const pathname = usePathname()
   const [allPatients, setAllPatients] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [assignModalOpen, setAssignModalOpen] = useState(false)
-  const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null)
+  const [activeFilter, setActiveFilter] = useState<'today' | 'all' | 'scheduled' | 'in-progress' | 'completed'>('all')
   const { doctor } = useDoctor()
-  const { getPatientUrl, getNewVisitUrl } = usePatientRoutes()
+  const { nurse } = useNurse()
+  const isValidPatientId = (patientId: unknown) => {
+    const value = `${patientId ?? ''}`.trim()
+    return value.length > 0 && value !== 'undefined' && value !== 'null'
+  }
+  
+  const getPatientUrl = (patientId: string) => {
+    if (nurse) {
+      return `/nurse-portal/patients/${patientId}`
+    } else {
+      return `/doctor/patients/${patientId}`
+    }
+  }
+  
+  const getNewVisitUrl = (patientId: string) => {
+    if (nurse) {
+      return `/nurse-portal/patients/${patientId}/new-visit`
+    } else {
+      return `/doctor/patients/${patientId}/new-visit`
+    }
+  }
 
   useEffect(() => {
     loadAllPatients()
-
+    
     // Refresh patient list when page becomes visible
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         loadAllPatients()
       }
     }
-
+    
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [])
 
-  const loadAllPatients = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const patients = await getPatients()
-
-      // Map database fields to component format
-      const mappedPatients = patients.map((patient: Patient) => ({
-        id: patient.id,
-        name: patient.full_name || 'Unknown',
-        email: patient.email || '',
-        dob: patient.dob || '',
-        phone: patient.phone || '',
-        gender: patient.sex_at_birth || patient.gender_identity || 'Not provided',
-        address: patient.address || '',
-        allergies: patient.allergies || '',
-        physician: doctor?.name || 'Unassigned',
-        lastConsultation: '', // Will be populated from visits if needed
-        appointment: '', // Will be populated from appointments if needed
-        status: 'Active',
-        statusColor: 'green',
-        doctorId: patient.clinician_id || '',
-        createdAt: patient.created_at || new Date().toISOString(),
-        updatedAt: patient.created_at || new Date().toISOString(),
-        image: undefined, // Can be added later if you store patient images
-      }))
-
-      setAllPatients(mappedPatients)
-    } catch (err: any) {
-      console.error('Error loading patients:', err)
-      setError(err?.message || 'Failed to load patients')
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    if (doctor && pathname.startsWith('/doctor')) {
+      setActiveFilter('today')
     }
+  }, [doctor, pathname])
+
+  const loadAllPatients = () => {
+    PatientDataManager.cleanupBlankPatients()
+    const savedPatients = PatientDataManager.getAllPatients()
+    setAllPatients(savedPatients)
   }
+
+  const isToday = (value?: string) => {
+    if (!value) return false
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return false
+    const now = new Date()
+    return date.getFullYear() === now.getFullYear()
+      && date.getMonth() === now.getMonth()
+      && date.getDate() === now.getDate()
+  }
+
+  const getAddedBy = (patientId: string) => {
+    const logs = PatientDataManager.getAuditLogs(patientId)
+    const createdLog = logs.find((log) => log.action === 'create' && log.section === 'patient-profile')
+    return createdLog?.userName || 'System'
+  }
+
+  const filteredPatients = useMemo(() => {
+    const eligiblePatients = allPatients.filter((patient) => isValidPatientId(patient?.id))
+    if (!doctor || !pathname.startsWith('/doctor')) return eligiblePatients
+
+    return eligiblePatients.filter((patient) => {
+      const status = `${patient.status || ''}`.toLowerCase()
+      const appointment = `${patient.appointment || ''}`.toLowerCase()
+      if (activeFilter === 'today') {
+        return isToday(patient.createdAt || patient.updatedAt)
+      }
+      if (activeFilter === 'scheduled') {
+        return status.includes('scheduled') || appointment.includes('scheduled')
+      }
+      if (activeFilter === 'in-progress') {
+        return status.includes('in progress') || appointment.includes('active')
+      }
+      if (activeFilter === 'completed') {
+        return status.includes('completed')
+      }
+      return true
+    })
+  }, [activeFilter, allPatients, doctor, pathname])
 
   const handleVideoCall = (patientEmail: string, patientName: string) => {
     startVideoCall(patientName, patientEmail)
@@ -77,19 +108,18 @@ const PatientsList = () => {
 
   const handleAddPatient = () => {
     // Generate new patient ID
-    // const newPatientId = Date.now().toString()
-    console.log('pushing to /patients/new')
-    router.push('/patients/create')
+    const newPatientId = Date.now().toString()
+    router.push(getNewVisitUrl(newPatientId))
   }
 
   return (
-    <div className="col-span-12">
+    <div>
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Patients List</h2>
           <p className="text-gray-600 dark:text-gray-400">Manage and view all patient information</p>
         </div>
-        <button
+        <button 
           onClick={handleAddPatient}
           className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg flex items-center gap-2 shadow-sm transition-colors"
         >
@@ -97,135 +127,127 @@ const PatientsList = () => {
           Add Patient
         </button>
       </div>
+      
+      {doctor && pathname.startsWith('/doctor') && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {[
+            { key: 'today', label: 'Today' },
+            { key: 'all', label: 'All Patients' },
+            { key: 'scheduled', label: 'Scheduled' },
+            { key: 'in-progress', label: 'In Progress' },
+            { key: 'completed', label: 'Completed' }
+          ].map((filter) => (
+            <button
+              key={filter.key}
+              onClick={() => setActiveFilter(filter.key as typeof activeFilter)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                activeFilter === filter.key
+                  ? 'bg-primary/10 text-primary border-primary/30'
+                  : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-primary/40'
+              }`}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {loading ? (
-        <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-          <p className="text-gray-500 dark:text-gray-400">Loading patients...</p>
-        </div>
-      ) : error ? (
-        <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
-          <span className="material-symbols-outlined text-6xl text-red-300 dark:text-red-600 mb-4">error</span>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Error loading patients</h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">{error}</p>
-          <button
-            onClick={loadAllPatients}
-            className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg flex items-center gap-2 shadow-sm transition-colors"
-          >
-            <span className="material-symbols-outlined text-sm">refresh</span>
-            Retry
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {allPatients.length === 0 ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
-              <span className="material-symbols-outlined text-6xl text-gray-300 dark:text-gray-600 mb-4">person_add</span>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No patients yet</h3>
-              <p className="text-gray-500 dark:text-gray-400 mb-6">Add your first patient to get started</p>
-              <button
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredPatients.length === 0 ? (
+          <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+            <span className="material-symbols-outlined text-6xl text-gray-300 dark:text-gray-600 mb-4">person_add</span>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No patients found</h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-6">Try another filter or add a new patient.</p>
+            {!doctor && (
+              <button 
                 onClick={handleAddPatient}
                 className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg flex items-center gap-2 shadow-sm transition-colors"
               >
                 <span className="material-symbols-outlined text-sm">add</span>
                 Add First Patient
               </button>
-            </div>
-          ) : (
-            allPatients.map((patient, index) => (
-              <Link
-                key={index}
-                href={getPatientUrl(patient.id)}
-                className="block bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-800"
-              >
-                <div className="flex items-start gap-4 mb-4">
-                  {patient.image ? (
-                    <img
-                      alt={patient.name}
-                      className="w-12 h-12 rounded-full object-cover"
-                      src={patient.image}
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center text-sm font-semibold">
-                      {(patient.name || 'P').slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-gray-900 dark:text-white truncate">{patient.name}</h4>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{patient.email}</p>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          handleVideoCall(patient.email, patient.name)
-                        }}
-                        className="bg-green-500 hover:bg-green-600 text-white p-1 rounded flex items-center justify-center transition-colors"
-                        title="Start Video Call"
-                      >
-                        <span className="material-symbols-outlined text-sm">videocam</span>
-                      </button>
-                    </div>
+            )}
+          </div>
+        ) : (
+          filteredPatients.map((patient, index) => (
+            <Link 
+              key={index}
+              href={getPatientUrl(patient.id)}
+              className="block bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-800"
+            >
+              <div className="flex items-start gap-4 mb-4">
+                {patient.image ? (
+                  <img 
+                    alt={patient.name} 
+                    className="w-12 h-12 rounded-full object-cover" 
+                    src={patient.image}
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 flex items-center justify-center text-sm font-semibold">
+                    {(patient.name || 'P').slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-gray-900 dark:text-white truncate">{patient.name}</h4>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{patient.email}</p>
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleVideoCall(patient.email, patient.name)
+                      }}
+                      className="bg-green-500 hover:bg-green-600 text-white p-1 rounded flex items-center justify-center transition-colors"
+                      title="Start Video Call"
+                    >
+                      <span className="material-symbols-outlined text-sm">videocam</span>
+                    </button>
                   </div>
                 </div>
-
-                <div className="space-y-2 text-sm mb-4">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Gender, Age</span>
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {patient.gender || 'Not provided'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Physician</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{patient.physician || 'Unassigned'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Last Visit</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{patient.lastConsultation || 'Not recorded'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Next Appointment</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{patient.appointment || 'Not scheduled'}</span>
-                  </div>
+              </div>
+              
+              <div className="space-y-2 text-sm mb-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Gender, Age</span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {patient.gender || 'Not provided'}
+                  </span>
                 </div>
-
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setSelectedPatient({ id: patient.id, name: patient.name })
-                      setAssignModalOpen(true)
-                    }}
-                    className="text-primary hover:text-primary/80 transition-colors flex items-center gap-1 text-sm font-medium"
-                    title="Assign to another doctor or nurse"
-                  >
-                    <span className="material-symbols-outlined text-sm">person_add</span>
-                    <span>Assign</span>
-                  </button>
-                  <button className="text-primary hover:text-primary/80 transition-colors">
-                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                  </button>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Added</span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {patient.createdAt ? new Date(patient.createdAt).toLocaleString() : 'Not recorded'}
+                  </span>
                 </div>
-              </Link>
-            ))
-          )}
-        </div>
-      )}
-
-      <AssignPatientModal
-        isOpen={assignModalOpen}
-        onClose={() => {
-          setAssignModalOpen(false)
-          setSelectedPatient(null)
-        }}
-        patientId={selectedPatient?.id || ''}
-        patientName={selectedPatient?.name}
-        onSuccess={() => {
-          loadAllPatients()
-        }}
-      />
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Added By</span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {getAddedBy(patient.id)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Physician</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{patient.physician || 'Unassigned'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Last Visit</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{patient.lastConsultation || 'Not recorded'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Next Appointment</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{patient.appointment || 'Not scheduled'}</span>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button className="text-primary hover:text-primary/80 transition-colors">
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </button>
+              </div>
+            </Link>
+          ))
+        )}
+      </div>
     </div>
   )
 }
