@@ -25,7 +25,7 @@ interface NurseContextType {
 const NurseContext = createContext<NurseContextType | undefined>(undefined)
 
 export function NurseProvider({ children }: { children: ReactNode }) {
-  const [nurse, setNurse] = useState<Nurse | null>(null)
+  const [nurse, setNurseState] = useState<Nurse | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -57,7 +57,7 @@ export function NurseProvider({ children }: { children: ReactNode }) {
       setLoading(true)
       const supabase = supabaseBrowser()
       const { data: { session }, error } = await supabase.auth.getSession()
-      
+
       if (error) {
         console.error('Error checking session:', error)
         setLoading(false)
@@ -107,12 +107,26 @@ export function NurseProvider({ children }: { children: ReactNode }) {
     return false
   }
 
+  const setNurse = (nextNurse: Nurse | null) => {
+    setNurseState(nextNurse)
+    if (nextNurse) {
+      PatientDataManager.setCurrentUser({
+        id: nextNurse.id,
+        name: nextNurse.name,
+        email: nextNurse.email,
+        role: 'nurse'
+      })
+    } else {
+      PatientDataManager.setCurrentUser(null)
+    }
+  }
+
   const logout = async () => {
     try {
       const supabase = supabaseBrowser()
       await supabase.auth.signOut()
-      setNurse(null)
-      setIsAuthenticated(false)
+    setNurse(null)
+    setIsAuthenticated(false)
     } catch (error) {
       console.error('Error logging out:', error)
     }

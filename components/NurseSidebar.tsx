@@ -42,7 +42,7 @@ const NurseSidebar = () => {
     { icon: 'groups', label: 'Patients', href: '/nurse-portal/patients' },
   ]
 
-  const bottomItems = []
+  const bottomItems: Array<{ icon: string; label: string; href: string }> = []
 
   return (
     <aside className={`flex h-screen ${isCollapsed ? 'w-16' : 'w-64'} flex-col bg-white dark:bg-gray-900 p-4 border-r border-gray-200 dark:border-gray-800 sticky top-0 transition-all duration-300`}>

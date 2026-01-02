@@ -36,7 +36,7 @@ export function Header() {
            
           <div className="flex flex-col">
             <h1 className="font-bold text-lg leading-tight tracking-tight text-white drop-shadow-sm">
-              Intellibus Telehealth
+              Intellibus Tele-Medicine
             </h1>
           </div>
         </Link>

@@ -9,6 +9,16 @@ import GlobalSearchBar from '@/components/GlobalSearchBar'
 export default function PatientMedicationsPage() {
   const params = useParams()
   const [showAddForm, setShowAddForm] = useState(false)
+  const [medications, setMedications] = useState<Array<{
+    id: number
+    brandName: string
+    generic: string
+    strength: string
+    form: string
+    dosage: string
+    frequency: string
+    status: string
+  }>>([])
   const [newMedication, setNewMedication] = useState({
     brandName: '',
     generic: '',
@@ -17,7 +27,6 @@ export default function PatientMedicationsPage() {
     dosage: '',
     frequency: ''
   })
-  const [medications, setMedications] = useState([])
 
   const handleAddMedication = () => {
     if (newMedication.brandName && newMedication.strength) {

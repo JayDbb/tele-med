@@ -167,6 +167,54 @@ export async function sharePatient(patientId: string, email: string) {
   return res.json();
 }
 
+export async function getAllergies(patientId: string) {
+  const res = await authFetch(`/api/patients/${patientId}/allergies`);
+  if (!res.ok) throw new Error("Failed to load allergies");
+  return res.json() as Promise<
+    Array<{
+      id: string;
+      name: string;
+      severity: string;
+      type?: string;
+      reactions?: string;
+      status?: string;
+      date?: string;
+      notes?: string;
+      created_at?: string;
+    }>
+  >;
+}
+
+export async function createAllergy(
+  patientId: string,
+  payload: {
+    name: string;
+    severity: string;
+    type?: string;
+    reactions?: string[];
+    date?: string;
+    notes?: string;
+    status?: string;
+  }
+) {
+  const res = await authFetch(`/api/patients/${patientId}/allergies`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMessage = "Failed to create allergy";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
+}
+
 // Dictate audio to text (transcription only, no parsing)
 export async function dictateAudio(audioPath: string) {
   const res = await authFetch("/api/transcribe/dictate", {

@@ -42,6 +42,12 @@ export default function PatientAllergiesPage() {
     }
   }
 
+  const handleRemoveAllergy = (id: number | string) => {
+    const nextAllergies = allergies.filter((item: any) => item.id !== id)
+    setAllergies(nextAllergies)
+    PatientDataManager.savePatientSectionList(patientId, 'allergies', nextAllergies)
+  }
+
   const handleReactionChange = (reaction: string, checked: boolean) => {
     if (checked) {
       setNewAllergy({ ...newAllergy, reactions: [...newAllergy.reactions, reaction] })
@@ -172,11 +178,20 @@ export default function PatientAllergiesPage() {
                             <div className="flex-1 w-full">
                               <div className="flex justify-between items-start mb-1">
                                 <h4 className="text-base font-bold text-gray-900 dark:text-white">{allergy.name}</h4>
-                                <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded tracking-wide ${
-                                  allergy.severity === 'Severe' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
-                                  allergy.severity === 'Moderate' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
-                                  'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-                                }`}>{allergy.severity}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded tracking-wide ${
+                                    allergy.severity === 'Severe' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                                    allergy.severity === 'Moderate' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
+                                    'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                                  }`}>{allergy.severity}</span>
+                                  <button
+                                    onClick={() => handleRemoveAllergy(allergy.id)}
+                                    className="p-1 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                    title="Remove allergy"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                                  </button>
+                                </div>
                               </div>
                               <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 gap-x-4 mt-2">
                                 <div>

@@ -43,7 +43,7 @@ const Sidebar = () => {
     { icon: 'groups', label: 'My Patients', href: '/doctor/patients' },
   ]
 
-  const bottomItems = []
+  const bottomItems: Array<{ icon: string; label: string; href: string }> = []
 
   return (
     <aside className={`flex h-screen ${isCollapsed ? 'w-16' : 'w-64'} flex-col bg-white dark:bg-gray-900 p-4 border-r border-gray-200 dark:border-gray-800 sticky top-0 transition-all duration-300`}>
@@ -55,7 +55,7 @@ const Sidebar = () => {
               backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAIvhsI2mvBKXaHlCUz0PA5n5FW4lyFIJhxJpNXoPyBoHFL72A1graDo7-FmfcUdzvHyJAKBwcmxr83-yxj9STK928Og--F5_H0wNRQ_9VdAzZrxxk-eeBdZ8P8Xcsyp5jqHD2KCc3UBFPnoePLA69iZaeOKgxg5mRsGO14CqdGLak3vlMb-KYEDtX0z3re05rOcoV-vlF1Ky8Hn3MqrxdKFFhIT8pCiW3iMVgbHKKzpkRHw-741kfhXZ6RRnrsHalhB4WafkR6mKs")'
             }}
           />
-          <h1 className="text-gray-900 dark:text-white text-lg font-medium">Medical.</h1>
+          <h1 className="text-gray-900 dark:text-white text-lg font-medium">Intellibus Tele-Medicine</h1>
         </div>
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}

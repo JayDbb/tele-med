@@ -53,7 +53,7 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
       setLoading(true)
       const supabase = supabaseBrowser()
       const { data: { session }, error } = await supabase.auth.getSession()
-      
+
       if (error) {
         console.error('Error checking session:', error)
         setLoading(false)
@@ -87,7 +87,7 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
       }
 
       setDoctor(doctorData)
-      setIsAuthenticated(true)
+        setIsAuthenticated(true)
     } catch (error) {
       console.error('Error loading user data:', error)
     } finally {
@@ -99,18 +99,18 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
     try {
       // Use Supabase auth
       await supabaseLogin(email, password)
-      
+
       // Get the session and user
       const supabase = supabaseBrowser()
       const { data: { session }, error } = await supabase.auth.getSession()
-      
+
       if (error || !session?.user) {
         return { success: false, error: error?.message || 'Failed to get session' }
       }
 
       const user = session.user
       const role = user.user_metadata?.role || 'doctor' // Default to doctor
-      
+
       // Load user data
       await loadUserData(user)
 
@@ -124,8 +124,8 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
     try {
       const supabase = supabaseBrowser()
       await supabase.auth.signOut()
-      setDoctor(null)
-      setIsAuthenticated(false)
+    setDoctor(null)
+    setIsAuthenticated(false)
     } catch (error) {
       console.error('Error logging out:', error)
     }

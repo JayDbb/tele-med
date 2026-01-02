@@ -212,7 +212,7 @@ export default function PatientVisitPage() {
           <div className="w-full lg:w-auto">
             <div className="flex items-center space-x-2 mb-1">
               <span className="bg-blue-100 text-[#5BB5E8] text-xs font-semibold px-2 py-0.5 rounded-md">Phase 1</span>
-              <h2 className="text-sm text-[#718096] font-medium">Intellibus</h2>
+              <h2 className="text-sm text-[#718096] font-medium">Intellibus Tele-Medicine</h2>
             </div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[#2D3748] mt-4">Ready to help your patients today?</h1>
             <p className="text-sm text-[#718096] mt-1">Recording visit for {patient?.full_name} - manage consultation and track health progress</p>

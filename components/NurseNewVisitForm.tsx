@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import NurseSidebar from '@/components/NurseSidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
@@ -18,6 +18,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   const { nurse } = useNurse()
   const isNewPatient = patientId.length > 10
   const [activeTab, setActiveTab] = useState('record')
+  const profilePhotoInputRef = useRef<HTMLInputElement | null>(null)
+  const documentsInputRef = useRef<HTMLInputElement | null>(null)
   const [expandedSections, setExpandedSections] = useState({
     subjective: true,
     objective: true,
@@ -37,8 +39,10 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
     email: '',
     phone: '',
     gender: '',
-    address: ''
+    address: '',
+    image: ''
   })
+  const [uploadedDocuments, setUploadedDocuments] = useState<any[]>([])
   const [visitData, setVisitData] = useState({
     subjective: {
       chiefComplaint: '',
@@ -101,6 +105,32 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       dateOrdered: ''
     }
   })
+  const draftKey = 'new-visit-nurse'
+
+  useEffect(() => {
+    const draft = PatientDataManager.getDraft(patientId, draftKey)
+    if (!draft?.data) return
+    if (draft.data.patientData) {
+      setPatientData((prev) => ({ ...prev, ...draft.data.patientData }))
+    }
+    if (draft.data.visitData) {
+      setVisitData((prev) => ({ ...prev, ...draft.data.visitData }))
+    }
+    if (draft.data.uploadedDocuments) {
+      setUploadedDocuments(draft.data.uploadedDocuments)
+    }
+  }, [patientId])
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      PatientDataManager.saveDraft(patientId, draftKey, {
+        patientData,
+        visitData,
+        uploadedDocuments
+      })
+    }, 500)
+    return () => clearTimeout(timeout)
+  }, [patientId, patientData, visitData, uploadedDocuments])
 
   const savePatientData = () => {
     if (!nurse) return
@@ -119,7 +149,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       gender: patientData.gender,
       allergies: patientData.allergies,
       address: patientData.address,
-      image: '',
+      image: patientData.image,
       physician: 'To be assigned',
       lastConsultation: new Date().toLocaleDateString(),
       appointment: 'To be scheduled',
@@ -223,7 +253,51 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       ], nurse.id)
     }
 
+    if (uploadedDocuments.length > 0) {
+      const documents = PatientDataManager.getPatientSectionList(newPatientId, 'documents')
+      PatientDataManager.savePatientSectionList(newPatientId, 'documents', [
+        ...uploadedDocuments,
+        ...documents
+      ], nurse.id)
+    }
+
+    PatientDataManager.clearDraft(patientId, draftKey)
+
     return newPatientId
+  }
+
+  const handleProfilePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : ''
+      setPatientData({ ...patientData, image: result })
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleDocumentsUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
+    files.forEach((file) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = typeof reader.result === 'string' ? reader.result : ''
+        setUploadedDocuments((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-${file.name}`,
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            uploadedAt: new Date().toISOString(),
+            dataUrl: result
+          }
+        ])
+      }
+      reader.readAsDataURL(file)
+    })
   }
 
   const handleSavePatientAndSchedule = () => {
@@ -433,15 +507,26 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                         <span className="text-sm font-medium">Record</span>
                       </button>
                       <button 
-                        onClick={() => setActiveTab('camera')}
+                        onClick={() => setActiveTab('upload')}
                         className={`flex flex-col items-center justify-center border-b-2 gap-1 pb-3 pt-4 px-2 ${
-                          activeTab === 'camera' 
+                          activeTab === 'upload' 
                             ? 'border-primary text-primary' 
                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                         }`}
                       >
-                        <span className="material-symbols-outlined">photo_camera</span>
-                        <span className="text-sm font-medium">Camera</span>
+                        <span className="material-symbols-outlined">cloud_upload</span>
+                        <span className="text-sm font-medium">Upload</span>
+                      </button>
+                      <button 
+                        onClick={() => setActiveTab('type')}
+                        className={`flex flex-col items-center justify-center border-b-2 gap-1 pb-3 pt-4 px-2 ${
+                          activeTab === 'type' 
+                            ? 'border-primary text-primary' 
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined">keyboard</span>
+                        <span className="text-sm font-medium">Profile Photo</span>
                       </button>
                     </div>
                   </div>
@@ -463,6 +548,38 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                           <span>Start Recording</span>
                         </button>
                       </div>
+                    ) : activeTab === 'upload' ? (
+                      <div className="flex flex-col items-center justify-center w-full h-full border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/30 dark:bg-gray-800/30 p-8 text-center gap-6 hover:border-primary/40 transition-colors cursor-pointer">
+                        <div className="size-20 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary mb-2">
+                          <span className="material-symbols-outlined text-4xl">cloud_upload</span>
+                        </div>
+                        <div className="space-y-2">
+                          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Ready to Capture</h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 max-w-[280px] mx-auto">
+                            Upload documents, insurance cards, or medical records.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => documentsInputRef.current?.click()}
+                          className="flex items-center justify-center rounded-lg px-6 py-3 bg-primary hover:bg-primary/90 text-white text-sm font-medium shadow-sm transition-colors w-full max-w-[200px] gap-2"
+                        >
+                          <span className="material-symbols-outlined text-sm">upload</span>
+                          <span>Upload Document</span>
+                        </button>
+                        <input
+                          ref={documentsInputRef}
+                          type="file"
+                          accept="image/*,.pdf,.doc,.docx"
+                          multiple
+                          className="hidden"
+                          onChange={handleDocumentsUpload}
+                        />
+                        {uploadedDocuments.length > 0 && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {uploadedDocuments.length} document{uploadedDocuments.length > 1 ? 's' : ''} ready to save
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <div className="flex flex-col items-center justify-center w-full h-full border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/30 dark:bg-gray-800/30 p-8 text-center gap-6 hover:border-primary/40 transition-colors cursor-pointer">
                         <div className="size-20 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary mb-2">
@@ -471,13 +588,30 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                         <div className="space-y-2">
                           <h3 className="text-lg font-bold text-gray-900 dark:text-white">Ready to Capture</h3>
                           <p className="text-sm text-gray-600 dark:text-gray-300 max-w-[280px] mx-auto">
-                            Take photos of documents, insurance cards, or medical records.
+                            Capture a profile photo using the device camera.
                           </p>
                         </div>
-                        <button className="flex items-center justify-center rounded-lg px-6 py-3 bg-primary hover:bg-primary/90 text-white text-sm font-medium shadow-sm transition-colors w-full max-w-[200px] gap-2">
-                          <span className="material-symbols-outlined text-sm">camera_alt</span>
-                          <span>Take Photo</span>
+                        <button
+                          onClick={() => profilePhotoInputRef.current?.click()}
+                          className="flex items-center justify-center rounded-lg px-6 py-3 bg-primary hover:bg-primary/90 text-white text-sm font-medium shadow-sm transition-colors w-full max-w-[200px] gap-2"
+                        >
+                          <span className="material-symbols-outlined text-sm">photo_camera</span>
+                          <span>Take Profile Photo</span>
                         </button>
+                        <input
+                          ref={profilePhotoInputRef}
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={handleProfilePhotoChange}
+                        />
+                        {patientData.image && (
+                          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            <span className="material-symbols-outlined text-sm">check_circle</span>
+                            Profile photo ready
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

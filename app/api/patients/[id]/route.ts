@@ -37,9 +37,10 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  // First, get visits without notes/transcripts to avoid permission issues
   const { data: visits, error: visitsError } = await supabase
     .from("visits")
-    .select("*, notes(note), transcripts(raw_text, segments)")
+    .select("*")
     .eq("patient_id", id)
     .order("created_at", { ascending: false });
 
@@ -47,10 +48,51 @@ export async function GET(
     return NextResponse.json({ error: visitsError.message }, { status: 400 });
   }
 
-  const visitsWithNote = (visits ?? []).map((v: any) => ({
-    ...v,
-    notes: v.notes ?? null,
-  }));
+  // Try to fetch notes and transcripts separately if the tables exist
+  const visitsWithNote = await Promise.all(
+    (visits ?? []).map(async (visit: any) => {
+      let noteData = null;
+      let transcriptData = null;
+
+      // Try to fetch note if notes table exists and is accessible
+      try {
+        const { data: note } = await supabase
+          .from("notes")
+          .select("note, status")
+          .eq("visit_id", visit.id)
+          .maybeSingle();
+        
+        if (note) {
+          noteData = note;
+        }
+      } catch (noteError: any) {
+        // If notes table doesn't exist or permission denied, continue without it
+        console.warn("Could not fetch notes:", noteError.message);
+      }
+
+      // Try to fetch transcript if transcripts table exists and is accessible
+      try {
+        const { data: transcript } = await supabase
+          .from("transcripts")
+          .select("raw_text, segments")
+          .eq("visit_id", visit.id)
+          .maybeSingle();
+        
+        if (transcript) {
+          transcriptData = transcript;
+        }
+      } catch (transcriptError: any) {
+        // If transcripts table doesn't exist or permission denied, continue without it
+        console.warn("Could not fetch transcripts:", transcriptError.message);
+      }
+
+      return {
+        ...visit,
+        notes: noteData,
+        transcripts: transcriptData,
+      };
+    })
+  );
 
   return NextResponse.json({ patient, visits: visitsWithNote });
 }
