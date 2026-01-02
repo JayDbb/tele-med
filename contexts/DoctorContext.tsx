@@ -28,6 +28,8 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  console.log('[DoctorContext] render', { doctor, isAuthenticated, loading })
+
   useEffect(() => {
     // Check for existing Supabase session
     checkSession()
@@ -35,6 +37,7 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const supabase = supabaseBrowser()
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[DoctorContext] onAuthStateChange', { event, session })
       if (event === 'SIGNED_IN' && session) {
         // Try to load server-side profile first
         const current = await getCurrentUser()
@@ -55,10 +58,30 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const checkSession = async () => {
+    let timeoutId: NodeJS.Timeout | null = null
     try {
+      console.log('[DoctorContext] checkSession start')
       setLoading(true)
+
+      // Dev-only safety: if checkSession stalls, stop loading after 2s
+      timeoutId = setTimeout(() => {
+        if (loading) {
+          console.warn('[DoctorContext] checkSession timeout, forcing loading=false')
+          setLoading(false)
+        }
+      }, 2000)
+
+      // Prefer server-side session if available (cookie)
+      const serverUser = await getCurrentUser()
+      console.log('[DoctorContext] checkSession serverUser:', serverUser)
+      if (serverUser) {
+        await loadUserData(serverUser as any)
+        return
+      }
+
       const supabase = supabaseBrowser()
       const { data: { session }, error } = await supabase.auth.getSession()
+      console.log('[DoctorContext] checkSession result:', { session, error })
 
       if (error) {
         console.error('Error checking session:', error)
@@ -74,6 +97,8 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error in checkSession:', error)
       setLoading(false)
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId)
     }
   }
 
@@ -92,6 +117,7 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
         }
         setDoctor(doctorData)
         setIsAuthenticated(true)
+        console.log('[DoctorContext] loadUserData -> set doctor and isAuthenticated true', doctorData)
       } else if (user) {
         // Fallback to auth user metadata
         const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
@@ -124,17 +150,22 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
       const supabase = supabaseBrowser()
       const { data: { session }, error } = await supabase.auth.getSession()
 
+      console.log('[DoctorContext] getSession result:', { session, error })
+
       if (error || !session?.user) {
+        console.log('[DoctorContext] login failed to get session:', error?.message)
         return { success: false, error: error?.message || 'Failed to get session' }
       }
 
       const user = session.user
       // Load user data (server-side users table preferred)
       const current = await getCurrentUser()
+      console.log('[DoctorContext] getCurrentUser:', current)
       await loadUserData(user)
 
       const role = current?.role || user.user_metadata?.role || 'doctor'
 
+      console.log('[DoctorContext] login success, role:', role)
       return { success: true, role }
     } catch (error: any) {
       return { success: false, error: error?.message || 'Login failed' }
@@ -145,8 +176,10 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
     try {
       const supabase = supabaseBrowser()
       await supabase.auth.signOut()
-    setDoctor(null)
-    setIsAuthenticated(false)
+      // Clear server-side cookie
+      await fetch('/api/auth/clear-session', { method: 'POST' })
+      setDoctor(null)
+      setIsAuthenticated(false)
     } catch (error) {
       console.error('Error logging out:', error)
     }

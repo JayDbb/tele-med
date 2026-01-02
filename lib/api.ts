@@ -22,8 +22,20 @@ async function authFetch(input: string, init?: RequestInit) {
 
 export async function login(email: string, password: string) {
   const supabase = supabaseBrowser();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error(error.message);
+
+  // If we have a session token, set server-side HttpOnly cookie for SSR authentication
+  const token = data?.session?.access_token || null;
+  if (token) {
+    await fetch('/api/auth/set-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+  }
+
+  return { data, error };
 }
 
 export async function signup(payload: { email: string; password: string; role: 'doctor' | 'nurse' | string; name?: string; specialty?: string; department?: string; }) {
@@ -63,12 +75,18 @@ export async function signup(payload: { email: string; password: string; role: '
       console.warn('Failed to update auth user metadata:', err);
     }
 
-    // Create user row by calling server endpoint using the token
+    // Set server-side session cookie for SSR
+    await fetch('/api/auth/set-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+
+    // Create user row by calling server endpoint (cookie will be used for auth)
     const resp = await fetch('/api/users', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({ role: payload.role, name: payload.name, specialty: payload.specialty, department: payload.department }),
     });
@@ -267,7 +285,7 @@ export async function createAllergy(
 }
 
 export async function getCurrentUser() {
-  const res = await authFetch('/api/users');
+  const res = await fetch('/api/users', { credentials: 'include' });
   if (!res.ok) {
     return null;
   }
