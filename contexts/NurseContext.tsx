@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { supabaseBrowser } from '@/lib/supabaseBrowser'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 import type { User } from '@supabase/supabase-js'
 
 interface Nurse {
