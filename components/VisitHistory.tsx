@@ -90,6 +90,7 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
         const assessmentEntries = noteArray.filter((e: any) => e.section === 'assessment')
         const planEntries = noteArray.filter((e: any) => e.section === 'plan')
 
+        // <<<<<<< HEAD
         // Extract chief complaint - look for entries specifically about chief complaint
         const chiefComplaintEntry = subjectiveEntries.find((e: any) =>
           e.content?.toLowerCase().includes('chief complaint') ||

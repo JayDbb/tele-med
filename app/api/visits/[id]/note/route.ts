@@ -1,6 +1,6 @@
 // Clean single definition (duplicate block removed)
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "../../../../../lib/auth";
+import { requireUser, getUserRole, verifyPatientAccess } from "../../../../../lib/auth";
 import { supabaseServer } from "../../../../../lib/supabaseServer";
 
 async function assertAccess(
@@ -15,23 +15,15 @@ async function assertAccess(
     .maybeSingle();
   if (visitError || !visit) return { allowed: false };
 
-  const { data: patientOwned } = await supabase
-    .from("patients")
-    .select("id")
-    .eq("id", visit.patient_id)
-    .eq("clinician_id", userId)
-    .maybeSingle();
+  // Nurses can access all visits
+  const userRole = await getUserRole(userId);
+  if (userRole === 'nurse') {
+    return { allowed: true, visit };
+  }
 
-  if (patientOwned) return { allowed: true, visit };
-
-  const { data: shareRow } = await supabase
-    .from("patient_shares")
-    .select("id")
-    .eq("patient_id", visit.patient_id)
-    .eq("shared_user_id", userId)
-    .maybeSingle();
-
-  return { allowed: !!shareRow, visit };
+  // Doctors can only access visits for owned or shared patients
+  const { hasAccess } = await verifyPatientAccess(userId, visit.patient_id);
+  return { allowed: hasAccess, visit };
 }
 
 // GET: Retrieve all note entries for a visit (append-only system)

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "../../../../lib/auth";
+import { requireUser, getUserRole } from "../../../../lib/auth";
 import { supabaseServer } from "../../../../lib/supabaseServer";
 
 export async function GET(
@@ -13,24 +13,47 @@ export async function GET(
   }
 
   const supabase = supabaseServer();
-  // check ownership
-  const { data: patientOwned } = await supabase
-    .from("patients")
-    .select("*")
-    .eq("id", id)
-    .eq("clinician_id", userId)
-    .maybeSingle();
+  const userRole = await getUserRole(userId);
 
-  let patient = patientOwned;
+  let patient = null;
 
-  if (!patientOwned) {
-    const { data: shareRow } = await supabase
-      .from("patient_shares")
-      .select("patients(*)")
-      .eq("patient_id", id)
-      .eq("shared_user_id", userId)
+  // Nurses can access any patient
+  if (userRole === "nurse") {
+    const { data: patientData, error: patientError } = await supabase
+      .from("patients")
+      .select("*")
+      .eq("id", id)
       .maybeSingle();
-    patient = shareRow?.patients ?? null;
+
+    if (patientError) {
+      return NextResponse.json(
+        { error: patientError.message },
+        { status: 400 }
+      );
+    }
+
+    patient = patientData;
+  } else {
+    // Doctors can only access owned or shared patients
+    // check ownership
+    const { data: patientOwned } = await supabase
+      .from("patients")
+      .select("*")
+      .eq("id", id)
+      .eq("clinician_id", userId)
+      .maybeSingle();
+
+    patient = patientOwned;
+
+    if (!patientOwned) {
+      const { data: shareRow } = await supabase
+        .from("patient_shares")
+        .select("patients(*)")
+        .eq("patient_id", id)
+        .eq("shared_user_id", userId)
+        .maybeSingle();
+      patient = shareRow?.patients ?? null;
+    }
   }
 
   if (!patient) {
@@ -38,8 +61,10 @@ export async function GET(
   }
 
   // First, get visits without notes/transcripts to avoid permission issues
+  // First, get visits without notes/transcripts to avoid permission issues
   const { data: visits, error: visitsError } = await supabase
     .from("visits")
+    .select("*")
     .select("*")
     .eq("patient_id", id)
     .order("created_at", { ascending: false });
@@ -61,7 +86,7 @@ export async function GET(
           .select("note, status, finalized_by, finalized_at")
           .eq("visit_id", visit.id)
           .maybeSingle();
-        
+
         if (note) {
           noteData = note;
         }
@@ -77,7 +102,7 @@ export async function GET(
           .select("raw_text, segments")
           .eq("visit_id", visit.id)
           .maybeSingle();
-        
+
         if (transcript) {
           transcriptData = transcript;
         }

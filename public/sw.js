@@ -1,4 +1,4 @@
-const CACHE_NAME = 'telemed-shell-v1'
+const CACHE_NAME = 'telemed-shell-v2'
 const OFFLINE_URL = '/offline.html'
 
 const PRECACHE_URLS = [
@@ -35,6 +35,11 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('fetch', (event) => {
+  // Skip service worker for API routes - they should always go to network
+  if (event.request.url.includes('/api/')) {
+    return // Let the request go through normally without interception
+  }
+
   if (event.request.method !== 'GET') return
 
   if (event.request.mode === 'navigate') {

@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { supabaseBrowser } from '@/lib/supabaseBrowser'
+import { getCurrentUser } from '@/lib/api'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 import type { User } from '@supabase/supabase-js'
 
 interface Nurse {
@@ -29,17 +31,21 @@ export function NurseProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  console.log('[NurseContext] render', { nurse, isAuthenticated, loading })
+
   useEffect(() => {
     // Check for existing Supabase session with nurse role
+    console.log('[NurseContext] checkSession start')
     checkSession()
 
     // Listen for auth changes
     const supabase = supabaseBrowser()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[NurseContext] onAuthStateChange', { event, session })
       if (event === 'SIGNED_IN' && session) {
-        const userRole = session.user.user_metadata?.role
-        if (userRole === 'nurse') {
-          loadUserData(session.user)
+        const current = await getCurrentUser()
+        if (current?.role === 'nurse') {
+          loadUserData(current)
         }
       } else if (event === 'SIGNED_OUT') {
         setNurse(null)
@@ -53,51 +59,84 @@ export function NurseProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const checkSession = async () => {
+    let timeoutId: NodeJS.Timeout | null = null
     try {
+      console.log('[NurseContext] checkSession start')
       setLoading(true)
+
+      // Dev-only safety: if checkSession stalls, stop loading after 5s (increased from 2s)
+      timeoutId = setTimeout(() => {
+        console.warn('[NurseContext] checkSession timeout, forcing loading=false')
+        setLoading(false)
+      }, 5000)
+
+      // Prefer server-side session if available (cookie)
+      const serverUser = await getCurrentUser()
+      console.log('[NurseContext] checkSession serverUser:', serverUser)
+      if (serverUser && serverUser.role === 'nurse') {
+        await loadUserData(serverUser)
+        if (timeoutId) clearTimeout(timeoutId)
+        return
+      }
+
+      // Fallback to client-side Supabase session check
       const supabase = supabaseBrowser()
       const { data: { session }, error } = await supabase.auth.getSession()
+      console.log('[NurseContext] checkSession Supabase session result:', { session: !!session, error })
 
       if (error) {
-        console.error('Error checking session:', error)
+        console.error('Error checking Supabase session:', error)
         setLoading(false)
+        if (timeoutId) clearTimeout(timeoutId)
         return
       }
 
       if (session?.user) {
-        const userRole = session.user.user_metadata?.role
-        if (userRole === 'nurse') {
-          await loadUserData(session.user)
+        console.log('[NurseContext] Found Supabase session, checking role')
+        // Use server-side users table to determine role
+        const current = await getCurrentUser()
+        if (current && current.role === 'nurse') {
+          await loadUserData(current)
         } else {
-          setLoading(false)
+          // If getCurrentUser failed but we have a session, check user_metadata
+          const userRole = session.user.user_metadata?.role
+          if (userRole === 'nurse') {
+            await loadUserData(session.user as any)
+          } else {
+            console.log('[NurseContext] User is not a nurse, not loading nurse data')
+            setLoading(false)
+          }
         }
       } else {
+        console.log('[NurseContext] No session found')
         setLoading(false)
       }
     } catch (error) {
       console.error('Error in checkSession:', error)
       setLoading(false)
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId)
     }
   }
 
-  const loadUserData = async (user: User) => {
+  const loadUserData = async (user: any) => {
     try {
-      const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
-      const department = user.user_metadata?.department || 'General'
+      const fullName = user.name || user.email?.split('@')[0] || 'User'
+      const department = user.metadata?.department || user.department || 'General'
 
       const nurseData: Nurse = {
         id: user.id,
         name: fullName,
         email: user.email || '',
         department: department,
-        avatar: user.user_metadata?.avatar
+        avatar: user.avatar_url
       }
 
       setNurse(nurseData)
       setIsAuthenticated(true)
+      console.log('[NurseContext] loadUserData -> set nurse and isAuthenticated true', nurseData)
     } catch (error) {
       console.error('Error loading user data:', error)
-    } finally {
       setLoading(false)
     }
   }
@@ -125,8 +164,10 @@ export function NurseProvider({ children }: { children: ReactNode }) {
     try {
       const supabase = supabaseBrowser()
       await supabase.auth.signOut()
-    setNurse(null)
-    setIsAuthenticated(false)
+      // Clear server-side cookie
+      await fetch('/api/auth/clear-session', { method: 'POST' })
+      setNurse(null)
+      setIsAuthenticated(false)
     } catch (error) {
       console.error('Error logging out:', error)
     }

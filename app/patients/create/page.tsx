@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Sidebar from '@/components/Sidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import AssignPatientModal from '@/components/AssignPatientModal'
 import { createPatient, createAllergy, checkDuplicatePatient } from "../../../lib/api";
 import type { Patient } from "../../../lib/types";
 
@@ -20,8 +21,10 @@ export default function NewPatientPage() {
     const [error, setError] = useState<string | null>(null);
     const [showVisitPrompt, setShowVisitPrompt] = useState(false);
     const [createdPatientId, setCreatedPatientId] = useState<string | null>(null);
+    const [createdPatientName, setCreatedPatientName] = useState<string | null>(null);
     const [duplicatePatients, setDuplicatePatients] = useState<Patient[]>([]);
     const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+    const [showAssignModal, setShowAssignModal] = useState(false);
 
     // Allergy form state
     const [showAllergyForm, setShowAllergyForm] = useState(false);
@@ -100,7 +103,6 @@ export default function NewPatientPage() {
                     setCheckingDuplicate(false);
                 }
             }
-
             // Convert gender to sex_at_birth format (M/F/null)
             let sex_at_birth: "M" | "F" | null = null;
             if (gender === "Male") sex_at_birth = "M";
@@ -149,6 +151,7 @@ export default function NewPatientPage() {
 
             // Show prompt to start a new visit
             setCreatedPatientId(patient.id);
+            setCreatedPatientName(patient.full_name || fullName);
             setShowVisitPrompt(true);
         } catch (err: any) {
             setError(err?.message || "Failed to create patient. Please try again.");
@@ -164,6 +167,18 @@ export default function NewPatientPage() {
     };
 
     const handleSkipVisit = () => {
+        if (createdPatientId) {
+            router.push(`/patients/${createdPatientId}`);
+        }
+    };
+
+    const handleAssignPatient = () => {
+        setShowVisitPrompt(false);
+        setShowAssignModal(true);
+    };
+
+    const handleAssignSuccess = () => {
+        setShowAssignModal(false);
         if (createdPatientId) {
             router.push(`/patients/${createdPatientId}`);
         }
@@ -532,68 +547,70 @@ export default function NewPatientPage() {
                                         </div>
 
                                         {/* Error Display */}
-                                        {error && (
-                                            <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
-                                                <div className="flex items-start gap-2">
-                                                    <span className="material-symbols-outlined text-sm mt-0.5">error</span>
-                                                    <div className="flex-1">
-                                                        <p className="font-semibold mb-1">{error}</p>
-                                                        {duplicatePatients.length > 0 && (
-                                                            <div className="mt-3 space-y-2">
-                                                                <p className="text-xs font-medium text-red-700 dark:text-red-300 mb-2">
-                                                                    Existing patient{duplicatePatients.length > 1 ? 's' : ''} found:
-                                                                </p>
-                                                                {duplicatePatients.map((patient) => (
-                                                                    <div
-                                                                        key={patient.id}
-                                                                        className="bg-white dark:bg-gray-800 border border-red-200 dark:border-red-700 rounded-lg p-3 space-y-1"
-                                                                    >
-                                                                        <div className="flex items-center justify-between">
-                                                                            <div className="flex items-center gap-2">
-                                                                                <span className="material-symbols-outlined text-sm text-red-600 dark:text-red-400">person</span>
-                                                                                <span className="font-semibold text-gray-900 dark:text-white">
-                                                                                    {patient.full_name || 'Unknown Patient'}
-                                                                                </span>
+                                        {
+                                            error && (
+                                                <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+                                                    <div className="flex items-start gap-2">
+                                                        <span className="material-symbols-outlined text-sm mt-0.5">error</span>
+                                                        <div className="flex-1">
+                                                            <p className="font-semibold mb-1">{error}</p>
+                                                            {duplicatePatients.length > 0 && (
+                                                                <div className="mt-3 space-y-2">
+                                                                    <p className="text-xs font-medium text-red-700 dark:text-red-300 mb-2">
+                                                                        Existing patient{duplicatePatients.length > 1 ? 's' : ''} found:
+                                                                    </p>
+                                                                    {duplicatePatients.map((patient) => (
+                                                                        <div
+                                                                            key={patient.id}
+                                                                            className="bg-white dark:bg-gray-800 border border-red-200 dark:border-red-700 rounded-lg p-3 space-y-1"
+                                                                        >
+                                                                            <div className="flex items-center justify-between">
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <span className="material-symbols-outlined text-sm text-red-600 dark:text-red-400">person</span>
+                                                                                    <span className="font-semibold text-gray-900 dark:text-white">
+                                                                                        {patient.full_name || 'Unknown Patient'}
+                                                                                    </span>
+                                                                                </div>
+                                                                                <a
+                                                                                    href={`/patients/${patient.id}`}
+                                                                                    className="text-xs text-primary hover:underline font-medium"
+                                                                                >
+                                                                                    View Patient →
+                                                                                </a>
                                                                             </div>
-                                                                            <a
-                                                                                href={`/patients/${patient.id}`}
-                                                                                className="text-xs text-primary hover:underline font-medium"
-                                                                            >
-                                                                                View Patient →
-                                                                            </a>
-                                                                        </div>
-                                                                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400 mt-2">
-                                                                            {patient.email && (
+                                                                            <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400 mt-2">
+                                                                                {patient.email && (
+                                                                                    <div className="flex items-center gap-1">
+                                                                                        <span className="material-symbols-outlined text-xs">email</span>
+                                                                                        <span>{patient.email}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {patient.phone && (
+                                                                                    <div className="flex items-center gap-1">
+                                                                                        <span className="material-symbols-outlined text-xs">phone</span>
+                                                                                        <span>{patient.phone}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {patient.dob && (
+                                                                                    <div className="flex items-center gap-1">
+                                                                                        <span className="material-symbols-outlined text-xs">calendar_today</span>
+                                                                                        <span>{new Date(patient.dob).toLocaleDateString()}</span>
+                                                                                    </div>
+                                                                                )}
                                                                                 <div className="flex items-center gap-1">
-                                                                                    <span className="material-symbols-outlined text-xs">email</span>
-                                                                                    <span>{patient.email}</span>
+                                                                                    <span className="material-symbols-outlined text-xs">schedule</span>
+                                                                                    <span>Created {patient.created_at ? new Date(patient.created_at).toLocaleDateString() : 'Unknown'}</span>
                                                                                 </div>
-                                                                            )}
-                                                                            {patient.phone && (
-                                                                                <div className="flex items-center gap-1">
-                                                                                    <span className="material-symbols-outlined text-xs">phone</span>
-                                                                                    <span>{patient.phone}</span>
-                                                                                </div>
-                                                                            )}
-                                                                            {patient.dob && (
-                                                                                <div className="flex items-center gap-1">
-                                                                                    <span className="material-symbols-outlined text-xs">calendar_today</span>
-                                                                                    <span>{new Date(patient.dob).toLocaleDateString()}</span>
-                                                                                </div>
-                                                                            )}
-                                                                            <div className="flex items-center gap-1">
-                                                                                <span className="material-symbols-outlined text-xs">schedule</span>
-                                                                                <span>Created {patient.created_at ? new Date(patient.created_at).toLocaleDateString() : 'Unknown'}</span>
                                                                             </div>
                                                                         </div>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )
+                                        }
 
                                         {/* Submit Button */}
                                         <div className="flex justify-end gap-3 mt-6">
@@ -626,12 +643,12 @@ export default function NewPatientPage() {
                                                 )}
                                             </button>
                                         </div>
-                                    </div>
-                                </form>
-                            </div>
+                                    </div >
+                                </form >
+                            </div >
 
                             {/* Right Sidebar */}
-                            <div className="lg:col-span-4">
+                            < div className="lg:col-span-4" >
                                 <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
                                     <h3 className="font-bold text-gray-900 dark:text-white mb-4">Patient Registration Tips</h3>
                                     <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
@@ -649,50 +666,77 @@ export default function NewPatientPage() {
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </main>
+                            </div >
+                        </div >
+                    </div >
+                </div >
+            </main >
 
             {/* Start New Visit Prompt Modal */}
-            {showVisitPrompt && (
-                <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-2 rounded-lg">
-                                <span className="material-symbols-outlined text-2xl">check_circle</span>
+            {
+                showVisitPrompt && (
+                    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-2 rounded-lg">
+                                    <span className="material-symbols-outlined text-2xl">check_circle</span>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Patient Created Successfully!</h3>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">What would you like to do next?</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Patient Created Successfully!</h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">Would you like to start a new visit?</p>
+
+                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                                <p className="text-sm text-blue-800 dark:text-blue-200">
+                                    You can assign this patient to a doctor or nurse, start a new visit, or view the patient profile.
+                                </p>
                             </div>
-                        </div>
 
-                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                            <p className="text-sm text-blue-800 dark:text-blue-200">
-                                Starting a visit now will allow you to record the consultation, document symptoms, and create clinical notes.
-                            </p>
-                        </div>
-
-                        <div className="flex gap-3 pt-2">
-                            <button
-                                onClick={handleSkipVisit}
-                                className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
-                            >
-                                Not Now
-                            </button>
-                            <button
-                                onClick={handleStartVisit}
-                                className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center justify-center gap-2"
-                            >
-                                <span className="material-symbols-outlined text-sm">add</span>
-                                Start New Visit
-                            </button>
+                            <div className="flex flex-col gap-3 pt-2">
+                                <button
+                                    onClick={handleAssignPatient}
+                                    className="w-full px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined text-sm">person_add</span>
+                                    Assign to Doctor/Nurse
+                                </button>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={handleSkipVisit}
+                                        className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+                                    >
+                                        View Patient
+                                    </button>
+                                    <button
+                                        onClick={handleStartVisit}
+                                        className="flex-1 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <span className="material-symbols-outlined text-sm">add</span>
+                                        Start Visit
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )
+            }
+
+            {/* Assign Patient Modal */}
+            {showAssignModal && createdPatientId && (
+                <AssignPatientModal
+                    isOpen={showAssignModal}
+                    onClose={() => {
+                        setShowAssignModal(false);
+                        if (createdPatientId) {
+                            router.push(`/patients/${createdPatientId}`);
+                        }
+                    }}
+                    patientId={createdPatientId}
+                    patientName={createdPatientName || undefined}
+                    onSuccess={handleAssignSuccess}
+                />
             )}
-        </div>
+        </div >
     );
 }

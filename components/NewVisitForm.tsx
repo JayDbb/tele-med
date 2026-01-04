@@ -1,11 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import { getPatient, createVisit, appendVisitNote, transcribeVisitAudio, updateVisit } from '@/lib/api'
+import { useAudioRecorder } from '@/lib/useAudioRecorder'
+import { convertToMP3 } from '@/lib/audioConverter'
+import { uploadToPrivateBucket } from '@/lib/storage'
 import { getPatient, createVisit, appendVisitNote, transcribeVisitAudio, updateVisit } from '@/lib/api'
 import { useAudioRecorder } from '@/lib/useAudioRecorder'
 import { convertToMP3 } from '@/lib/audioConverter'
@@ -766,6 +771,8 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
       <Sidebar />
       <PatientDetailSidebar patientId={patientId} />
 
+      <PatientDetailSidebar patientId={patientId} />
+
       <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
         <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
           <GlobalSearchBar />
@@ -773,372 +780,583 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
 
         <div className="flex-1 overflow-y-auto p-6">
           <div className="w-full max-w-6xl mx-auto flex flex-col gap-6">
-            {/* Patient Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-baseline gap-3">
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{patient?.name || 'Patient'}</h1>
-                  <span className="px-2.5 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 text-xs font-bold border border-yellow-200 dark:border-yellow-800">New Visit</span>
+            <div className="w-full max-w-6xl mx-auto flex flex-col gap-6">
+              {/* Patient Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-baseline gap-3">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{patient?.name || 'Patient'}</h1>
+                    <span className="px-2.5 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 text-xs font-bold border border-yellow-200 dark:border-yellow-800">New Visit</span>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{patient?.name || 'Patient'}</h1>
+                    <span className="px-2.5 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 text-xs font-bold border border-yellow-200 dark:border-yellow-800">New Visit</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-6 text-gray-600 dark:text-gray-300 text-sm">
+                    {patient?.dob && (
+                      <span className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-sm">calendar_today</span>
+                        DOB: {patient.dob}
+                      </span>
+                    )}
+                    {patient?.allergies && (
+                      <span className="flex items-center gap-1.5 text-red-600 dark:text-red-400 font-medium">
+                        <span className="material-symbols-outlined text-sm">warning</span>
+                        Allergies: {formatAllergies(patient.allergies)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-6 text-gray-600 dark:text-gray-300 text-sm">
-                  {patient?.dob && (
-                    <span className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-sm">calendar_today</span>
-                      DOB: {patient.dob}
-                    </span>
-                  )}
-                  {patient?.allergies && (
-                    <span className="flex items-center gap-1.5 text-red-600 dark:text-red-400 font-medium">
-                      <span className="material-symbols-outlined text-sm">warning</span>
-                      Allergies: {formatAllergies(patient.allergies)}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Link
-                  href={getPatientUrl(patientId)}
-                  className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Cancel
-                </Link>
+                <div className="flex gap-3">
+                  <Link
+                    href={getPatientUrl(patientId)}
+                    className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    <Link
+                      href={getPatientUrl(patientId)}
+                      className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      Cancel
+                    </Link>
+                    <button
+                      onClick={handleSaveVisit}
+                      disabled={saving}
+                      className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50"
                 <button
-                  onClick={handleSaveVisit}
-                  disabled={saving}
-                  className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50"
-                >
-                  {saving ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Saving...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Save Visit</span>
-                      <span className="material-symbols-outlined text-sm">save</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
-              </div>
-            )}
-
-            {/* Recording Panel */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-              <div className="p-6">
-                <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/30 dark:bg-gray-800/30 p-8 text-center gap-6">
-                  <div className={`size-20 rounded-full ${recording ? 'bg-red-100 dark:bg-red-900/20 animate-pulse' : 'bg-primary/10 dark:bg-primary/20'} flex items-center justify-center ${recording ? 'text-red-500' : 'text-primary'}`}>
-                    <span className="material-symbols-outlined text-4xl">{recording ? 'fiber_manual_record' : 'mic'}</span>
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                      {recording ? 'Recording in Progress' : 'Ready to Dictate'}
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 max-w-[280px] mx-auto">
-                      {recording
-                        ? `Recording: ${recorder.formatTime(recorder.recordingTime)}`
-                        : 'Start recording the consultation to automatically generate clinical notes.'}
-                    </p>
-                  </div>
-                  {!recording ? (
-                    <button
-                      onClick={handleStartRecording}
-                      disabled={saving || uploading || transcribing}
-                      className="flex items-center justify-center rounded-lg px-6 py-3 bg-primary hover:bg-primary/90 text-white text-sm font-medium shadow-sm transition-colors gap-2 disabled:opacity-50"
+                      onClick={handleSaveVisit}
+                      disabled={saving}
+                      className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50"
                     >
-                      <span className="material-symbols-outlined text-sm">fiber_manual_record</span>
-                      <span>Start Recording</span>
+                      {saving ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Save Visit</span>
+                          <span className="material-symbols-outlined text-sm">save</span>
+                        </>
+                      )}
+                      {saving ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Save Visit</span>
+                          <span className="material-symbols-outlined text-sm">save</span>
+                        </>
+                      )}
                     </button>
-                  ) : (
-                    <button
-                      onClick={handleStopRecording}
-                      className="flex items-center justify-center rounded-lg px-6 py-3 bg-red-500 hover:bg-red-600 text-white text-sm font-medium shadow-sm transition-colors gap-2"
-                    >
-                      <span className="material-symbols-outlined text-sm">stop</span>
-                      <span>{saving || uploading || transcribing ? "Processing..." : "Stop Recording"}</span>
-                    </button>
-                  )}
-                  {uploading && !recording && (
-                    <div className="w-full px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
-                      <span className="text-blue-700 dark:text-blue-300 text-sm font-medium">Uploading audio file...</span>
-                    </div>
-                  )}
-                  {transcribing && !uploading && !recording && (
-                    <div className="w-full px-4 py-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-600 border-t-transparent"></div>
-                      <span className="text-purple-700 dark:text-purple-300 text-sm font-medium">Transcribing audio and generating notes...</span>
-                    </div>
-                  )}
-                  {transcription && (
-                    <div className="w-full text-left bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                      <p className="text-xs font-semibold text-blue-800 dark:text-blue-200 mb-2">Transcription Complete</p>
-                      <p className="text-sm text-blue-700 dark:text-blue-300">{transcription.summary || transcription.transcript}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* SOAP Note Form */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-              <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4 bg-white dark:bg-gray-900">
-                <div className="flex items-center gap-3">
-                  <div className="bg-primary/10 text-primary p-2 rounded-lg">
-                    <span className="material-symbols-outlined text-sm">description</span>
-                  </div>
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">Visit Note</h2>
                 </div>
               </div>
 
-              {/* Form Content */}
-              <div className="p-6 space-y-8">
-                {/* Subjective Section */}
-                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                  <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                      Subjective
-                      <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Chief Complaint & HPI</span>
-                    </h3>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Chief Complaint</label>
-                      <input
-                        value={visitData.subjective.chiefComplaint}
-                        onChange={(e) => setVisitData({
-                          ...visitData,
-                          subjective: { ...visitData.subjective, chiefComplaint: e.target.value }
-                        })}
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
-                        placeholder="e.g., Persistent cough, fever"
-                        type="text"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">History of Present Illness</label>
-                      <textarea
-                        value={visitData.subjective.hpi}
-                        onChange={(e) => setVisitData({
-                          ...visitData,
-                          subjective: { ...visitData.subjective, hpi: e.target.value }
-                        })}
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
-                        placeholder="Describe the HPI..."
-                        rows={4}
-                      />
-                    </div>
-                  </div>
-                </section>
+              {error && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+                </div>
+              )}
 
-                {/* Objective Section */}
-                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                  <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                  <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    Objective
-                    <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Vitals & Exam</span>
-                  </h3>
+              {/* Recording Panel */}
+              <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                <div className="p-6">
+                  <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/30 dark:bg-gray-800/30 p-8 text-center gap-6">
+                    <div className={`size-20 rounded-full ${recording ? 'bg-red-100 dark:bg-red-900/20 animate-pulse' : 'bg-primary/10 dark:bg-primary/20'} flex items-center justify-center ${recording ? 'text-red-500' : 'text-primary'}`}>
+                      <span className="material-symbols-outlined text-4xl">{recording ? 'fiber_manual_record' : 'mic'}</span>
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                        {recording ? 'Recording in Progress' : 'Ready to Dictate'}
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 max-w-[280px] mx-auto">
+                        {recording
+                          ? `Recording: ${recorder.formatTime(recorder.recordingTime)}`
+                          : 'Start recording the consultation to automatically generate clinical notes.'}
+                      </p>
+                    </div>
+                    {!recording ? (
+                      <button
+                        onClick={handleStartRecording}
+                        disabled={saving || uploading || transcribing}
+                        className="flex items-center justify-center rounded-lg px-6 py-3 bg-primary hover:bg-primary/90 text-white text-sm font-medium shadow-sm transition-colors gap-2 disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-sm">fiber_manual_record</span>
+                        <span>Start Recording</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleStopRecording}
+                        className="flex items-center justify-center rounded-lg px-6 py-3 bg-red-500 hover:bg-red-600 text-white text-sm font-medium shadow-sm transition-colors gap-2"
+                      >
+                        <span className="material-symbols-outlined text-sm">stop</span>
+                        <span>{saving || uploading || transcribing ? "Processing..." : "Stop Recording"}</span>
+                      </button>
+                    )}
+                    {uploading && !recording && (
+                      <div className="w-full px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+                        <span className="text-blue-700 dark:text-blue-300 text-sm font-medium">Uploading audio file...</span>
+                        {error && (
+                          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                            <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+                          </div>
+                        )}
 
-                  {/* Vitals Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">BP (mmHg)</label>
-                      <input
-                        value={visitData.objective.bp}
-                        onChange={(e) => setVisitData({
-                          ...visitData,
-                          objective: { ...visitData.objective, bp: e.target.value }
-                        })}
-                        className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                        placeholder="120/80"
-                        type="text"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">HR (bpm)</label>
-                      <input
-                        value={visitData.objective.hr}
-                        onChange={(e) => setVisitData({
-                          ...visitData,
-                          objective: { ...visitData.objective, hr: e.target.value }
-                        })}
-                        className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                        placeholder="72"
-                        type="text"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Temp (°F)</label>
-                      <input
-                        value={visitData.objective.temp}
-                        onChange={(e) => setVisitData({
-                          ...visitData,
-                          objective: { ...visitData.objective, temp: e.target.value }
-                        })}
-                        className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                        placeholder="98.6"
-                        type="text"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Weight (lbs)</label>
-                      <input
-                        value={visitData.objective.weight}
-                        onChange={(e) => setVisitData({
-                          ...visitData,
-                          objective: { ...visitData.objective, weight: e.target.value }
-                        })}
-                        className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                        placeholder="165"
-                        type="text"
-                      />
-                    </div>
-                  </div>
+                        {/* Recording Panel */}
+                        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                          <div className="p-6">
+                            <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/30 dark:bg-gray-800/30 p-8 text-center gap-6">
+                              <div className={`size-20 rounded-full ${recording ? 'bg-red-100 dark:bg-red-900/20 animate-pulse' : 'bg-primary/10 dark:bg-primary/20'} flex items-center justify-center ${recording ? 'text-red-500' : 'text-primary'}`}>
+                                <span className="material-symbols-outlined text-4xl">{recording ? 'fiber_manual_record' : 'mic'}</span>
+                              </div>
+                              <div className="space-y-2">
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                                  {recording ? 'Recording in Progress' : 'Ready to Dictate'}
+                                </h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 max-w-[280px] mx-auto">
+                                  {recording
+                                    ? `Recording: ${recorder.formatTime(recorder.recordingTime)}`
+                                    : 'Start recording the consultation to automatically generate clinical notes.'}
+                                </p>
+                              </div>
+                              {!recording ? (
+                                <button
+                                  onClick={handleStartRecording}
+                                  disabled={saving || uploading || transcribing}
+                                  className="flex items-center justify-center rounded-lg px-6 py-3 bg-primary hover:bg-primary/90 text-white text-sm font-medium shadow-sm transition-colors gap-2 disabled:opacity-50"
+                                >
+                                  <span className="material-symbols-outlined text-sm">fiber_manual_record</span>
+                                  <span>Start Recording</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={handleStopRecording}
+                                  className="flex items-center justify-center rounded-lg px-6 py-3 bg-red-500 hover:bg-red-600 text-white text-sm font-medium shadow-sm transition-colors gap-2"
+                                >
+                                  <span className="material-symbols-outlined text-sm">stop</span>
+                                  <span>{saving || uploading || transcribing ? "Processing..." : "Stop Recording"}</span>
+                                </button>
+                              )}
+                              {uploading && !recording && (
+                                <div className="w-full px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-center gap-2">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+                                  <span className="text-blue-700 dark:text-blue-300 text-sm font-medium">Uploading audio file...</span>
+                                </div>
+                              )}
+                              {transcribing && !uploading && !recording && (
+                                <div className="w-full px-4 py-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg flex items-center justify-center gap-2">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-600 border-t-transparent"></div>
+                                  <span className="text-purple-700 dark:text-purple-300 text-sm font-medium">Transcribing audio and generating notes...</span>
+                                </div>
+                              )}
+                              {transcription && (
+                                <div className="w-full text-left bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                                  <p className="text-xs font-semibold text-blue-800 dark:text-blue-200 mb-2">Transcription Complete</p>
+                                  <p className="text-sm text-blue-700 dark:text-blue-300">{transcription.summary || transcription.transcript}</p>
+                  )}
+                                  {transcribing && !uploading && !recording && (
+                                    <div className="w-full px-4 py-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg flex items-center justify-center gap-2">
+                                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-600 border-t-transparent"></div>
+                                      <span className="text-purple-700 dark:text-purple-300 text-sm font-medium">Transcribing audio and generating notes...</span>
+                                    </div>
+                                  )}
+                                  {transcription && (
+                                    <div className="w-full text-left bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                                      <p className="text-xs font-semibold text-blue-800 dark:text-blue-200 mb-2">Transcription Complete</p>
+                                      <p className="text-sm text-blue-700 dark:text-blue-300">{transcription.summary || transcription.transcript}</p>
+                                    </div>
+                                  )}
+                                </div>
+              </div>
+                          </div>
+                  )}
+                        </div>
+                      </div>
+            </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Physical Exam Findings</label>
-                    <textarea
-                      value={visitData.objective.examFindings}
-                      onChange={(e) => setVisitData({
-                        ...visitData,
-                        objective: { ...visitData.objective, examFindings: e.target.value }
-                      })}
-                      className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
-                      placeholder="General appearance, HEENT, Lungs, Heart..."
-                      rows={3}
-                    />
-                  </div>
-                </section>
-
-                {/* Assessment & Plan */}
-                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                  <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                  <h3 className="text-base font-bold text-gray-900 dark:text-white">Assessment & Plan</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Assessment / Diagnosis</label>
-                      <div className="relative">
-                        <span className="absolute top-2.5 left-3 text-gray-500 dark:text-gray-400">
-                          <span className="material-symbols-outlined text-sm">medical_services</span>
-                        </span>
-                        <textarea
-                          value={visitData.assessmentPlan.assessment}
-                          onChange={(e) => setVisitData({
-                            ...visitData,
-                            assessmentPlan: { ...visitData.assessmentPlan, assessment: e.target.value }
-                          })}
-                          className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none"
-                          placeholder="Primary diagnosis..."
-                          rows={5}
-                        />
+                  {/* SOAP Note Form */}
+                  <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                    <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4 bg-white dark:bg-gray-900">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-primary/10 text-primary p-2 rounded-lg">
+                          <span className="material-symbols-outlined text-sm">description</span>
+                        </div>
+                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Visit Note</h2>
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Treatment Plan</label>
-                      <div className="relative">
-                        <span className="absolute top-2.5 left-3 text-gray-500 dark:text-gray-400">
-                          <span className="material-symbols-outlined text-sm">healing</span>
-                        </span>
-                        <textarea
-                          value={visitData.assessmentPlan.plan}
-                          onChange={(e) => setVisitData({
-                            ...visitData,
-                            assessmentPlan: { ...visitData.assessmentPlan, plan: e.target.value }
-                          })}
-                          className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none"
-                          placeholder="Medications, referrals, follow-up..."
-                          rows={5}
-                        />
+                    {/* SOAP Note Form */}
+                    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                      <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4 bg-white dark:bg-gray-900">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-primary/10 text-primary p-2 rounded-lg">
+                            <span className="material-symbols-outlined text-sm">description</span>
+                          </div>
+                          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Visit Note</h2>
+                        </div>
+                      </div>
+
+                      {/* Form Content */}
+                      <div className="p-6 space-y-8">
+                        {/* Subjective Section */}
+                        <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                          <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                              Subjective
+                              <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Chief Complaint & HPI</span>
+                            </h3>
+                          </div>
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Chief Complaint</label>
+                              <input
+                                value={visitData.subjective.chiefComplaint}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  subjective: { ...visitData.subjective, chiefComplaint: e.target.value }
+                                })}
+                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
+                                placeholder="e.g., Persistent cough, fever"
+                                type="text"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">History of Present Illness</label>
+                              <textarea
+                                value={visitData.subjective.hpi}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  subjective: { ...visitData.subjective, hpi: e.target.value }
+                                })}
+                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
+                                placeholder="Describe the HPI..."
+                                rows={4}
+                              />
+                            </div>
+                          </div>
+                        </section>
+                        {/* Form Content */}
+                        <div className="p-6 space-y-8">
+                          {/* Subjective Section */}
+                          <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                            <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                            <div className="flex items-center justify-between">
+                              <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                Subjective
+                                <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Chief Complaint & HPI</span>
+                              </h3>
+                            </div>
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Chief Complaint</label>
+                                <input
+                                  value={visitData.subjective.chiefComplaint}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    subjective: { ...visitData.subjective, chiefComplaint: e.target.value }
+                                  })}
+                                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
+                                  placeholder="e.g., Persistent cough, fever"
+                                  type="text"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">History of Present Illness</label>
+                                <textarea
+                                  value={visitData.subjective.hpi}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    subjective: { ...visitData.subjective, hpi: e.target.value }
+                                  })}
+                                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
+                                  placeholder="Describe the HPI..."
+                                  rows={4}
+                                />
+                              </div>
+                            </div>
+                          </section>
+
+                          {/* Objective Section */}
+                          <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                            <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                            <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                              Objective
+                              <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Vitals & Exam</span>
+                            </h3>
+
+                            {/* Vitals Grid */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">BP (mmHg)</label>
+                                <input
+                                  value={visitData.objective.bp}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, bp: e.target.value }
+                                  })}
+                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                  placeholder="120/80"
+                                  type="text"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">HR (bpm)</label>
+                                <input
+                                  value={visitData.objective.hr}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, hr: e.target.value }
+                                  })}
+                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                  placeholder="72"
+                                  type="text"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Temp (°F)</label>
+                                <input
+                                  value={visitData.objective.temp}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, temp: e.target.value }
+                                  })}
+                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                  placeholder="98.6"
+                                  type="text"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Weight (lbs)</label>
+                                <input
+                                  value={visitData.objective.weight}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, weight: e.target.value }
+                                  })}
+                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                  placeholder="165"
+                                  type="text"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Physical Exam Findings</label>
+                              <textarea
+                                value={visitData.objective.examFindings}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  objective: { ...visitData.objective, examFindings: e.target.value }
+                                })}
+                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
+                                placeholder="General appearance, HEENT, Lungs, Heart..."
+                                rows={3}
+                              />
+                            </div>
+                          </section>
+                          {/* Objective Section */}
+                          <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                            <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                            <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                              Objective
+                              <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Vitals & Exam</span>
+                            </h3>
+
+                            {/* Vitals Grid */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">BP (mmHg)</label>
+                                <input
+                                  value={visitData.objective.bp}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, bp: e.target.value }
+                                  })}
+                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                  placeholder="120/80"
+                                  type="text"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">HR (bpm)</label>
+                                <input
+                                  value={visitData.objective.hr}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, hr: e.target.value }
+                                  })}
+                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                  placeholder="72"
+                                  type="text"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Temp (°F)</label>
+                                <input
+                                  value={visitData.objective.temp}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, temp: e.target.value }
+                                  })}
+                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                  placeholder="98.6"
+                                  type="text"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Weight (lbs)</label>
+                                <input
+                                  value={visitData.objective.weight}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, weight: e.target.value }
+                                  })}
+                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                  placeholder="165"
+                                  type="text"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Physical Exam Findings</label>
+                              <textarea
+                                value={visitData.objective.examFindings}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  objective: { ...visitData.objective, examFindings: e.target.value }
+                                })}
+                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
+                                placeholder="General appearance, HEENT, Lungs, Heart..."
+                                rows={3}
+                              />
+                            </div>
+                          </section>
+
+                          {/* Assessment & Plan */}
+                          <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                            <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                            <h3 className="text-base font-bold text-gray-900 dark:text-white">Assessment & Plan</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div>
+                                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Assessment / Diagnosis</label>
+                                <div className="relative">
+                                  <span className="absolute top-2.5 left-3 text-gray-500 dark:text-gray-400">
+                                    <span className="material-symbols-outlined text-sm">medical_services</span>
+                                  </span>
+                                  <textarea
+                                    value={visitData.assessmentPlan.assessment}
+                                    onChange={(e) => setVisitData({
+                                      ...visitData,
+                                      assessmentPlan: { ...visitData.assessmentPlan, assessment: e.target.value }
+                                    })}
+                                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none"
+                                    placeholder="Primary diagnosis..."
+                                    rows={5}
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Treatment Plan</label>
+                                <div className="relative">
+                                  <span className="absolute top-2.5 left-3 text-gray-500 dark:text-gray-400">
+                                    <span className="material-symbols-outlined text-sm">healing</span>
+                                  </span>
+                                  <textarea
+                                    value={visitData.assessmentPlan.plan}
+                                    onChange={(e) => setVisitData({
+                                      ...visitData,
+                                      assessmentPlan: { ...visitData.assessmentPlan, plan: e.target.value }
+                                    })}
+                                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none"
+                                    placeholder="Medications, referrals, follow-up..."
+                                    rows={5}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </section>
+
+                          {/* Additional Notes */}
+                          <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                            <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                            <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                              Additional Notes
+                              <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Summary & Observations</span>
+                            </h3>
+                            <div>
+                              <textarea
+                                value={visitData.additionalNotes}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  additionalNotes: e.target.value
+                                })}
+                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
+                                placeholder="Additional notes, observations, or summary will appear here after dictation..."
+                                rows={6}
+                              />
+                            </div>
+                          </section>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </section>
+                </main>
 
-                {/* Additional Notes */}
-                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                  <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                  <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    Additional Notes
-                    <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Summary & Observations</span>
-                  </h3>
-                  <div>
-                    <textarea
-                      value={visitData.additionalNotes}
-                      onChange={(e) => setVisitData({
-                        ...visitData,
-                        additionalNotes: e.target.value
-                      })}
-                      className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
-                      placeholder="Additional notes, observations, or summary will appear here after dictation..."
-                      rows={6}
-                    />
+                {/* Assign Patient Prompt Modal */}
+                {showAssignPrompt && (
+                  <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-2 rounded-lg">
+                          <span className="material-symbols-outlined text-2xl">check_circle</span>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Visit Saved Successfully!</h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Would you like to assign this patient to another doctor or nurse?</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                        <button
+                          onClick={() => {
+                            setShowAssignPrompt(false)
+                            router.push(getPatientUrl(patientId))
+                          }}
+                          className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          Not Now
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowAssignPrompt(false)
+                            setAssignModalOpen(true)
+                          }}
+                          className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center justify-center gap-2"
+                        >
+                          <span className="material-symbols-outlined text-sm">person_add</span>
+                          Assign Patient
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </section>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
+                )}
 
-      {/* Assign Patient Prompt Modal */}
-      {showAssignPrompt && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-2 rounded-lg">
-                <span className="material-symbols-outlined text-2xl">check_circle</span>
+                <AssignPatientModal
+                  isOpen={assignModalOpen}
+                  onClose={() => {
+                    setAssignModalOpen(false)
+                    router.push(getPatientUrl(patientId))
+                  }}
+                  patientId={patientId}
+                  patientName={patient?.name}
+                  onSuccess={() => {
+                    router.push(getPatientUrl(patientId))
+                  }}
+                />
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Visit Saved Successfully!</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Would you like to assign this patient to another doctor or nurse?</p>
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => {
-                  setShowAssignPrompt(false)
-                  router.push(getPatientUrl(patientId))
-                }}
-                className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
-              >
-                Not Now
-              </button>
-              <button
-                onClick={() => {
-                  setShowAssignPrompt(false)
-                  setAssignModalOpen(true)
-                }}
-                className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined text-sm">person_add</span>
-                Assign Patient
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <AssignPatientModal
-        isOpen={assignModalOpen}
-        onClose={() => {
-          setAssignModalOpen(false)
-          router.push(getPatientUrl(patientId))
-        }}
-        patientId={patientId}
-        patientName={patient?.name}
-        onSuccess={() => {
-          router.push(getPatientUrl(patientId))
-        }}
-      />
-    </div>
-  )
+              )
 }
 
-export default NewVisitForm
+              export default NewVisitForm
+

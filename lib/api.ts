@@ -22,17 +22,86 @@ async function authFetch(input: string, init?: RequestInit) {
 
 export async function login(email: string, password: string) {
   const supabase = supabaseBrowser();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error(error.message);
+
+  // If we have a session token, set server-side HttpOnly cookie for SSR authentication
+  const token = data?.session?.access_token || null;
+  if (token) {
+    await fetch('/api/auth/set-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+  }
+
+  return { data, error };
 }
 
-export async function signup(email: string, password: string) {
+export async function signup(payload: { email: string; password: string; role: 'doctor' | 'nurse' | string; name?: string; specialty?: string; department?: string; }) {
   const supabase = supabaseBrowser();
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
+  const { data, error } = await supabase.auth.signUp({
+    email: payload.email,
+    password: payload.password,
   });
+
   if (error) throw new Error(error.message);
+
+  // Try to sign in user immediately to get session (if automatic sign-in is enabled)
+  const { data: sessionData } = await supabase.auth.getSession();
+  let token = sessionData?.session?.access_token || null;
+
+  // If no token, attempt sign-in with password (some Supabase setups require confirmation)
+  if (!token) {
+    const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword({
+      email: payload.email,
+      password: payload.password,
+    }).catch(() => ({ data: null, error: new Error('Sign in after sign up failed') }));
+
+    if (signInError) {
+      // We won't throw here because the user may need to confirm email; return and let client handle next steps
+      return { success: true, message: 'Signup successful; check your email to confirm and then sign in.' };
+    }
+
+    token = signInData?.session?.access_token || null;
+  }
+
+  if (token) {
+    // Update auth user metadata to include role and basic profile
+    try {
+      await supabase.auth.updateUser({ data: { role: payload.role, full_name: payload.name, specialty: payload.specialty, department: payload.department } });
+    } catch (err) {
+      // Non-fatal - continue
+      console.warn('Failed to update auth user metadata:', err);
+    }
+
+    // Set server-side session cookie for SSR
+    await fetch('/api/auth/set-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+
+    // Create user row by calling server endpoint (cookie will be used for auth)
+    const resp = await fetch('/api/users', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ role: payload.role, name: payload.name, specialty: payload.specialty, department: payload.department }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(err || 'Failed to create user profile');
+    }
+
+    const { user } = await resp.json();
+
+    return { success: true, user };
+  }
+
+  return { success: true, message: 'Signup successful; please verify your email.' };
 }
 
 export async function getPatients(): Promise<Patient[]> {
@@ -409,6 +478,28 @@ export async function getVitals(patientId: string) {
       weight: number | null;
     }>
   >;
+}
+
+export async function getCurrentUser() {
+  try {
+    const res = await fetch('/api/users/me', { 
+      credentials: 'include',
+      cache: 'no-store' // Ensure fresh data on each request
+    });
+    if (!res.ok) {
+      // If 401, user is not authenticated - return null
+      if (res.status === 401) {
+        return null;
+      }
+      // For other errors, also return null
+      return null;
+    }
+    const data = await res.json();
+    return data.user;
+  } catch (error) {
+    console.error('[getCurrentUser] Error fetching user:', error);
+    return null;
+  }
 }
 
 // Dictate audio to text (transcription only, no parsing)

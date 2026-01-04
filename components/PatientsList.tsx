@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { useVideoCall } from '../contexts/VideoCallContext'
 import { getPatients } from '@/lib/api'
-import { useDoctor } from '@/contexts/DoctorContext'
 import { usePatientRoutes } from '@/lib/usePatientRoutes'
 import type { Patient } from '@/lib/types'
 import AssignPatientModal from './AssignPatientModal'
@@ -18,7 +17,6 @@ const PatientsList = () => {
   const [error, setError] = useState<string | null>(null)
   const [assignModalOpen, setAssignModalOpen] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string } | null>(null)
-  const { doctor } = useDoctor()
   const { getPatientUrl, getNewVisitUrl } = usePatientRoutes()
 
   useEffect(() => {
@@ -41,28 +39,61 @@ const PatientsList = () => {
       setError(null)
       const patients = await getPatients()
 
-      // Map database fields to component format
-      const mappedPatients = patients.map((patient: Patient) => ({
-        id: patient.id,
-        name: patient.full_name || 'Unknown',
-        email: patient.email || '',
-        dob: patient.dob || '',
-        phone: patient.phone || '',
-        gender: patient.sex_at_birth || patient.gender_identity || 'Not provided',
-        address: patient.address || '',
-        allergies: patient.allergies || '',
-        physician: doctor?.name || 'Unassigned',
-        lastConsultation: '', // Will be populated from visits if needed
-        appointment: '', // Will be populated from appointments if needed
-        status: 'Active',
-        statusColor: 'green',
-        doctorId: patient.clinician_id || '',
-        createdAt: patient.created_at || new Date().toISOString(),
-        updatedAt: patient.created_at || new Date().toISOString(),
-        image: undefined, // Can be added later if you store patient images
-      }))
+      // Get auth token for API calls
+      const { supabaseBrowser } = await import('@/lib/supabaseBrowser')
+      const supabase = supabaseBrowser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
 
-      setAllPatients(mappedPatients)
+      // Helper function to fetch clinician name
+      const fetchClinicianName = async (clinicianId: string | null | undefined): Promise<string> => {
+        if (!clinicianId || !token) return 'Unassigned'
+
+        try {
+          const clinicianRes = await fetch(`/api/clinicians/${clinicianId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          })
+
+          if (clinicianRes.ok) {
+            const clinicianData = await clinicianRes.json()
+            return clinicianData.full_name || clinicianData.email?.split('@')[0] || 'Unknown Clinician'
+          }
+        } catch (clinicianError) {
+          console.warn('Could not fetch clinician info:', clinicianError)
+        }
+        return 'Unassigned'
+      }
+
+      // Fetch clinician names for all patients in parallel
+      const patientsWithPhysicians = await Promise.all(
+        patients.map(async (patient: Patient) => {
+          const physicianName = await fetchClinicianName(patient.clinician_id)
+
+          return {
+            id: patient.id,
+            name: patient.full_name || 'Unknown',
+            email: patient.email || '',
+            dob: patient.dob || '',
+            phone: patient.phone || '',
+            gender: patient.sex_at_birth || patient.gender_identity || 'Not provided',
+            address: patient.address || '',
+            allergies: patient.allergies || '',
+            physician: physicianName,
+            lastConsultation: '', // Will be populated from visits if needed
+            appointment: '', // Will be populated from appointments if needed
+            status: 'Active',
+            statusColor: 'green',
+            doctorId: patient.clinician_id || '',
+            createdAt: patient.created_at || new Date().toISOString(),
+            updatedAt: patient.created_at || new Date().toISOString(),
+            image: undefined, // Can be added later if you store patient images
+          }
+        })
+      )
+
+      setAllPatients(patientsWithPhysicians)
     } catch (err: any) {
       console.error('Error loading patients:', err)
       setError(err?.message || 'Failed to load patients')
