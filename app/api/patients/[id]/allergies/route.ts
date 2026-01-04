@@ -144,3 +144,84 @@ export async function POST(
     );
   }
 }
+
+// DELETE - Remove an allergy by ID
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: patientId } = await params;
+  const { userId, error } = await requireUser(req);
+  if (!userId) {
+    return NextResponse.json({ error }, { status: 401 });
+  }
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const allergyId = searchParams.get("allergyId");
+
+    if (!allergyId) {
+      return NextResponse.json(
+        { error: "Allergy ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = supabaseServer();
+
+    // Verify patient access (nurses can access all, doctors only owned/shared)
+    const { hasAccess } = await verifyPatientAccess(userId, patientId);
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    // Get existing allergies from patients table
+    const { data: patient, error: fetchError } = await supabase
+      .from("patients")
+      .select("allergies")
+      .eq("id", patientId)
+      .single();
+
+    if (fetchError) {
+      return NextResponse.json({ error: fetchError.message }, { status: 400 });
+    }
+
+    // Parse existing allergies
+    let existingAllergies: any[] = [];
+    if (patient?.allergies) {
+      try {
+        existingAllergies = Array.isArray(patient.allergies)
+          ? patient.allergies
+          : typeof patient.allergies === "string"
+          ? JSON.parse(patient.allergies)
+          : [];
+      } catch {
+        existingAllergies = [];
+      }
+    }
+
+    // Remove the allergy by ID
+    const updatedAllergies = existingAllergies.filter(
+      (allergy: any) => allergy.id !== allergyId
+    );
+
+    // Update patients table with updated allergies JSONB
+    const { data: updatedPatient, error: updateError } = await supabase
+      .from("patients")
+      .update({ allergies: updatedAllergies })
+      .eq("id", patientId)
+      .select("allergies")
+      .single();
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error?.message || "Failed to delete allergy" },
+      { status: 500 }
+    );
+  }
+}

@@ -121,3 +121,54 @@ export async function GET(
 
   return NextResponse.json({ patient, visits: visitsWithNote });
 }
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const { userId, error } = await requireUser(req);
+  if (!userId) {
+    return NextResponse.json({ error }, { status: 401 });
+  }
+
+  const supabase = supabaseServer();
+  const userRole = await getUserRole(userId);
+  const body = await req.json();
+
+  // Only nurses can assign doctors to patients
+  if (userRole !== "nurse") {
+    return NextResponse.json(
+      { error: "Only nurses can assign doctors to patients" },
+      { status: 403 }
+    );
+  }
+
+  // Check if patient exists
+  const { data: patientData, error: patientError } = await supabase
+    .from("patients")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (patientError || !patientData) {
+    return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+  }
+
+  // Update clinician_id
+  const { data: updatedPatient, error: updateError } = await supabase
+    .from("patients")
+    .update({
+      clinician_id: body.clinician_id || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 400 });
+  }
+
+  return NextResponse.json({ patient: updatedPatient });
+}

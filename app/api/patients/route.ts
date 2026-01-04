@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser, getUserRole } from "../../../lib/auth";
+import { requireUser } from "../../../lib/auth";
 import { supabaseServer } from "../../../lib/supabaseServer";
 
 export async function GET(req: NextRequest) {
@@ -9,26 +9,7 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = supabaseServer();
-  const userRole = await getUserRole(userId);
 
-  // Nurses can see all patients
-  if (userRole === 'nurse') {
-    const { data: allPatients, error: allError } = await supabase
-      .from("patients")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (allError) {
-      return NextResponse.json({ error: allError.message }, { status: 400 });
-    }
-
-    return NextResponse.json((allPatients || []).map((p: any) => ({
-      ...p,
-      is_shared: false,
-    })));
-  }
-
-  // Doctors see only their owned and shared patients
   // Get patients owned by the clinician
   const { data: ownedPatients, error: ownedError } = await supabase
     .from("patients")
@@ -70,44 +51,33 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const { userId, error } = await requireUser(request);
-  if (!userId) {
-    return NextResponse.json({ error }, { status: 401 });
-  }
-
   try {
-    const body = await request.json();
-    const { full_name, email, dob, phone, sex_at_birth, address, allergies } =
-      body;
+    const { userId, error } = await requireUser(request);
+    if (!userId) {
+      return NextResponse.json({ error }, { status: 401 });
+    }
+
+    const { name, email, dob, phone, full_name } = await request.json();
 
     const supabase = supabaseServer();
 
-    const { data: newPatient, error: dbError } = await supabase
+    const { data, error: dbError } = await supabase
       .from("patients")
       .insert({
-        full_name,
+        full_name: full_name || name,
         email,
         dob,
         phone,
-        sex_at_birth,
-        address,
-        allergies,
         clinician_id: userId,
       })
       .select()
       .single();
 
     if (dbError) {
-      return NextResponse.json(
-        { success: false, error: dbError.message },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: dbError.message }, { status: 400 });
     }
 
-    return NextResponse.json({
-      success: true,
-      patient: newPatient,
-    });
+    return NextResponse.json({ success: true, patient: data });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error?.message || "Failed to create patient" },

@@ -394,7 +394,7 @@ export default function PatientSocialHistoryPage() {
                     <span className="text-[10px] text-gray-400 dark:text-gray-500">Last: Oct 24</span>
                   </div>
                   <div className="p-4 flex-1">
-                    <textarea className="w-full h-full min-h-[120px] resize-none text-sm text-gray-700 dark:text-gray-300 border-0 focus:ring-0 p-0 bg-transparent placeholder-gray-300 dark:placeholder-gray-600 leading-relaxed" placeholder="Add social history notes here..." defaultValue="Patient reports increased stress at work contributing to poor sleep hygiene. Discussed smoking cessation strategies; patient is contemplative but not ready to set a quit date. Encouraged to maintain current alcohol moderation."></textarea>
+                    <textarea className="w-full h-full min-h-[120px] resize-none text-sm text-gray-700 dark:text-gray-300 border-0 focus:ring-0 p-0 bg-transparent placeholder-gray-300 dark:placeholder-gray-600 leading-relaxed" placeholder="Add social history notes here..."></textarea>
                   </div>
                   <div className="p-2 border-t border-gray-100 dark:border-gray-800 flex justify-end">
                     <button className="px-3 py-1.5 bg-primary text-white text-xs font-bold rounded shadow hover:bg-blue-600 transition">Save Note</button>

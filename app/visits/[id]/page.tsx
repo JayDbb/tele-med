@@ -9,11 +9,15 @@ import { useAudioRecorder } from "../../../lib/useAudioRecorder";
 import { useAuthGuard } from "../../../lib/useAuthGuard";
 import type { Patient, Visit } from "../../../lib/types";
 import { Header } from "../../../components/Header";
+import { useDoctor } from "../../../contexts/DoctorContext";
+import { useNurse } from "../../../contexts/NurseContext";
 
 export default function VisitDetailPage() {
   const { ready } = useAuthGuard();
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { doctor } = useDoctor();
+  const { nurse } = useNurse();
   const [visit, setVisit] = useState<Visit | null>(null);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,6 +25,11 @@ export default function VisitDetailPage() {
   const [recording, setRecording] = useState(false);
   const [saving, setSaving] = useState(false);
   const recorder = useAudioRecorder();
+  const getPatientHref = (id: string) => {
+    if (nurse) return `/nurse-portal/patients/${id}`;
+    if (doctor) return `/doctor/patients/${id}`;
+    return `/patients/${id}`;
+  };
   console.log("VisitDetailPage component mounted");
 
   useEffect(() => {
@@ -113,7 +122,7 @@ export default function VisitDetailPage() {
               </div>
             )}
           </div>
-          <Link className="button secondary" href={patient ? `/patients/${patient.id}` : "/dashboard"}>
+          <Link className="button secondary" href={patient ? getPatientHref(patient.id) : "/dashboard"}>
             Back
           </Link>
         </div>
@@ -438,7 +447,7 @@ export default function VisitDetailPage() {
                 setSaving(true);
                 try {
                   await updateVisit(params.id, { status: "finalized" });
-                  router.push(patient ? `/patients/${patient.id}` : "/dashboard");
+                  router.push(patient ? getPatientHref(patient.id) : "/dashboard");
                 } catch (err) {
                   setError((err as Error).message);
                 } finally {
@@ -456,4 +465,3 @@ export default function VisitDetailPage() {
     </div>
   );
 }
-

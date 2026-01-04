@@ -31,8 +31,8 @@ export default function NewOrderModal({ isOpen, onClose, onSubmit, patientId }: 
   const [filteredMeds, setFilteredMeds] = useState<Medication[]>([])
   const [selectedMed, setSelectedMed] = useState<Medication | null>(null)
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [patientWeight, setPatientWeight] = useState(25) // kg for pediatric calc
-  const [patientAge, setPatientAge] = useState(8) // years
+  const [patientWeight, setPatientWeight] = useState(0)
+  const [patientAge, setPatientAge] = useState(0)
   const [diagnosisCodes, setDiagnosisCodes] = useState<DiagnosisCode[]>([])
   const [selectedDiagnosis, setSelectedDiagnosis] = useState('')
   const [warnings, setWarnings] = useState<string[]>([])
@@ -49,25 +49,9 @@ export default function NewOrderModal({ isOpen, onClose, onSubmit, patientId }: 
     priority: 'routine'
   })
 
-  // Mock medication database
-  const mockMedications: Medication[] = [
-    { id: '1', name: 'Amoxicillin', genericName: 'Amoxicillin', strength: '250mg', form: 'Capsule', category: 'Antibiotic' },
-    { id: '2', name: 'Tylenol', genericName: 'Acetaminophen', strength: '325mg', form: 'Tablet', category: 'Analgesic' },
-    { id: '3', name: 'Advil', genericName: 'Ibuprofen', strength: '200mg', form: 'Tablet', category: 'NSAID' },
-    { id: '4', name: 'Lisinopril', genericName: 'Lisinopril', strength: '10mg', form: 'Tablet', category: 'ACE Inhibitor' },
-    { id: '5', name: 'Metformin', genericName: 'Metformin', strength: '500mg', form: 'Tablet', category: 'Antidiabetic' }
-  ]
-
-  // Mock AI diagnosis suggestions
-  const mockDiagnosisCodes: DiagnosisCode[] = [
-    { code: 'J06.9', description: 'Acute upper respiratory infection, unspecified', confidence: 95 },
-    { code: 'K59.00', description: 'Constipation, unspecified', confidence: 87 },
-    { code: 'M79.3', description: 'Panniculitis, unspecified', confidence: 72 }
-  ]
-
   useEffect(() => {
-    setMedications(mockMedications)
-    setDiagnosisCodes(mockDiagnosisCodes)
+    setMedications([])
+    setDiagnosisCodes([])
   }, [])
 
   useEffect(() => {
@@ -85,11 +69,7 @@ export default function NewOrderModal({ isOpen, onClose, onSubmit, patientId }: 
 
   // Pediatric dosing calculator
   const calculatePediatricDose = (medication: string, weight: number, age: number) => {
-    const dosing: any = {
-      'Amoxicillin': { mgPerKg: 25, maxDaily: 1000, frequency: 'twice_daily' },
-      'Acetaminophen': { mgPerKg: 15, maxDaily: 3000, frequency: 'every_6_hours' },
-      'Ibuprofen': { mgPerKg: 10, maxDaily: 1200, frequency: 'every_8_hours' }
-    }
+    const dosing: any = {}
     
     const medDosing = dosing[medication]
     if (!medDosing) return null
@@ -104,18 +84,14 @@ export default function NewOrderModal({ isOpen, onClose, onSubmit, patientId }: 
 
   // Drug interaction checker
   const checkInteractions = (medication: string) => {
-    const interactions: any = {
-      'Amoxicillin': ['Warfarin - Monitor INR closely'],
-      'Ibuprofen': ['Lisinopril - May reduce antihypertensive effect', 'Warfarin - Increased bleeding risk'],
-      'Metformin': ['Contrast dye - Hold 48hrs before/after procedure']
-    }
+    const interactions: any = {}
     
     return interactions[medication] || []
   }
 
   // Allergy checker
   const checkAllergies = (medication: string) => {
-    const patientAllergies = ['Penicillin', 'Sulfa'] // Mock patient allergies
+    const patientAllergies: string[] = []
     const drugAllergies: any = {
       'Amoxicillin': ['Penicillin'],
       'Bactrim': ['Sulfa']

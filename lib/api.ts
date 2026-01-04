@@ -22,23 +22,33 @@ async function authFetch(input: string, init?: RequestInit) {
 
 export async function login(email: string, password: string) {
   const supabase = supabaseBrowser();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
   if (error) throw new Error(error.message);
 
   // If we have a session token, set server-side HttpOnly cookie for SSR authentication
   const token = data?.session?.access_token || null;
   if (token) {
-    await fetch('/api/auth/set-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token })
+    await fetch("/api/auth/set-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
     });
   }
 
   return { data, error };
 }
 
-export async function signup(payload: { email: string; password: string; role: 'doctor' | 'nurse' | string; name?: string; specialty?: string; department?: string; }) {
+export async function signup(payload: {
+  email: string;
+  password: string;
+  role: "doctor" | "nurse" | string;
+  name?: string;
+  specialty?: string;
+  department?: string;
+}) {
   const supabase = supabaseBrowser();
   const { data, error } = await supabase.auth.signUp({
     email: payload.email,
@@ -53,14 +63,23 @@ export async function signup(payload: { email: string; password: string; role: '
 
   // If no token, attempt sign-in with password (some Supabase setups require confirmation)
   if (!token) {
-    const { error: signInError, data: signInData } = await supabase.auth.signInWithPassword({
-      email: payload.email,
-      password: payload.password,
-    }).catch(() => ({ data: null, error: new Error('Sign in after sign up failed') }));
+    const { error: signInError, data: signInData } = await supabase.auth
+      .signInWithPassword({
+        email: payload.email,
+        password: payload.password,
+      })
+      .catch(() => ({
+        data: null,
+        error: new Error("Sign in after sign up failed"),
+      }));
 
     if (signInError) {
       // We won't throw here because the user may need to confirm email; return and let client handle next steps
-      return { success: true, message: 'Signup successful; check your email to confirm and then sign in.' };
+      return {
+        success: true,
+        message:
+          "Signup successful; check your email to confirm and then sign in.",
+      };
     }
 
     token = signInData?.session?.access_token || null;
@@ -69,31 +88,43 @@ export async function signup(payload: { email: string; password: string; role: '
   if (token) {
     // Update auth user metadata to include role and basic profile
     try {
-      await supabase.auth.updateUser({ data: { role: payload.role, full_name: payload.name, specialty: payload.specialty, department: payload.department } });
+      await supabase.auth.updateUser({
+        data: {
+          role: payload.role,
+          full_name: payload.name,
+          specialty: payload.specialty,
+          department: payload.department,
+        },
+      });
     } catch (err) {
       // Non-fatal - continue
-      console.warn('Failed to update auth user metadata:', err);
+      console.warn("Failed to update auth user metadata:", err);
     }
 
     // Set server-side session cookie for SSR
-    await fetch('/api/auth/set-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token })
+    await fetch("/api/auth/set-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
     });
 
     // Create user row by calling server endpoint (cookie will be used for auth)
-    const resp = await fetch('/api/users', {
-      method: 'POST',
+    const resp = await fetch("/api/users", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ role: payload.role, name: payload.name, specialty: payload.specialty, department: payload.department }),
+      body: JSON.stringify({
+        role: payload.role,
+        name: payload.name,
+        specialty: payload.specialty,
+        department: payload.department,
+      }),
     });
 
     if (!resp.ok) {
       const err = await resp.text();
-      throw new Error(err || 'Failed to create user profile');
+      throw new Error(err || "Failed to create user profile");
     }
 
     const { user } = await resp.json();
@@ -101,7 +132,10 @@ export async function signup(payload: { email: string; password: string; role: '
     return { success: true, user };
   }
 
-  return { success: true, message: 'Signup successful; please verify your email.' };
+  return {
+    success: true,
+    message: "Signup successful; please verify your email.",
+  };
 }
 
 export async function getPatients(): Promise<Patient[]> {
@@ -110,7 +144,10 @@ export async function getPatients(): Promise<Patient[]> {
   return res.json();
 }
 
-export async function checkDuplicatePatient(email?: string | null, phone?: string | null): Promise<{
+export async function checkDuplicatePatient(
+  email?: string | null,
+  phone?: string | null
+): Promise<{
   isDuplicate: boolean;
   patients: Patient[];
 }> {
@@ -239,19 +276,21 @@ export async function updateVisitNoteStatus(
   return res.json();
 }
 
-export async function getVisitAuditTrail(visitId: string): Promise<Array<{
-  id: string;
-  visit_id: string;
-  patient_id: string;
-  action: string;
-  entity_type: string;
-  entity_id: string;
-  user_id: string;
-  user_name: string;
-  changes: any;
-  notes: string | null;
-  created_at: string;
-}>> {
+export async function getVisitAuditTrail(visitId: string): Promise<
+  Array<{
+    id: string;
+    visit_id: string;
+    patient_id: string;
+    action: string;
+    entity_type: string;
+    entity_id: string;
+    user_id: string;
+    user_name: string;
+    changes: any;
+    notes: string | null;
+    created_at: string;
+  }>
+> {
   const res = await authFetch(`/api/visits/${visitId}/audit`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
@@ -325,6 +364,193 @@ export async function createAllergy(
   if (!res.ok) {
     const errorText = await res.text();
     let errorMessage = "Failed to create allergy";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
+}
+
+export async function deleteAllergy(patientId: string, allergyId: string) {
+  const res = await authFetch(
+    `/api/patients/${patientId}/allergies?allergyId=${allergyId}`,
+    {
+      method: "DELETE",
+    }
+  );
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMessage = "Failed to delete allergy";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
+}
+
+export async function getVaccines(patientId: string) {
+  const res = await authFetch(`/api/patients/${patientId}/vaccines`);
+  if (!res.ok) throw new Error("Failed to load vaccines");
+  return res.json() as Promise<
+    Array<{
+      id: string;
+      name: string;
+      date?: string;
+      dose?: string;
+      site?: string;
+      route?: string;
+      lotNumber?: string;
+      manufacturer?: string;
+      created_at?: string;
+    }>
+  >;
+}
+
+export async function createVaccine(
+  patientId: string,
+  payload: {
+    name: string;
+    date: string;
+    dose?: string;
+    site?: string;
+    route?: string;
+    lotNumber?: string;
+    manufacturer?: string;
+  }
+) {
+  const res = await authFetch(`/api/patients/${patientId}/vaccines`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMessage = "Failed to create vaccine";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
+}
+
+export async function deleteVaccine(patientId: string, vaccineId: string) {
+  const res = await authFetch(
+    `/api/patients/${patientId}/vaccines?vaccineId=${vaccineId}`,
+    {
+      method: "DELETE",
+    }
+  );
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMessage = "Failed to delete vaccine";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
+}
+
+export async function getFamilyHistory(patientId: string) {
+  const res = await authFetch(`/api/patients/${patientId}/family-history`);
+  if (!res.ok) throw new Error("Failed to load family history");
+  return res.json() as Promise<
+    Array<{
+      id: string;
+      relationship: string;
+      status?: string;
+      conditions?: string[] | string;
+      notes?: string;
+      age?: number | string;
+      unsure?: boolean;
+      created_at?: string;
+    }>
+  >;
+}
+
+export async function createFamilyMember(
+  patientId: string,
+  payload: {
+    relationship: string;
+    status?: string;
+    conditions?: string[] | string;
+    notes?: string;
+    age?: number | string;
+    unsure?: boolean;
+  }
+) {
+  const res = await authFetch(`/api/patients/${patientId}/family-history`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMessage = "Failed to create family member";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
+}
+
+export async function updateFamilyMember(
+  patientId: string,
+  memberId: string,
+  payload: {
+    relationship: string;
+    status?: string;
+    conditions?: string[] | string;
+    notes?: string;
+    age?: number | string;
+    unsure?: boolean;
+  }
+) {
+  const res = await authFetch(`/api/patients/${patientId}/family-history`, {
+    method: "PUT",
+    body: JSON.stringify({ memberId, ...payload }),
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMessage = "Failed to update family member";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
+}
+
+export async function deleteFamilyMember(patientId: string, memberId: string) {
+  const res = await authFetch(
+    `/api/patients/${patientId}/family-history?memberId=${memberId}`,
+    {
+      method: "DELETE",
+    }
+  );
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMessage = "Failed to delete family member";
     try {
       const errorJson = JSON.parse(errorText);
       errorMessage = errorJson.error || errorMessage;
@@ -482,9 +708,9 @@ export async function getVitals(patientId: string) {
 
 export async function getCurrentUser() {
   try {
-    const res = await fetch('/api/users/me', { 
-      credentials: 'include',
-      cache: 'no-store' // Ensure fresh data on each request
+    const res = await fetch("/api/users/me", {
+      credentials: "include",
+      cache: "no-store", // Ensure fresh data on each request
     });
     if (!res.ok) {
       // If 401, user is not authenticated - return null
@@ -497,7 +723,7 @@ export async function getCurrentUser() {
     const data = await res.json();
     return data.user;
   } catch (error) {
-    console.error('[getCurrentUser] Error fetching user:', error);
+    console.error("[getCurrentUser] Error fetching user:", error);
     return null;
   }
 }

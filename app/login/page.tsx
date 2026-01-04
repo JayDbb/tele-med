@@ -12,9 +12,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login: doctorLogin } = useDoctor()
+  const { login: doctorLogin, logout: doctorLogout } = useDoctor()
   const { setNurse, setIsAuthenticated } = useNurse()
   const router = useRouter()
+
+  const toDisplayName = (value: string) => {
+    const local = value.split('@')[0] || ''
+    const words = local.split(/[._-]+/).filter(Boolean)
+    return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') || 'User'
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,6 +68,15 @@ export default function LoginPage() {
       setLoading(false)
     }
   }
+
+  const result = doctorLogin(email, password).then((result) => {
+    if (result.success) {
+      router.push('/doctor/dashboard')
+    } else {
+      setError('Invalid email or password')
+    }
+  })
+
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -120,8 +135,11 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 text-sm text-gray-600 dark:text-gray-400">
-          <p className="font-medium">Sign in with your Supabase account</p>
-          <p className="mt-1 text-xs">Make sure your user has a role set in user_metadata (doctor or nurse)</p>
+          <p className="font-medium">Demo Accounts:</p>
+          <p>sarah.johnson@telemedclinic.com (Doctor)</p>
+          <p>michael.chen@telemedclinic.com (Doctor)</p>
+          <p>emily.rodriguez@telemedclinic.com (Nurse)</p>
+          <p className="mt-1 text-xs">Password: password</p>
         </div>
       </div>
     </div>

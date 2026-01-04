@@ -22,6 +22,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   const [activeTab, setActiveTab] = useState('record')
   const profilePhotoInputRef = useRef<HTMLInputElement | null>(null)
   const documentsInputRef = useRef<HTMLInputElement | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState({
     subjective: true,
     objective: true,
@@ -135,7 +136,17 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   }, [patientId, patientData, visitData, uploadedDocuments])
 
   const savePatientData = () => {
-    if (!nurse) return
+    if (!nurse) {
+      setSaveError('Please sign in as a nurse to save this patient.')
+      return null
+    }
+    const nameValue = patientData.name.trim()
+    const dobValue = patientData.dob.trim()
+    if (!nameValue || !dobValue) {
+      setSaveError('Name and date of birth are required to save a patient.')
+      return null
+    }
+    setSaveError(null)
 
     const newPatientId = patientId
     const hasValues = (section: Record<string, string>) =>
@@ -143,9 +154,9 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
 
     const newPatient = {
       id: newPatientId,
-      name: patientData.name,
+      name: nameValue,
       email: patientData.email,
-      dob: patientData.dob,
+      dob: dobValue,
       phone: patientData.phone,
       mrn: patientData.mrn,
       gender: patientData.gender,
@@ -306,10 +317,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   }
 
   const handleSavePatientAndSchedule = () => {
-    const newPatientId = savePatientData()
-    if (!newPatientId) return
-    // TODO: Navigate to scheduling page
-    console.log('Navigate to scheduling for patient:', newPatientId)
+    savePatientData()
+    router.push(`/nurse-portal/patients/${patientId}/schedule`)
   }
 
   const handleSavePatientAndClose = () => {
@@ -322,6 +331,14 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
     const newPatientId = savePatientData()
     if (!newPatientId) return
     router.push(getPatientUrl(newPatientId))
+  }
+
+  const handleCancel = () => {
+    if (isNewPatient) {
+      PatientDataManager.deletePatient(patientId)
+      PatientDataManager.clearDraft(patientId, draftKey)
+    }
+    router.push('/nurse-portal')
   }
 
   const patient = isNewPatient ? {
@@ -370,9 +387,13 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                 </div>
               </div>
               <div className="flex flex-wrap gap-3">
-                <Link href="/nurse-portal" className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+                >
                   Cancel
-                </Link>
+                </button>
                 {isNewPatient ? (
                   <>
                     <button 
@@ -404,6 +425,11 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                   </button>
                 )}
               </div>
+              {saveError && (
+                <div className="text-xs text-red-600 dark:text-red-400 font-medium">
+                  {saveError}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

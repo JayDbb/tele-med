@@ -9,10 +9,14 @@ import { useAuthGuard } from "../../../lib/useAuthGuard";
 import { uploadToPrivateBucket } from "../../../lib/storage";
 import { useAudioRecorder } from "../../../lib/useAudioRecorder";
 import { convertToMP3 } from "../../../lib/audioConverter";
+import { useDoctor } from "../../../contexts/DoctorContext";
+import { useNurse } from "../../../contexts/NurseContext";
 
 function NewVisitPageContent() {
   const { ready } = useAuthGuard();
   const router = useRouter();
+  const { doctor } = useDoctor();
+  const { nurse } = useNurse();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientId, setPatientId] = useState("");
   const [status, setStatus] = useState("draft");
@@ -28,6 +32,11 @@ function NewVisitPageContent() {
     summary: string;
   } | null>(null);
   const recorder = useAudioRecorder();
+  const getPatientHref = (id: string) => {
+    if (nurse) return `/nurse-portal/patients/${id}`;
+    if (doctor) return `/doctor/patients/${id}`;
+    return `/patients/${id}`;
+  };
 
   useEffect(() => {
     if (!ready) return;
@@ -207,7 +216,7 @@ function NewVisitPageContent() {
 
     // If there's a transcription, navigate to patient page
     if (transcription) {
-      router.push(`/patients/${patientId}`);
+      router.push(getPatientHref(patientId));
     } else {
       setError("Please record audio before creating the visit.");
     }
@@ -600,4 +609,3 @@ export default function NewVisitPage() {
     </Suspense>
   );
 }
-

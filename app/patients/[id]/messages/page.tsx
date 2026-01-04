@@ -4,53 +4,16 @@ import { useParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 export default function PatientMessagingPage() {
   const params = useParams()
   const [message, setMessage] = useState('')
   const [isUrgent, setIsUrgent] = useState(false)
+  const [patient, setPatient] = useState<any>(null)
 
-  const messages = [
-    {
-      id: 1,
-      type: 'received',
-      content: 'Hi Dr. Doe, the pharmacy said my refill for Metformin requires authorization. Can you help?',
-      timestamp: 'Yesterday 4:15 PM',
-      status: 'Read',
-      sender: 'Patient'
-    },
-    {
-      id: 2,
-      type: 'sent',
-      content: "I've sent the authorization request just now. It should be ready for pickup by tomorrow morning.",
-      timestamp: 'Yesterday 4:45 PM',
-      status: 'Delivered',
-      sender: 'Dr. J. Doe'
-    },
-    {
-      id: 3,
-      type: 'system',
-      content: 'New Lab Results (CMP, Lipid Panel) released to patient portal.',
-      timestamp: 'Today',
-      icon: 'science'
-    },
-    {
-      id: 4,
-      type: 'received',
-      content: "Dr. Doe, I'm feeling a bit of chest pain and shortness of breath since lunch. Should I take another pill?",
-      timestamp: 'Today 10:45 AM',
-      status: 'Unread',
-      sender: 'Patient',
-      isUrgent: true,
-      hasAttachment: true,
-      attachment: {
-        name: 'Skin_Reaction.jpg',
-        size: '1.2 MB',
-        type: 'image'
-      }
-    }
-  ]
+  const messages: any[] = []
 
   const quickTemplates = [
     '+ Clinical Question',
@@ -80,6 +43,13 @@ export default function PatientMessagingPage() {
     }
   }
 
+  useEffect(() => {
+    setPatient(PatientDataManager.getPatient(params.id as string))
+  }, [params.id])
+
+  const urgentCount = messages.filter((msg) => msg.isUrgent).length
+  const unreadCount = messages.filter((msg) => msg.status === 'Unread').length
+
   return (
     <div className="flex h-screen w-full overflow-hidden">
       <Sidebar />
@@ -96,20 +66,20 @@ export default function PatientMessagingPage() {
                 <span className="text-slate-400 text-xs font-medium uppercase tracking-wider">Messaging Context</span>
                 <span className="material-symbols-outlined text-slate-300 text-sm">chevron_right</span>
                 <div className="flex items-center gap-2">
-                  <div className="size-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-primary flex items-center justify-center text-xs font-bold">SJ</div>
-                  <span className="text-slate-900 dark:text-white text-sm font-bold">Sarah Jenkins</span>
-                  <span className="text-slate-400 text-xs">(DOB: 04/12/1985)</span>
+                  <div className="size-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-primary flex items-center justify-center text-xs font-bold">PT</div>
+                  <span className="text-slate-900 dark:text-white text-sm font-bold">{patient?.name || 'Not provided'}</span>
+                  <span className="text-slate-400 text-xs">(DOB: {patient?.dob || 'Not provided'})</span>
                 </div>
               </div>
               <div className="flex items-center gap-4">
                 <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Secure Messaging</h1>
                 <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 px-2 py-0.5 rounded text-xs font-bold border border-red-100 dark:border-red-800">
                   <span className="material-symbols-outlined text-[14px] fill-current">flag</span>
-                  1 Urgent Flag
+                  {urgentCount} Urgent Flags
                 </div>
                 <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded text-xs font-bold border border-blue-100 dark:border-blue-800">
                   <span className="material-symbols-outlined text-[14px]">mail</span>
-                  2 Unread
+                  {unreadCount} Unread
                 </div>
               </div>
             </div>
@@ -117,8 +87,8 @@ export default function PatientMessagingPage() {
               <div className="hidden xl:flex flex-col items-end mr-4 border-r border-slate-100 dark:border-gray-700 pr-4">
                 <span className="text-[10px] text-slate-400 font-bold uppercase">Last Patient Message</span>
                 <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-gray-300">
-                  <span className="truncate max-w-[150px] font-medium">"Can I increase my dosage..."</span>
-                  <span className="text-slate-400">10 mins ago</span>
+                  <span className="truncate max-w-[150px] font-medium">No messages yet</span>
+                  <span className="text-slate-400">—</span>
                 </div>
               </div>
               <button className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 text-slate-600 dark:text-gray-300 font-semibold rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-gray-600 transition-all text-xs">
@@ -169,16 +139,19 @@ export default function PatientMessagingPage() {
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4 bg-slate-50/50 dark:bg-gray-900/50">
-              {/* Date Separator */}
-              <div className="flex justify-center my-2">
-                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-gray-700 px-3 py-1 rounded-full uppercase tracking-wide">Yesterday</span>
-              </div>
-
-              {/* Messages */}
-              {messages.map((msg) => {
-                if (msg.type === 'system') {
-                  return (
-                    <div key={msg.id} className="flex justify-center my-4">
+              {messages.length === 0 ? (
+                <div className="flex flex-1 items-center justify-center text-sm text-slate-500 dark:text-gray-400">
+                  No messages yet.
+                </div>
+              ) : (
+                <>
+                  <div className="flex justify-center my-2">
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-gray-700 px-3 py-1 rounded-full uppercase tracking-wide">Today</span>
+                  </div>
+                  {messages.map((msg) => {
+                    if (msg.type === 'system') {
+                      return (
+                        <div key={msg.id} className="flex justify-center my-4">
                       <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-gray-700 border border-slate-200 dark:border-gray-600 px-4 py-1.5 rounded-lg">
                         <span className="material-symbols-outlined text-[16px] text-slate-400">{msg.icon}</span>
                         <span><strong>System:</strong> {msg.content}</span>
@@ -268,7 +241,9 @@ export default function PatientMessagingPage() {
                 }
 
                 return null
-              })}
+                  })}
+                </>
+              )}
             </div>
 
             {/* Message Input */}
@@ -320,7 +295,7 @@ export default function PatientMessagingPage() {
                 {/* Text Area */}
                 <textarea 
                   className="w-full border-0 bg-transparent p-3 text-sm text-slate-800 dark:text-gray-200 focus:ring-0 min-h-[80px] resize-none placeholder:text-slate-400 dark:placeholder:text-gray-500" 
-                  placeholder="Type a message to Sarah... (Press '/' for templates)"
+                  placeholder="Type a message... (Press '/' for templates)"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyDown={(e) => {
@@ -354,7 +329,7 @@ export default function PatientMessagingPage() {
                 </div>
               </div>
               <div className="mt-2 flex justify-end">
-                <span className="text-[10px] text-slate-400 italic">Sending as: Dr. J. Doe (Attending)</span>
+                <span className="text-[10px] text-slate-400 italic">Sending as: Staff</span>
               </div>
             </div>
           </div>
@@ -372,9 +347,9 @@ export default function PatientMessagingPage() {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
-                    Available for Visit
+                    Status not set
                   </span>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400">Since 10:40 AM</span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400">—</span>
                 </div>
                 <div className="flex gap-2">
                   <button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-1.5 rounded transition shadow-sm">Launch Video</button>
@@ -390,70 +365,40 @@ export default function PatientMessagingPage() {
               <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-slate-200 dark:border-gray-700 shadow-sm">
                 <div className="flex justify-between items-center mb-2">
                   <h4 className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase">Last Visit</h4>
-                  <a className="text-[10px] text-primary hover:underline" href="#">Oct 12</a>
+                  <a className="text-[10px] text-primary hover:underline" href="#">--</a>
                 </div>
-                <p className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed">Follow-up for hypertension. BP 130/85. Meds adjusted. Patient compliant with diet.</p>
+                <p className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed">No visits recorded yet.</p>
               </div>
 
               {/* Active Problems */}
               <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-slate-200 dark:border-gray-700 shadow-sm">
                 <h4 className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase mb-2">Active Problems</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="px-2 py-1 bg-red-50 dark:bg-red-900/40 text-red-700 dark:text-red-300 border border-red-100 dark:border-red-800 rounded text-[10px] font-bold">Type 2 Diabetes</span>
-                  <span className="px-2 py-1 bg-amber-50 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-800 rounded text-[10px] font-bold">Hypertension</span>
-                  <span className="px-2 py-1 bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-gray-600 rounded text-[10px] font-medium">Asthma (Mild)</span>
+                <div className="text-xs text-slate-600 dark:text-gray-400">
+                  No active problems recorded.
                 </div>
               </div>
 
               {/* Current Medications */}
               <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-slate-200 dark:border-gray-700 shadow-sm">
                 <h4 className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase mb-2">Current Medications</h4>
-                <ul className="space-y-2">
-                  <li className="flex justify-between items-start text-xs border-b border-slate-50 dark:border-gray-700 pb-1">
-                    <span className="font-medium text-slate-800 dark:text-gray-200">Metformin 500mg</span>
-                    <span className="text-slate-500 dark:text-gray-400">BID</span>
-                  </li>
-                  <li className="flex justify-between items-start text-xs border-b border-slate-50 dark:border-gray-700 pb-1">
-                    <span className="font-medium text-slate-800 dark:text-gray-200">Lisinopril 10mg</span>
-                    <span className="text-slate-500 dark:text-gray-400">Daily</span>
-                  </li>
-                  <li className="flex justify-between items-start text-xs">
-                    <span className="font-medium text-slate-800 dark:text-gray-200">Albuterol Inhaler</span>
-                    <span className="text-slate-500 dark:text-gray-400">PRN</span>
-                  </li>
-                </ul>
+                <div className="text-xs text-slate-600 dark:text-gray-400">
+                  No medications recorded.
+                </div>
               </div>
 
               {/* Recent Labs */}
               <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-slate-200 dark:border-gray-700 shadow-sm">
                 <h4 className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase mb-2">Recent Labs (Last 30d)</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-600 dark:text-gray-400">HbA1c</span>
-                    <span className="font-bold text-amber-600 dark:text-amber-400">7.2% (High)</span>
-                  </div>
-                  <div className="w-full bg-slate-100 dark:bg-gray-700 rounded-full h-1.5">
-                    <div className="bg-amber-500 h-1.5 rounded-full" style={{width: '70%'}}></div>
-                  </div>
-                  <div className="flex justify-between items-center text-xs pt-1">
-                    <span className="text-slate-600 dark:text-gray-400">LDL Cholesterol</span>
-                    <span className="font-bold text-green-600 dark:text-green-400">98 mg/dL</span>
-                  </div>
+                <div className="text-xs text-slate-600 dark:text-gray-400">
+                  No lab results recorded.
                 </div>
               </div>
 
               {/* Patient Engagement */}
               <div className="bg-blue-50/50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800 shadow-sm">
                 <h4 className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase mb-2">Patient Engagement</h4>
-                <div className="grid grid-cols-2 gap-2 text-center">
-                  <div className="bg-white dark:bg-gray-800 p-2 rounded border border-blue-100 dark:border-blue-700">
-                    <span className="block text-[10px] text-slate-400">Portal Login</span>
-                    <span className="block text-xs font-bold text-slate-700 dark:text-gray-300">Today</span>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 p-2 rounded border border-blue-100 dark:border-blue-700">
-                    <span className="block text-[10px] text-slate-400">Msg Response</span>
-                    <span className="block text-xs font-bold text-slate-700 dark:text-gray-300">~2 Hrs</span>
-                  </div>
+                <div className="text-xs text-slate-600 dark:text-gray-400">
+                  No engagement metrics yet.
                 </div>
               </div>
             </div>
@@ -462,10 +407,10 @@ export default function PatientMessagingPage() {
             <div className="p-3 border-t border-slate-200 dark:border-gray-700 bg-slate-100 dark:bg-gray-800 text-[10px] text-slate-400 text-center">
               <div className="flex justify-center items-center gap-1 mb-1">
                 <span className="material-symbols-outlined text-[12px] text-green-600">check_circle</span>
-                <span className="text-slate-500 dark:text-gray-400 font-medium">Consent for Telehealth on File</span>
+                <span className="text-slate-500 dark:text-gray-400 font-medium">Consent status not recorded</span>
               </div>
-              <p>After-hours: Auto-reply active (Emergency: 911)</p>
-              <p className="mt-1 opacity-70">Audit ID: #MSG-99281-REF • Retained 7 Years</p>
+              <p>After-hours: Auto-reply not configured</p>
+              <p className="mt-1 opacity-70">Audit log will appear here.</p>
             </div>
           </div>
         </div>

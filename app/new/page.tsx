@@ -7,10 +7,14 @@ import { createVisit, getPatients, transcribeVisitAudio, updateVisit } from "../
 import type { Patient } from "../../lib/types";
 import { useAuthGuard } from "../../lib/useAuthGuard";
 import { uploadToPrivateBucket } from "../../lib/storage";
+import { useDoctor } from "../../contexts/DoctorContext";
+import { useNurse } from "../../contexts/NurseContext";
 
 function NewVisitPageContent() {
   const { ready } = useAuthGuard();
   const router = useRouter();
+  const { doctor } = useDoctor();
+  const { nurse } = useNurse();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientId, setPatientId] = useState("");
   const [status, setStatus] = useState("draft");
@@ -24,6 +28,11 @@ function NewVisitPageContent() {
     structured: any;
     summary: string;
   } | null>(null);
+  const getPatientHref = (id: string) => {
+    if (nurse) return `/nurse-portal/patients/${id}`;
+    if (doctor) return `/doctor/patients/${id}`;
+    return `/patients/${id}`;
+  };
 
   useEffect(() => {
     if (!ready) return;
@@ -141,7 +150,7 @@ function NewVisitPageContent() {
           setTranscribing(false);
         }
       }
-      router.push(`/patients/${visit.patient_id}`);
+      router.push(getPatientHref(visit.patient_id));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -341,4 +350,3 @@ export default function NewVisitPage() {
     </Suspense>
   );
 }
-

@@ -1,11 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import NurseSidebar from '@/components/NurseSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
 import { getPatients } from '@/lib/api'
 import type { Patient } from '@/lib/types'
+import { PatientDataManager } from '@/utils/PatientDataManager'
+import { useNurse } from '@/contexts/NurseContext'
 
 type TabType = 'waitlist' | 'all' | 'my' | 'completed'
 
@@ -131,7 +133,59 @@ export default function NursePortalPage() {
 
     setFilteredPatients(filtered)
   }
+  const [patients, setPatients] = useState<any[]>([])
+  const { nurse } = useNurse()
+  const availableDoctors: any[] = []
+  const busyDoctors: any[] = []
+  const todayLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
+  const isValidPatientId = (patientId: unknown) => {
+    const value = `${patientId ?? ''}`.trim()
+    return value.length > 0 && value !== 'undefined' && value !== 'null'
+  }
 
+  useEffect(() => {
+    const loadPatients = () => {
+      PatientDataManager.cleanupBlankPatients()
+      const allPatients = PatientDataManager.getAllPatients()
+      setPatients(allPatients)
+    }
+
+    loadPatients()
+
+    // Listen for patient updates
+    const handleStorageChange = () => {
+      loadPatients()
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
+
+  const handleClearPatients = () => {
+    if (!window.confirm('Clear all demo patients and locally saved visits?')) return
+    PatientDataManager.clearAllPatients()
+    setPatients([])
+  }
+
+  const myPatients = useMemo(() => {
+    if (!nurse?.id) return []
+    return patients.filter((patient) => {
+      const isCompleted = `${patient.status}`.toLowerCase() === 'completed'
+      return patient.nurseId === nurse.id && !isCompleted
+    })
+  }, [nurse?.id, patients])
+  const completedPatients = useMemo(
+    () => patients.filter((patient) => `${patient.status}`.toLowerCase() === 'completed'),
+    [patients]
+  )
+
+  const visiblePatients = (activeTab === 'completed'
+    ? completedPatients
+    : activeTab === 'all'
+      ? patients
+      : activeTab === 'my'
+        ? myPatients
+        : [])
   return (
     <div className="flex h-screen w-full overflow-hidden">
       <NurseSidebar />
@@ -150,7 +204,7 @@ export default function NursePortalPage() {
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
                 <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Nurse Dashboard</h2>
-                <p className="text-slate-600 dark:text-gray-400">Monday, Oct 24 • Shift A</p>
+                <p className="text-slate-600 dark:text-gray-400">{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })} • Shift not set</p>
               </div>
             </div>
 
@@ -167,35 +221,26 @@ export default function NursePortalPage() {
                     <a className="text-primary text-sm font-bold hover:underline" href="#">View All</a>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="flex items-start gap-4 p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md cursor-pointer group">
-                      <div className="bg-center bg-no-repeat bg-cover rounded-full size-12 shrink-0 group-hover:scale-105 transition-transform" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuBBA0LuUPvPheNTBMOBEDsV3g3prL1Xqs0FFDmjqEw5tQ0P_0mX0GvoGJ1RNOeA9YkVAsK_SUCxrB5flyFJeyIvKMY5LcxrDAgmyHx12E8pTJWQZ1dJVArlWTzEsivnSO5t94DU6TB4fJKzbd0RJvtkucIEg8Ru-Yfe2N9jRsqpT06a-7d0G3nGd6itkQCfTATz5K_5aMa6I_5kB72GERA9HkVTG1RLp7nSn8CWPM7NmaZT0SAksrzlKfP3gphfd4QWfT4UhIL2UA")' }} />
-                      <div className="flex flex-col flex-1 gap-1">
-                        <div className="flex justify-between items-start">
-                          <h3 className="text-gray-900 dark:text-white text-base font-bold">Dr. Emily Chen</h3>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary uppercase">Remote</span>
-                        </div>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Oncologist</p>
-                        <div className="flex items-center gap-1 mt-1 text-green-600 dark:text-green-400 text-xs font-medium">
-                          <span className="material-symbols-outlined text-[14px]">videocam</span>
-                          Online
-                        </div>
+                    {availableDoctors.length === 0 ? (
+                      <div className="col-span-full flex items-center justify-center rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 text-sm text-gray-500 dark:text-gray-400">
+                        No available doctors recorded.
                       </div>
-                    </div>
-
-                    <div className="flex items-start gap-4 p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md cursor-pointer group">
-                      <div className="bg-center bg-no-repeat bg-cover rounded-full size-12 shrink-0 group-hover:scale-105 transition-transform" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAah71yzOcaCPS3iSjs5EjrZX2CDavOkYz_IS_fYISxhgcliJT12zcXA6SNN3k3yXQo-IzpeuqSXRiqvvE-kTCysKa39c_GV_ck_B4mSUkr26DiBBLPMtLvyGtiCgXFUuxXlypXfW28M2-PizLoyNalJU1ArkhpCeyy0Qh1Cey3Eo4QbSgITJdq0x2ZY9tkktDB6yaR37ORhHf3oIa_eesiWO3JCRaM91rhj4gDmhdfR-OM9e2NyFTv-pqeVVD4W1xxUTD1RcTh0g")' }} />
-                      <div className="flex flex-col flex-1 gap-1">
-                        <div className="flex justify-between items-start">
-                          <h3 className="text-gray-900 dark:text-white text-base font-bold">Dr. Mark Ross</h3>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 uppercase">In-Person</span>
+                    ) : (
+                      availableDoctors.map((doctor) => (
+                        <div key={doctor.id} className="flex items-start gap-4 p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md cursor-pointer group">
+                          <div className="size-12 rounded-full bg-slate-100 dark:bg-gray-700 flex items-center justify-center text-slate-400">
+                            <span className="material-symbols-outlined">person</span>
+                          </div>
+                          <div className="flex flex-col flex-1 gap-1">
+                            <div className="flex justify-between items-start">
+                              <h3 className="text-gray-900 dark:text-white text-base font-bold">{doctor.name}</h3>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary uppercase">{doctor.mode}</span>
+                            </div>
+                            <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">{doctor.specialty}</p>
+                          </div>
                         </div>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Hematologist</p>
-                        <div className="flex items-center gap-1 mt-1 text-gray-500 dark:text-gray-400 text-xs font-medium">
-                          <span className="material-symbols-outlined text-[14px]">meeting_room</span>
-                          Room 302
-                        </div>
-                      </div>
-                    </div>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -206,29 +251,23 @@ export default function NursePortalPage() {
                     Busy Doctors
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="flex items-start gap-4 p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 opacity-80 hover:opacity-100 cursor-pointer">
-                      <div className="bg-center bg-no-repeat bg-cover rounded-full size-12 shrink-0 grayscale" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCmKZn89cHc9GTgvk50-SUjgjBJRaljZFDNZtjhLUZVGmJ-W7jxyefzEAPe5c-eLWje2I42QckN3bAu5DSX_i-jFKq1xgffkbxTXpkDNXioyjulP5_8sIXYvl1YvdE1QfCgeK_csNaOVVenkCqeDfBHWNxhNXtqPeuPxoEfQnXBLscAK33hIUtLFzTaRH9LuSZT_xk-hkWwjWanoe9Bz7-3MouGAq4Dy8iVkshy4GrpFegE_BY0vV7UTq4tb7RPxWYfOjZzU7Xm_A")' }} />
-                      <div className="flex flex-col flex-1 gap-1">
-                        <h3 className="text-gray-900 dark:text-white text-base font-bold">Dr. Sarah Lee</h3>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Radiologist</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 uppercase">In Surgery</span>
-                          <span className="text-[10px] text-gray-400">~45m left</span>
-                        </div>
+                    {busyDoctors.length === 0 ? (
+                      <div className="col-span-full flex items-center justify-center rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 text-sm text-gray-500 dark:text-gray-400">
+                        No busy doctors recorded.
                       </div>
-                    </div>
-
-                    <div className="flex items-start gap-4 p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 opacity-80 hover:opacity-100 cursor-pointer">
-                      <div className="bg-center bg-no-repeat bg-cover rounded-full size-12 shrink-0 grayscale" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAsjxUnSY9ibAb1o15wuohiAukHKquH2bgmfDH3UUyC3qCuZv6SfI0qgy-jT6i32f4rNXqwOVfy9W_YOPgNE1vhI8S8WTCmK1kgTGGIIf_6BMvV1jp1uRDgvnkG9RKX1A6NzjWi8O1IMv26jqgL_L_u2JjXUDKqN2oZzH3D_2WkkIQXN5z401Urzi8lQl0szJaKJaaVQBVZLQ4PvuOv5JCt1URDjqLsAYzrgOYAaHz-q50ydgZoH9NL-pNuoMjtnm4vmk6wFuRGiQ")' }} />
-                      <div className="flex flex-col flex-1 gap-1">
-                        <h3 className="text-gray-900 dark:text-white text-base font-bold">Dr. James Wu</h3>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Oncologist</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 uppercase">Consultation</span>
-                          <span className="text-[10px] text-gray-400">~10m left</span>
+                    ) : (
+                      busyDoctors.map((doctor) => (
+                        <div key={doctor.id} className="flex items-start gap-4 p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 opacity-80 hover:opacity-100 cursor-pointer">
+                          <div className="size-12 rounded-full bg-slate-100 dark:bg-gray-700 flex items-center justify-center text-slate-400">
+                            <span className="material-symbols-outlined">person</span>
+                          </div>
+                          <div className="flex flex-col flex-1 gap-1">
+                            <h3 className="text-gray-900 dark:text-white text-base font-bold">{doctor.name}</h3>
+                            <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">{doctor.specialty}</p>
+                          </div>
                         </div>
-                      </div>
-                    </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -241,14 +280,14 @@ export default function NursePortalPage() {
                   <button
                     onClick={() => setActiveTab('waitlist')}
                     className={`pb-4 px-2 border-b-2 text-sm flex items-center gap-2 transition-all ${activeTab === 'waitlist'
-                        ? 'border-primary text-primary font-semibold'
-                        : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 font-medium dark:text-gray-400 dark:hover:text-gray-200'
+                      ? 'border-primary text-primary font-semibold'
+                      : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 font-medium dark:text-gray-400 dark:hover:text-gray-200'
                       }`}
                   >
                     Wait List
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${activeTab === 'waitlist'
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                       }`}>
                       {allPatients.filter(p => !p.clinician_id).length}
                     </span>
@@ -256,14 +295,14 @@ export default function NursePortalPage() {
                   <button
                     onClick={() => setActiveTab('all')}
                     className={`pb-4 px-2 border-b-2 text-sm flex items-center gap-2 transition-all ${activeTab === 'all'
-                        ? 'border-primary text-primary font-semibold'
-                        : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 font-medium dark:text-gray-400 dark:hover:text-gray-200'
+                      ? 'border-primary text-primary font-semibold'
+                      : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 font-medium dark:text-gray-400 dark:hover:text-gray-200'
                       }`}
                   >
                     All Patients
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${activeTab === 'all'
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                       }`}>
                       {allPatients.length}
                     </span>
@@ -271,14 +310,14 @@ export default function NursePortalPage() {
                   <button
                     onClick={() => setActiveTab('my')}
                     className={`pb-4 px-2 border-b-2 text-sm flex items-center gap-2 transition-all ${activeTab === 'my'
-                        ? 'border-primary text-primary font-semibold'
-                        : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 font-medium dark:text-gray-400 dark:hover:text-gray-200'
+                      ? 'border-primary text-primary font-semibold'
+                      : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 font-medium dark:text-gray-400 dark:hover:text-gray-200'
                       }`}
                   >
                     My Patients
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${activeTab === 'my'
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                       }`}>
                       {allPatients.length}
                     </span>
@@ -286,14 +325,14 @@ export default function NursePortalPage() {
                   <button
                     onClick={() => setActiveTab('completed')}
                     className={`pb-4 px-2 border-b-2 text-sm flex items-center gap-2 transition-all ${activeTab === 'completed'
-                        ? 'border-primary text-primary font-semibold'
-                        : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 font-medium dark:text-gray-400 dark:hover:text-gray-200'
+                      ? 'border-primary text-primary font-semibold'
+                      : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 font-medium dark:text-gray-400 dark:hover:text-gray-200'
                       }`}
                   >
                     Completed
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${activeTab === 'completed'
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                       }`}>
                       {allPatients.length}
                     </span>
@@ -343,7 +382,7 @@ export default function NursePortalPage() {
                 ) : (
                   filteredPatients.map((patient) => {
                     return (
-                      <Link key={patient.id} href={`/patients/${patient.id}`} className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 p-1 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/30 block">
+                      <Link key={patient.id} href={`/nurse-portal/patients/${patient.id}`} className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 p-1 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/30 block">
                         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-4 gap-4 lg:gap-8">
                           <div className="flex items-center gap-4 min-w-[240px]">
                             <div className="size-12 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg border border-blue-100 dark:border-blue-800 shadow-sm">
@@ -383,8 +422,8 @@ export default function NursePortalPage() {
                             </div>
                             <div className="flex items-center gap-4">
                               <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide shadow-sm ${patient.clinician_id
-                                  ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200/60 dark:border-green-800'
-                                  : 'bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-200/60 dark:border-orange-800'
+                                ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200/60 dark:border-green-800'
+                                : 'bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border border-orange-200/60 dark:border-orange-800'
                                 }`}>
                                 <span className={`size-1.5 rounded-full ${patient.clinician_id ? 'bg-green-500' : 'bg-orange-500'}`}></span>
                                 {patient.clinician_id ? 'Assigned' : 'Wait List'}

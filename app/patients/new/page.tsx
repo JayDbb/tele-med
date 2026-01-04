@@ -50,7 +50,7 @@ export default function NewPatientPage() {
                 return;
             }
 
-            router.push(`/patients/${patient.id}`);
+            router.push(`/patients/${patient.id}/schedule`);
         } catch (err: any) {
             setError(err?.message || "Failed to create patient. Please try again.");
         } finally {

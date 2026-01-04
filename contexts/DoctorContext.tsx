@@ -16,7 +16,7 @@ interface Doctor {
 interface DoctorContextType {
   doctor: Doctor | null
   login: (email: string, password: string) => Promise<{ success: boolean; role?: string; error?: string }>
-  logout: () => Promise<void>
+  logout: () => void
   isAuthenticated: boolean
   loading: boolean
 }
@@ -49,6 +49,7 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
       } else if (event === 'SIGNED_OUT') {
         setDoctor(null)
         setIsAuthenticated(false)
+        setLoading(false)
       }
     })
 
@@ -125,6 +126,7 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
         }
         setDoctor(doctorData)
         setIsAuthenticated(true)
+        setLoading(false)
         console.log('[DoctorContext] loadUserData -> set doctor and isAuthenticated true (from server)', doctorData)
       } else if (user) {
         // Fallback to auth user metadata
@@ -141,6 +143,7 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
 
         setDoctor(doctorData)
         setIsAuthenticated(true)
+        setLoading(false)
         console.log('[DoctorContext] loadUserData -> set doctor and isAuthenticated true (from session)', doctorData)
       } else {
         console.warn('[DoctorContext] loadUserData called but no user data available')
@@ -191,6 +194,7 @@ export function DoctorProvider({ children }: { children: ReactNode }) {
       await fetch('/api/auth/clear-session', { method: 'POST' })
       setDoctor(null)
       setIsAuthenticated(false)
+      setLoading(false)
     } catch (error) {
       console.error('Error logging out:', error)
     }
