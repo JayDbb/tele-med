@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "../../../lib/auth";
+import { requireUser, getUserRole } from "../../../lib/auth";
 import { supabaseServer } from "../../../lib/supabaseServer";
 
 export async function GET(req: NextRequest) {
@@ -9,7 +9,26 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = supabaseServer();
+  const userRole = await getUserRole(userId);
 
+  // Nurses can see all patients
+  if (userRole === 'nurse') {
+    const { data: allPatients, error: allError } = await supabase
+      .from("patients")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (allError) {
+      return NextResponse.json({ error: allError.message }, { status: 400 });
+    }
+
+    return NextResponse.json((allPatients || []).map((p: any) => ({
+      ...p,
+      is_shared: false,
+    })));
+  }
+
+  // Doctors see only their owned and shared patients
   // Get patients owned by the clinician
   const { data: ownedPatients, error: ownedError } = await supabase
     .from("patients")

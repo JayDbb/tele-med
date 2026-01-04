@@ -58,13 +58,18 @@ export default function AssignPatientModal({
       }
 
       const res = await fetch('/api/users', {
+        method: 'GET',
         headers: {
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
+        credentials: 'include', // Include cookies for server-side auth fallback
+        cache: 'no-store', // Ensure fresh data, bypass service worker cache
       })
 
       if (!res.ok) {
-        throw new Error('Failed to load users')
+        const errorData = await res.json().catch(() => ({ error: 'Failed to load users' }))
+        throw new Error(errorData.error || `Failed to load users: ${res.status} ${res.statusText}`)
       }
 
       const usersData = await res.json()

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "../../../../../lib/auth";
+import { requireUser, verifyPatientAccess } from "../../../../../lib/auth";
 import { supabaseServer } from "../../../../../lib/supabaseServer";
 
 // Helper function to extract number from string
@@ -97,25 +97,10 @@ export async function GET(
 
   const supabase = supabaseServer();
 
-  // Verify patient access (owned or shared)
-  const { data: patientOwned } = await supabase
-    .from("patients")
-    .select("id")
-    .eq("id", patientId)
-    .eq("clinician_id", userId)
-    .maybeSingle();
-
-  if (!patientOwned) {
-    const { data: shareRow } = await supabase
-      .from("patient_shares")
-      .select("patient_id")
-      .eq("patient_id", patientId)
-      .eq("shared_user_id", userId)
-      .maybeSingle();
-
-    if (!shareRow) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+  // Verify patient access (nurses can access all, doctors only owned/shared)
+  const { hasAccess } = await verifyPatientAccess(userId, patientId);
+  if (!hasAccess) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   // Get all visits for the patient

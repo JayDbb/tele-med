@@ -16,20 +16,53 @@ const PatientCards = () => {
     try {
       setLoading(true)
       const apiPatients = await getPatients()
-      
-      // Map database fields to component format
-      const mappedPatients = apiPatients.map((patient: Patient) => ({
-        id: patient.id,
-        name: patient.full_name || 'Unknown',
-        email: patient.email || '',
-        dob: patient.dob || '',
-        phone: patient.phone || '',
-        gender: patient.sex_at_birth || patient.gender_identity || 'Not provided',
-        physician: 'Unassigned', // Can be fetched from clinician_id if needed
-        lastConsultation: '',
-        appointment: '',
-        image: undefined,
-      }))
+
+      // Get auth token for API calls
+      const { supabaseBrowser } = await import('@/lib/supabaseBrowser')
+      const supabase = supabaseBrowser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+
+      // Helper function to fetch clinician name
+      const fetchClinicianName = async (clinicianId: string | null | undefined): Promise<string> => {
+        if (!clinicianId || !token) return 'Unassigned'
+        
+        try {
+          const clinicianRes = await fetch(`/api/clinicians/${clinicianId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          })
+
+          if (clinicianRes.ok) {
+            const clinicianData = await clinicianRes.json()
+            return clinicianData.full_name || clinicianData.email?.split('@')[0] || 'Unknown Clinician'
+          }
+        } catch (clinicianError) {
+          console.warn('Could not fetch clinician info:', clinicianError)
+        }
+        return 'Unassigned'
+      }
+
+      // Fetch clinician names for all patients in parallel
+      const mappedPatients = await Promise.all(
+        apiPatients.map(async (patient: Patient) => {
+          const physicianName = await fetchClinicianName(patient.clinician_id)
+          
+          return {
+            id: patient.id,
+            name: patient.full_name || 'Unknown',
+            email: patient.email || '',
+            dob: patient.dob || '',
+            phone: patient.phone || '',
+            gender: patient.sex_at_birth || patient.gender_identity || 'Not provided',
+            physician: physicianName,
+            lastConsultation: '',
+            appointment: '',
+            image: undefined,
+          }
+        })
+      )
       
       setPatients(mappedPatients)
     } catch (error) {

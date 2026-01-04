@@ -1,16 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
-import { getPatient, createVisit, appendVisitNote, transcribeVisitAudio, updateVisit } from '@/lib/api'
-import { useAudioRecorder } from '@/lib/useAudioRecorder'
-import { convertToMP3 } from '@/lib/audioConverter'
-import { uploadToPrivateBucket } from '@/lib/storage'
 import { getPatient, createVisit, appendVisitNote, transcribeVisitAudio, updateVisit } from '@/lib/api'
 import { useAudioRecorder } from '@/lib/useAudioRecorder'
 import { convertToMP3 } from '@/lib/audioConverter'
@@ -810,44 +805,25 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
                     href={getPatientUrl(patientId)}
                     className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
                   >
-                    <Link
-                      href={getPatientUrl(patientId)}
-                      className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Cancel
-                    </Link>
-                    <button
-                      onClick={handleSaveVisit}
-                      disabled={saving}
-                      className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50"
-                <button
-                      onClick={handleSaveVisit}
-                      disabled={saving}
-                      className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50"
-                    >
-                      {saving ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Saving...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Save Visit</span>
-                          <span className="material-symbols-outlined text-sm">save</span>
-                        </>
-                      )}
-                      {saving ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Saving...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Save Visit</span>
-                          <span className="material-symbols-outlined text-sm">save</span>
-                        </>
-                      )}
-                    </button>
+                    Cancel
+                  </Link>
+                  <button
+                    onClick={handleSaveVisit}
+                    disabled={saving}
+                    className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {saving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Save Visit</span>
+                        <span className="material-symbols-outlined text-sm">save</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -953,37 +929,27 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
                                 <div className="w-full text-left bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                                   <p className="text-xs font-semibold text-blue-800 dark:text-blue-200 mb-2">Transcription Complete</p>
                                   <p className="text-sm text-blue-700 dark:text-blue-300">{transcription.summary || transcription.transcript}</p>
-                  )}
-                                  {transcribing && !uploading && !recording && (
-                                    <div className="w-full px-4 py-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg flex items-center justify-center gap-2">
-                                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-600 border-t-transparent"></div>
-                                      <span className="text-purple-700 dark:text-purple-300 text-sm font-medium">Transcribing audio and generating notes...</span>
-                                    </div>
-                                  )}
-                                  {transcription && (
-                                    <div className="w-full text-left bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                                      <p className="text-xs font-semibold text-blue-800 dark:text-blue-200 mb-2">Transcription Complete</p>
-                                      <p className="text-sm text-blue-700 dark:text-blue-300">{transcription.summary || transcription.transcript}</p>
-                                    </div>
-                                  )}
                                 </div>
-              </div>
+                              )}
+                              {transcribing && !uploading && !recording && (
+                                <div className="w-full px-4 py-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg flex items-center justify-center gap-2">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-600 border-t-transparent"></div>
+                                  <span className="text-purple-700 dark:text-purple-300 text-sm font-medium">Transcribing audio and generating notes...</span>
+                                </div>
+                              )}
+                              {transcription && (
+                                <div className="w-full text-left bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                                  <p className="text-xs font-semibold text-blue-800 dark:text-blue-200 mb-2">Transcription Complete</p>
+                                  <p className="text-sm text-blue-700 dark:text-blue-300">{transcription.summary || transcription.transcript}</p>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                  )}
                         </div>
-                      </div>
-            </div>
 
-                  {/* SOAP Note Form */}
-                  <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                    <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4 bg-white dark:bg-gray-900">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-primary/10 text-primary p-2 rounded-lg">
-                          <span className="material-symbols-outlined text-sm">description</span>
-                        </div>
-                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Visit Note</h2>
                       </div>
-                    </div>
+                    )}
+
                     {/* SOAP Note Form */}
                     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                       <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4 bg-white dark:bg-gray-900">
@@ -994,47 +960,17 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
                           <h2 className="text-lg font-bold text-gray-900 dark:text-white">Visit Note</h2>
                         </div>
                       </div>
+                      {/* SOAP Note Form */}
+                      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                        <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4 bg-white dark:bg-gray-900">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-primary/10 text-primary p-2 rounded-lg">
+                              <span className="material-symbols-outlined text-sm">description</span>
+                            </div>
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Visit Note</h2>
+                          </div>
+                        </div>
 
-                      {/* Form Content */}
-                      <div className="p-6 space-y-8">
-                        {/* Subjective Section */}
-                        <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                          <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                              Subjective
-                              <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Chief Complaint & HPI</span>
-                            </h3>
-                          </div>
-                          <div className="space-y-4">
-                            <div>
-                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Chief Complaint</label>
-                              <input
-                                value={visitData.subjective.chiefComplaint}
-                                onChange={(e) => setVisitData({
-                                  ...visitData,
-                                  subjective: { ...visitData.subjective, chiefComplaint: e.target.value }
-                                })}
-                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
-                                placeholder="e.g., Persistent cough, fever"
-                                type="text"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">History of Present Illness</label>
-                              <textarea
-                                value={visitData.subjective.hpi}
-                                onChange={(e) => setVisitData({
-                                  ...visitData,
-                                  subjective: { ...visitData.subjective, hpi: e.target.value }
-                                })}
-                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
-                                placeholder="Describe the HPI..."
-                                rows={4}
-                              />
-                            </div>
-                          </div>
-                        </section>
                         {/* Form Content */}
                         <div className="p-6 space-y-8">
                           {/* Subjective Section */}
@@ -1075,288 +1011,336 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
                               </div>
                             </div>
                           </section>
-
-                          {/* Objective Section */}
-                          <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                            <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                            <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                              Objective
-                              <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Vitals & Exam</span>
-                            </h3>
-
-                            {/* Vitals Grid */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                              <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">BP (mmHg)</label>
-                                <input
-                                  value={visitData.objective.bp}
-                                  onChange={(e) => setVisitData({
-                                    ...visitData,
-                                    objective: { ...visitData.objective, bp: e.target.value }
-                                  })}
-                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                                  placeholder="120/80"
-                                  type="text"
-                                />
+                          {/* Form Content */}
+                          <div className="p-6 space-y-8">
+                            {/* Subjective Section */}
+                            <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                              <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                              <div className="flex items-center justify-between">
+                                <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                  Subjective
+                                  <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Chief Complaint & HPI</span>
+                                </h3>
                               </div>
-                              <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">HR (bpm)</label>
-                                <input
-                                  value={visitData.objective.hr}
-                                  onChange={(e) => setVisitData({
-                                    ...visitData,
-                                    objective: { ...visitData.objective, hr: e.target.value }
-                                  })}
-                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                                  placeholder="72"
-                                  type="text"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Temp (°F)</label>
-                                <input
-                                  value={visitData.objective.temp}
-                                  onChange={(e) => setVisitData({
-                                    ...visitData,
-                                    objective: { ...visitData.objective, temp: e.target.value }
-                                  })}
-                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                                  placeholder="98.6"
-                                  type="text"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Weight (lbs)</label>
-                                <input
-                                  value={visitData.objective.weight}
-                                  onChange={(e) => setVisitData({
-                                    ...visitData,
-                                    objective: { ...visitData.objective, weight: e.target.value }
-                                  })}
-                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                                  placeholder="165"
-                                  type="text"
-                                />
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Physical Exam Findings</label>
-                              <textarea
-                                value={visitData.objective.examFindings}
-                                onChange={(e) => setVisitData({
-                                  ...visitData,
-                                  objective: { ...visitData.objective, examFindings: e.target.value }
-                                })}
-                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
-                                placeholder="General appearance, HEENT, Lungs, Heart..."
-                                rows={3}
-                              />
-                            </div>
-                          </section>
-                          {/* Objective Section */}
-                          <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                            <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                            <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                              Objective
-                              <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Vitals & Exam</span>
-                            </h3>
-
-                            {/* Vitals Grid */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                              <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">BP (mmHg)</label>
-                                <input
-                                  value={visitData.objective.bp}
-                                  onChange={(e) => setVisitData({
-                                    ...visitData,
-                                    objective: { ...visitData.objective, bp: e.target.value }
-                                  })}
-                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                                  placeholder="120/80"
-                                  type="text"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">HR (bpm)</label>
-                                <input
-                                  value={visitData.objective.hr}
-                                  onChange={(e) => setVisitData({
-                                    ...visitData,
-                                    objective: { ...visitData.objective, hr: e.target.value }
-                                  })}
-                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                                  placeholder="72"
-                                  type="text"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Temp (°F)</label>
-                                <input
-                                  value={visitData.objective.temp}
-                                  onChange={(e) => setVisitData({
-                                    ...visitData,
-                                    objective: { ...visitData.objective, temp: e.target.value }
-                                  })}
-                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                                  placeholder="98.6"
-                                  type="text"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Weight (lbs)</label>
-                                <input
-                                  value={visitData.objective.weight}
-                                  onChange={(e) => setVisitData({
-                                    ...visitData,
-                                    objective: { ...visitData.objective, weight: e.target.value }
-                                  })}
-                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                                  placeholder="165"
-                                  type="text"
-                                />
-                              </div>
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Physical Exam Findings</label>
-                              <textarea
-                                value={visitData.objective.examFindings}
-                                onChange={(e) => setVisitData({
-                                  ...visitData,
-                                  objective: { ...visitData.objective, examFindings: e.target.value }
-                                })}
-                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
-                                placeholder="General appearance, HEENT, Lungs, Heart..."
-                                rows={3}
-                              />
-                            </div>
-                          </section>
-
-                          {/* Assessment & Plan */}
-                          <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                            <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                            <h3 className="text-base font-bold text-gray-900 dark:text-white">Assessment & Plan</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              <div>
-                                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Assessment / Diagnosis</label>
-                                <div className="relative">
-                                  <span className="absolute top-2.5 left-3 text-gray-500 dark:text-gray-400">
-                                    <span className="material-symbols-outlined text-sm">medical_services</span>
-                                  </span>
-                                  <textarea
-                                    value={visitData.assessmentPlan.assessment}
+                              <div className="space-y-4">
+                                <div>
+                                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Chief Complaint</label>
+                                  <input
+                                    value={visitData.subjective.chiefComplaint}
                                     onChange={(e) => setVisitData({
                                       ...visitData,
-                                      assessmentPlan: { ...visitData.assessmentPlan, assessment: e.target.value }
+                                      subjective: { ...visitData.subjective, chiefComplaint: e.target.value }
                                     })}
-                                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none"
-                                    placeholder="Primary diagnosis..."
-                                    rows={5}
+                                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
+                                    placeholder="e.g., Persistent cough, fever"
+                                    type="text"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">History of Present Illness</label>
+                                  <textarea
+                                    value={visitData.subjective.hpi}
+                                    onChange={(e) => setVisitData({
+                                      ...visitData,
+                                      subjective: { ...visitData.subjective, hpi: e.target.value }
+                                    })}
+                                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
+                                    placeholder="Describe the HPI..."
+                                    rows={4}
                                   />
                                 </div>
                               </div>
-                              <div>
-                                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Treatment Plan</label>
-                                <div className="relative">
-                                  <span className="absolute top-2.5 left-3 text-gray-500 dark:text-gray-400">
-                                    <span className="material-symbols-outlined text-sm">healing</span>
-                                  </span>
-                                  <textarea
-                                    value={visitData.assessmentPlan.plan}
+                            </section>
+
+                            {/* Objective Section */}
+                            <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                              <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                              <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                Objective
+                                <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Vitals & Exam</span>
+                              </h3>
+
+                              {/* Vitals Grid */}
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                <div>
+                                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">BP (mmHg)</label>
+                                  <input
+                                    value={visitData.objective.bp}
                                     onChange={(e) => setVisitData({
                                       ...visitData,
-                                      assessmentPlan: { ...visitData.assessmentPlan, plan: e.target.value }
+                                      objective: { ...visitData.objective, bp: e.target.value }
                                     })}
-                                    className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none"
-                                    placeholder="Medications, referrals, follow-up..."
-                                    rows={5}
+                                    className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                    placeholder="120/80"
+                                    type="text"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">HR (bpm)</label>
+                                  <input
+                                    value={visitData.objective.hr}
+                                    onChange={(e) => setVisitData({
+                                      ...visitData,
+                                      objective: { ...visitData.objective, hr: e.target.value }
+                                    })}
+                                    className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                    placeholder="72"
+                                    type="text"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Temp (°F)</label>
+                                  <input
+                                    value={visitData.objective.temp}
+                                    onChange={(e) => setVisitData({
+                                      ...visitData,
+                                      objective: { ...visitData.objective, temp: e.target.value }
+                                    })}
+                                    className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                    placeholder="98.6"
+                                    type="text"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Weight (lbs)</label>
+                                  <input
+                                    value={visitData.objective.weight}
+                                    onChange={(e) => setVisitData({
+                                      ...visitData,
+                                      objective: { ...visitData.objective, weight: e.target.value }
+                                    })}
+                                    className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                    placeholder="165"
+                                    type="text"
                                   />
                                 </div>
                               </div>
-                            </div>
-                          </section>
 
-                          {/* Additional Notes */}
-                          <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                            <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                            <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                              Additional Notes
-                              <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Summary & Observations</span>
-                            </h3>
-                            <div>
-                              <textarea
-                                value={visitData.additionalNotes}
-                                onChange={(e) => setVisitData({
-                                  ...visitData,
-                                  additionalNotes: e.target.value
-                                })}
-                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
-                                placeholder="Additional notes, observations, or summary will appear here after dictation..."
-                                rows={6}
-                              />
-                            </div>
-                          </section>
+                              <div>
+                                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Physical Exam Findings</label>
+                                <textarea
+                                  value={visitData.objective.examFindings}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, examFindings: e.target.value }
+                                  })}
+                                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
+                                  placeholder="General appearance, HEENT, Lungs, Heart..."
+                                  rows={3}
+                                />
+                              </div>
+                            </section>
+                            {/* Objective Section */}
+                            <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                              <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                              <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                Objective
+                                <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Vitals & Exam</span>
+                              </h3>
+
+                              {/* Vitals Grid */}
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                <div>
+                                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">BP (mmHg)</label>
+                                  <input
+                                    value={visitData.objective.bp}
+                                    onChange={(e) => setVisitData({
+                                      ...visitData,
+                                      objective: { ...visitData.objective, bp: e.target.value }
+                                    })}
+                                    className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                    placeholder="120/80"
+                                    type="text"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">HR (bpm)</label>
+                                  <input
+                                    value={visitData.objective.hr}
+                                    onChange={(e) => setVisitData({
+                                      ...visitData,
+                                      objective: { ...visitData.objective, hr: e.target.value }
+                                    })}
+                                    className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                    placeholder="72"
+                                    type="text"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Temp (°F)</label>
+                                  <input
+                                    value={visitData.objective.temp}
+                                    onChange={(e) => setVisitData({
+                                      ...visitData,
+                                      objective: { ...visitData.objective, temp: e.target.value }
+                                    })}
+                                    className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                    placeholder="98.6"
+                                    type="text"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Weight (lbs)</label>
+                                  <input
+                                    value={visitData.objective.weight}
+                                    onChange={(e) => setVisitData({
+                                      ...visitData,
+                                      objective: { ...visitData.objective, weight: e.target.value }
+                                    })}
+                                    className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                    placeholder="165"
+                                    type="text"
+                                  />
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Physical Exam Findings</label>
+                                <textarea
+                                  value={visitData.objective.examFindings}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, examFindings: e.target.value }
+                                  })}
+                                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
+                                  placeholder="General appearance, HEENT, Lungs, Heart..."
+                                  rows={3}
+                                />
+                              </div>
+                            </section>
+
+                            {/* Assessment & Plan */}
+                            <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                              <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                              <h3 className="text-base font-bold text-gray-900 dark:text-white">Assessment & Plan</h3>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Assessment / Diagnosis</label>
+                                  <div className="relative">
+                                    <span className="absolute top-2.5 left-3 text-gray-500 dark:text-gray-400">
+                                      <span className="material-symbols-outlined text-sm">medical_services</span>
+                                    </span>
+                                    <textarea
+                                      value={visitData.assessmentPlan.assessment}
+                                      onChange={(e) => setVisitData({
+                                        ...visitData,
+                                        assessmentPlan: { ...visitData.assessmentPlan, assessment: e.target.value }
+                                      })}
+                                      className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none"
+                                      placeholder="Primary diagnosis..."
+                                      rows={5}
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Treatment Plan</label>
+                                  <div className="relative">
+                                    <span className="absolute top-2.5 left-3 text-gray-500 dark:text-gray-400">
+                                      <span className="material-symbols-outlined text-sm">healing</span>
+                                    </span>
+                                    <textarea
+                                      value={visitData.assessmentPlan.plan}
+                                      onChange={(e) => setVisitData({
+                                        ...visitData,
+                                        assessmentPlan: { ...visitData.assessmentPlan, plan: e.target.value }
+                                      })}
+                                      className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none"
+                                      placeholder="Medications, referrals, follow-up..."
+                                      rows={5}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </section>
+
+                            {/* Additional Notes */}
+                            <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                              <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                              <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                Additional Notes
+                                <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Summary & Observations</span>
+                              </h3>
+                              <div>
+                                <textarea
+                                  value={visitData.additionalNotes}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    additionalNotes: e.target.value
+                                  })}
+                                  className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
+                                  placeholder="Additional notes, observations, or summary will appear here after dictation..."
+                                  rows={6}
+                                />
+                              </div>
+                            </section>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </main>
-
-                {/* Assign Patient Prompt Modal */}
-                {showAssignPrompt && (
-                  <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-2 rounded-lg">
-                          <span className="material-symbols-outlined text-2xl">check_circle</span>
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Visit Saved Successfully!</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">Would you like to assign this patient to another doctor or nurse?</p>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-3 pt-2">
-                        <button
-                          onClick={() => {
-                            setShowAssignPrompt(false)
-                            router.push(getPatientUrl(patientId))
-                          }}
-                          className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
-                        >
-                          Not Now
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowAssignPrompt(false)
-                            setAssignModalOpen(true)
-                          }}
-                          className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center justify-center gap-2"
-                        >
-                          <span className="material-symbols-outlined text-sm">person_add</span>
-                          Assign Patient
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <AssignPatientModal
-                  isOpen={assignModalOpen}
-                  onClose={() => {
-                    setAssignModalOpen(false)
-                    router.push(getPatientUrl(patientId))
-                  }}
-                  patientId={patientId}
-                  patientName={patient?.name}
-                  onSuccess={() => {
-                    router.push(getPatientUrl(patientId))
-                  }}
-                />
+                </div>
               </div>
-              )
+
+
+              {/* Assign Patient Prompt Modal */}
+              {showAssignPrompt && (
+                <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-2 rounded-lg">
+                        <span className="material-symbols-outlined text-2xl">check_circle</span>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Visit Saved Successfully!</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Would you like to assign this patient to another doctor or nurse?</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        onClick={() => {
+                          setShowAssignPrompt(false)
+                          router.push(getPatientUrl(patientId))
+                        }}
+                        className="flex-1 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        Not Now
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowAssignPrompt(false)
+                          setAssignModalOpen(true)
+                        }}
+                        className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center justify-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-sm">person_add</span>
+                        Assign Patient
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <AssignPatientModal
+                isOpen={assignModalOpen}
+                onClose={() => {
+                  setAssignModalOpen(false)
+                  router.push(getPatientUrl(patientId))
+                }}
+                patientId={patientId}
+                patientName={patient?.name}
+                onSuccess={() => {
+                  router.push(getPatientUrl(patientId))
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  )
 }
 
-              export default NewVisitForm
+
+export default NewVisitForm
 

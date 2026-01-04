@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "../../../../../lib/auth";
+import { requireUser, getUserRole } from "../../../../../lib/auth";
 import { supabaseServer } from "../../../../../lib/supabaseServer";
 
 export async function POST(
@@ -38,24 +38,60 @@ export async function POST(
 
   const shared_user_id = user.id;
 
-  // ensure requester owns the patient
-  const { data: patientOwned } = await supabase
-    .from("patients")
-    .select("id")
-    .eq("id", id)
-    .eq("clinician_id", userId)
-    .maybeSingle();
+  // Check user role
+  const userRole = await getUserRole(userId);
 
-  if (!patientOwned) {
-    return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  // Nurses can share any patient, doctors can only share patients they own
+  if (userRole !== 'nurse') {
+    // For doctors, ensure they own the patient
+    const { data: patientOwned } = await supabase
+      .from("patients")
+      .select("id")
+      .eq("id", id)
+      .eq("clinician_id", userId)
+      .maybeSingle();
+
+    if (!patientOwned) {
+      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+    }
+  } else {
+    // For nurses, just verify the patient exists
+    const { data: patientExists } = await supabase
+      .from("patients")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!patientExists) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 });
+    }
   }
 
+  // Check if share already exists
+  const { data: existingShare, error: checkError } = await supabase
+    .from("patient_shares")
+    .select("*")
+    .eq("patient_id", id)
+    .eq("shared_user_id", shared_user_id)
+    .maybeSingle();
+
+  if (checkError) {
+    return NextResponse.json({ error: checkError.message }, { status: 400 });
+  }
+
+  // If share already exists, return it
+  if (existingShare) {
+    return NextResponse.json(existingShare);
+  }
+
+  // Otherwise, insert a new share
   const { data, error: dbError } = await supabase
     .from("patient_shares")
-    .upsert(
-      { patient_id: id, owner_id: userId, shared_user_id },
-      { onConflict: "patient_id,shared_user_id" }
-    )
+    .insert({
+      patient_id: id,
+      owner_id: userId,
+      shared_user_id,
+    })
     .select()
     .single();
 

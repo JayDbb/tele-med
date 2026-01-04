@@ -27,6 +27,8 @@ export default function PatientVisitPage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("record");
   const [transcription, setTranscription] = useState<any>(null);
+  const [showAssignPrompt, setShowAssignPrompt] = useState(false);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
 
   // SOAP Note fields
   const [chiefComplaint, setChiefComplaint] = useState("");
@@ -691,7 +693,7 @@ export default function PatientVisitPage() {
 
       // Clear autosave draft after successful save
       clearDraft();
-      
+
       // Show prompt to assign patient
       setShowAssignPrompt(true);
     } catch (err) {

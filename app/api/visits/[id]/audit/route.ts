@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "../../../../../lib/auth";
+import { requireUser, getUserRole, verifyPatientAccess } from "../../../../../lib/auth";
 import { supabaseServer } from "../../../../../lib/supabaseServer";
 
 // GET: Retrieve audit trail for a visit
@@ -26,18 +26,15 @@ export async function GET(
     return NextResponse.json({ error: "Visit not found" }, { status: 404 });
   }
 
-  // Check if user has access (owner or shared)
-  const isOwner = visit.clinician_id === userId;
-  if (!isOwner) {
-    const { data: shareRow } = await supabase
-      .from("patient_shares")
-      .select("patient_id")
-      .eq("patient_id", visit.patient_id)
-      .eq("shared_user_id", userId)
-      .maybeSingle();
-
-    if (!shareRow) {
-      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  // Check if user has access (nurses can access all, doctors only owned/shared)
+  const userRole = await getUserRole(userId);
+  if (userRole !== 'nurse') {
+    const isOwner = visit.clinician_id === userId;
+    if (!isOwner) {
+      const { hasAccess } = await verifyPatientAccess(userId, visit.patient_id);
+      if (!hasAccess) {
+        return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+      }
     }
   }
 
@@ -83,18 +80,15 @@ export async function POST(
     return NextResponse.json({ error: "Visit not found" }, { status: 404 });
   }
 
-  // Check if user has access
-  const isOwner = visit.clinician_id === userId;
-  if (!isOwner) {
-    const { data: shareRow } = await supabase
-      .from("patient_shares")
-      .select("patient_id")
-      .eq("patient_id", visit.patient_id)
-      .eq("shared_user_id", userId)
-      .maybeSingle();
-
-    if (!shareRow) {
-      return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+  // Check if user has access (nurses can access all, doctors only owned/shared)
+  const userRole = await getUserRole(userId);
+  if (userRole !== 'nurse') {
+    const isOwner = visit.clinician_id === userId;
+    if (!isOwner) {
+      const { hasAccess } = await verifyPatientAccess(userId, visit.patient_id);
+      if (!hasAccess) {
+        return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+      }
     }
   }
 
