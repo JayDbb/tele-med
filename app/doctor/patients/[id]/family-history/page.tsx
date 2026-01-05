@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import AvailabilityToggle from '@/components/AvailabilityToggle'
 import { PatientDataManager } from '@/utils/PatientDataManager'
 
 export default function PatientFamilyHistoryPage() {

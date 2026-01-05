@@ -236,13 +236,15 @@ export async function PATCH(
         });
     } else {
       // Update existing unsigned visit - assign to new clinician and set to waiting
-      await supabase
-        .from("visits")
-        .update({
-          clinician_id: body.clinician_id,
-          status: "waiting",
-        })
-        .eq("id", visitToUpdate.id);
+      if (visitToUpdate) {
+        await supabase
+          .from("visits")
+          .update({
+            clinician_id: body.clinician_id,
+            status: "waiting",
+          })
+          .eq("id", visitToUpdate.id);
+      }
     }
 
     return NextResponse.json({ patient: updatedPatient, visitStatus });

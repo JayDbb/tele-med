@@ -1013,6 +1013,39 @@ export async function dictateAudio(audioPath: string) {
   return res.json() as Promise<{ transcript: string }>;
 }
 
+// Log an audit event for a visit
+export async function logAuditEvent(
+  visitId: string,
+  action: string,
+  entityType: string,
+  changes?: any,
+  notes?: string
+) {
+  try {
+    const res = await authFetch(`/api/visits/${visitId}/audit`, {
+      method: "POST",
+      body: JSON.stringify({
+        action,
+        entity_type: entityType,
+        entity_id: visitId,
+        changes,
+        notes,
+      }),
+    });
+    if (!res.ok) {
+      const errorText = await res.text();
+      // Don't throw on audit errors - they're non-critical
+      console.warn("Failed to log audit event:", errorText);
+      return null;
+    }
+    return res.json();
+  } catch (error: any) {
+    // Don't throw on audit errors - they're non-critical
+    console.warn("Error logging audit event:", error);
+    return null;
+  }
+}
+
 // Default medical prompt for parsing transcripts
 // This is used when no custom prompt is provided to transcribeVisitAudio
 const DEFAULT_MEDICAL_PROMPT = `You are a medical transcription assistant. Parse the following medical consultation transcript into structured JSON format and create a summary.

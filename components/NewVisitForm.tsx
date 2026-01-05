@@ -34,7 +34,7 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
   const [previousSummary, setPreviousSummary] = useState<string | null>(null)
   // Load visit data from localStorage on mount
   const getStorageKey = () => `visit-form-${patientId}`
-  
+
   const loadFromStorage = () => {
     try {
       const stored = localStorage.getItem(getStorageKey())
@@ -127,7 +127,7 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
       const file = new File([blob], 'recording.webm', { type: 'audio/webm' })
       const upload = await uploadToPrivateBucket(file)
       const audioPath = upload.path
-      
+
       setUploading(false)
       setTranscribing(true)
 
@@ -146,10 +146,10 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
 
       // Parse transcription
       // Use default medical prompt for parsing, with previous summary as context if available
-      const contextSection = previousSummary 
+      const contextSection = previousSummary
         ? `\n\nIMPORTANT CONTEXT - Previous Visit Summary:\n${previousSummary}\n\nPlease use this context to better understand the patient's medical history and current condition. This is a follow-up visit, so reference the previous visit when relevant.\n\n`
         : ''
-      
+
       const defaultMedicalPrompt = `You are a medical transcription assistant. Parse the following medical consultation transcript into structured JSON format and create a summary.${contextSection}
 Extract the following information:
 1. past_medical_history: Array of past medical conditions, surgeries, and relevant medical history
@@ -192,7 +192,7 @@ Transcript:
       const parseRes = await fetch('/api/transcribe/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           transcript: transcriptionResult.transcript,
           prompt: defaultMedicalPrompt
         }),
@@ -205,12 +205,12 @@ Transcript:
       const parsedResult = await parseRes.json()
       // parsedResult is { structured: {...}, summary: "..." }
       const { structured, summary } = parsedResult
-      
+
       // Store the summary for context in future recordings
       if (summary) {
         setPreviousSummary(summary)
       }
-      
+
       // Combine with transcript for full transcription object
       const fullTranscription = {
         transcript: transcriptionResult.transcript,
@@ -224,7 +224,7 @@ Transcript:
       const currentSymptoms = structured?.current_symptoms
       let chiefComplaint = ''
       let hpi = ''
-      
+
       if (Array.isArray(currentSymptoms) && currentSymptoms.length > 0) {
         // If current_symptoms is an array of objects with symptom property
         const firstSymptom = currentSymptoms[0]
@@ -237,22 +237,22 @@ Transcript:
       } else if (typeof currentSymptoms === 'string') {
         chiefComplaint = currentSymptoms
       }
-      
+
       // Extract vital signs from physical_exam_findings
       const physicalFindings = structured?.physical_exam_findings || {}
       const vitalSigns = physicalFindings.vital_signs || {}
-      
+
       // Extract diagnosis - can be string or array
-      const diagnosis = Array.isArray(structured?.diagnosis) 
+      const diagnosis = Array.isArray(structured?.diagnosis)
         ? structured.diagnosis.join(', ')
         : structured?.diagnosis || ''
-      
+
       // Extract treatment plan - should be array
       const treatmentPlan = Array.isArray(structured?.treatment_plan)
         ? structured.treatment_plan.join('\n')
         : structured?.treatment_plan || ''
-      
-      setVisitData(prev => ({
+
+      setVisitData((prev: typeof visitData) => ({
         ...prev,
         subjective: {
           ...prev.subjective,
