@@ -9,7 +9,7 @@ import GlobalSearchBar from '@/components/GlobalSearchBar'
 import { useDoctor } from '@/contexts/DoctorContext'
 import { usePatientRoutes } from '@/lib/usePatientRoutes'
 import AssignPatientModal from '@/components/AssignPatientModal'
-import { getPatient, createVisit, appendVisitNote, logAuditEvent } from '@/lib/api'
+import { getPatient, createVisit, appendVisitNote, logAuditEvent, createVaccine, createFamilyMember, createMedicalCondition, createVitals, getVisit } from '@/lib/api'
 import { useAudioRecorder } from '@/lib/useAudioRecorder'
 
 interface NewVisitFormProps {
@@ -126,14 +126,224 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
   }, [visitData, patientId])
 
   useEffect(() => {
-    loadPatient()
+    loadPatientAndCheckVisits()
   }, [patientId])
 
-  const loadPatient = async () => {
+  const loadPatientAndCheckVisits = async () => {
     try {
       setLoading(true)
-      const { patient: patientData } = await getPatient(patientId)
+      const { patient: patientData, visits } = await getPatient(patientId)
       setPatient(patientData)
+
+      // Check for existing unsigned/draft visits
+      const unsignedVisit = visits?.find((visit: any) => {
+        const isSigned = visit.notes?.status === 'signed' ||
+          visit.status === 'completed' ||
+          visit.status === 'finalized'
+        return !isSigned && (visit.status === 'draft' || visit.status === 'waiting' || !visit.notes?.status)
+      })
+
+      if (unsignedVisit) {
+        // Load the existing visit and populate the form
+        try {
+          const { visit: fullVisit } = await getVisit(unsignedVisit.id)
+          console.log('Loading existing visit:', fullVisit.id)
+          console.log('Visit notes:', fullVisit.notes)
+          setVisitId(fullVisit.id)
+
+          // Extract data from visit notes
+          // The API query uses notes(note) which does a join
+          // So fullVisit.notes is an array of note records from the join
+          // Each note record has a 'note' JSONB field containing the array of entries
+          let noteEntries: any[] = []
+          if (fullVisit.notes) {
+            if (Array.isArray(fullVisit.notes) && fullVisit.notes.length > 0) {
+              // Get the first note record (there should only be one per visit)
+              const noteRecord = fullVisit.notes[0]
+              if (noteRecord?.note) {
+                noteEntries = Array.isArray(noteRecord.note) ? noteRecord.note : []
+              }
+            } else if (fullVisit.notes && !Array.isArray(fullVisit.notes)) {
+              // If notes is a single object (not an array)
+              if (fullVisit.notes.note) {
+                noteEntries = Array.isArray(fullVisit.notes.note) ? fullVisit.notes.note : []
+              } else if (Array.isArray(fullVisit.notes)) {
+                // If notes is directly an array of entries (unlikely but handle it)
+                noteEntries = fullVisit.notes
+              }
+            }
+          }
+
+          console.log('Full visit structure:', {
+            hasNotes: !!fullVisit.notes,
+            notesType: Array.isArray(fullVisit.notes) ? 'array' : typeof fullVisit.notes,
+            notesLength: Array.isArray(fullVisit.notes) ? fullVisit.notes.length : 'N/A',
+            firstNote: Array.isArray(fullVisit.notes) ? fullVisit.notes[0] : fullVisit.notes,
+            noteEntriesCount: noteEntries.length
+          })
+
+          // If no note entries found, try fetching notes directly from the note endpoint
+          if (noteEntries.length === 0) {
+            try {
+              const noteRes = await fetch(`/api/visits/${fullVisit.id}/note`, {
+                credentials: 'include'
+              })
+              if (noteRes.ok) {
+                const noteData = await noteRes.json()
+                if (noteData.entries && Array.isArray(noteData.entries)) {
+                  noteEntries = noteData.entries
+                  console.log('Fetched notes from note endpoint:', noteEntries.length)
+                }
+              }
+            } catch (err) {
+              console.warn('Failed to fetch notes from note endpoint:', err)
+            }
+          }
+
+          const extractedData: any = {
+            subjective: { chiefComplaint: '', hpi: '' },
+            objective: { bp: '', hr: '', temp: '', weight: '', examFindings: '' },
+            assessmentPlan: { assessment: '', plan: '' },
+            additionalNotes: '',
+            vaccines: { name: '', date: '', dose: '', site: '', route: '', lotNumber: '', manufacturer: '' },
+            familyHistory: { relationship: '', status: '', conditions: '' },
+            riskFlags: { tobaccoUse: '', tobaccoAmount: '', alcoholUse: '', alcoholFrequency: '', housingStatus: '', occupation: '' },
+            surgicalHistory: { procedure: '', date: '', site: '', surgeon: '', outcome: '', source: '' },
+            pastMedicalHistory: { condition: '', status: '', diagnosedDate: '', impact: '', icd10: '', source: '' },
+            orders: { type: '', priority: '', details: '', status: '', dateOrdered: '' }
+          }
+
+          // Parse notes entries
+          noteEntries.forEach((entry: any) => {
+            if (!entry.content) return
+
+            let content = entry.content
+            const section = entry.section || ''
+
+            console.log('Processing entry:', { section, content: typeof content === 'string' ? content.substring(0, 100) : content })
+
+            // Try to parse JSON content
+            try {
+              if (typeof content === 'string' && content.trim().startsWith('{')) {
+                const parsed = JSON.parse(content)
+                if (parsed.type === 'vaccines' && parsed.data) {
+                  extractedData.vaccines = { ...extractedData.vaccines, ...parsed.data }
+                } else if (parsed.type === 'family_history' && parsed.data) {
+                  extractedData.familyHistory = { ...extractedData.familyHistory, ...parsed.data }
+                } else if (parsed.type === 'risk_flags' && parsed.data) {
+                  extractedData.riskFlags = { ...extractedData.riskFlags, ...parsed.data }
+                } else if (parsed.type === 'surgical_history' && parsed.data) {
+                  extractedData.surgicalHistory = { ...extractedData.surgicalHistory, ...parsed.data }
+                } else if (parsed.type === 'past_medical_history' && parsed.data) {
+                  extractedData.pastMedicalHistory = { ...extractedData.pastMedicalHistory, ...parsed.data }
+                } else if (parsed.type === 'orders' && parsed.data) {
+                  extractedData.orders = { ...extractedData.orders, ...parsed.data }
+                } else if (parsed.type === 'vitals' && parsed.physical_exam_findings?.vital_signs) {
+                  const vitals = parsed.physical_exam_findings.vital_signs
+                  extractedData.objective.bp = vitals.bp || vitals.blood_pressure || extractedData.objective.bp
+                  extractedData.objective.hr = vitals.hr || vitals.heart_rate || extractedData.objective.hr
+                  extractedData.objective.temp = vitals.temp || vitals.temperature || extractedData.objective.temp
+                  extractedData.objective.weight = vitals.weight || extractedData.objective.weight
+                }
+                return // Skip text parsing for JSON
+              }
+            } catch {
+              // Not JSON, continue with text parsing
+            }
+
+            // Parse text content by section
+            if (section === 'subjective') {
+              if (typeof content === 'string') {
+                const contentLower = content.toLowerCase()
+                if (contentLower.includes('chief complaint') || content.startsWith('Chief Complaint:')) {
+                  const ccMatch = content.match(/chief complaint:?\s*(.+)/i)
+                  if (ccMatch) {
+                    extractedData.subjective.chiefComplaint = ccMatch[1].trim()
+                  } else {
+                    extractedData.subjective.chiefComplaint = content.replace(/chief complaint:?\s*/i, '').trim()
+                  }
+                } else {
+                  // This is HPI
+                  if (!extractedData.subjective.hpi) {
+                    extractedData.subjective.hpi = content.trim()
+                  } else {
+                    extractedData.subjective.hpi += '\n' + content.trim()
+                  }
+                }
+              }
+            } else if (section === 'objective') {
+              if (typeof content === 'string') {
+                // Extract vitals from text
+                const bpMatch = content.match(/BP[:\s]+([0-9/]+)/i) || content.match(/blood pressure[:\s]+([0-9/]+)/i)
+                if (bpMatch && !extractedData.objective.bp) extractedData.objective.bp = bpMatch[1]
+
+                const hrMatch = content.match(/HR[:\s]+([0-9]+)/i) || content.match(/heart rate[:\s]+([0-9]+)/i)
+                if (hrMatch && !extractedData.objective.hr) extractedData.objective.hr = hrMatch[1]
+
+                const tempMatch = content.match(/Temp[:\s]+([0-9.]+)/i) || content.match(/temperature[:\s]+([0-9.]+)/i)
+                if (tempMatch && !extractedData.objective.temp) extractedData.objective.temp = tempMatch[1]
+
+                const weightMatch = content.match(/Weight[:\s]+([0-9.]+)/i)
+                if (weightMatch && !extractedData.objective.weight) extractedData.objective.weight = weightMatch[1]
+
+                // Store exam findings (exclude vitals lines)
+                const isVitalLine = /(BP|HR|Temp|Weight|Blood Pressure|Heart Rate|Temperature)[:\s]/i.test(content)
+                if (!isVitalLine) {
+                  if (!extractedData.objective.examFindings) {
+                    extractedData.objective.examFindings = content.trim()
+                  } else {
+                    extractedData.objective.examFindings += '\n' + content.trim()
+                  }
+                }
+              }
+            } else if (section === 'assessment') {
+              if (typeof content === 'string') {
+                if (!extractedData.assessmentPlan.assessment) {
+                  extractedData.assessmentPlan.assessment = content.trim()
+                } else {
+                  extractedData.assessmentPlan.assessment += '\n' + content.trim()
+                }
+              }
+            } else if (section === 'plan') {
+              if (typeof content === 'string') {
+                if (!extractedData.assessmentPlan.plan) {
+                  extractedData.assessmentPlan.plan = content.trim()
+                } else {
+                  extractedData.assessmentPlan.plan += '\n' + content.trim()
+                }
+              }
+            }
+          })
+
+          console.log('Extracted data:', extractedData)
+
+          // Also check transcript for structured data
+          if (fullVisit.transcripts) {
+            const transcripts = Array.isArray(fullVisit.transcripts) ? fullVisit.transcripts[0] : fullVisit.transcripts
+            if (transcripts?.segments?.structured) {
+              const structured = transcripts.segments.structured
+              if (structured.summary) {
+                extractedData.additionalNotes = structured.summary
+              }
+            }
+          }
+
+          // Update form with extracted data
+          console.log('Setting visit data:', extractedData)
+          setVisitData(extractedData)
+
+          // Also update localStorage to persist the data
+          const storageKey = getStorageKey()
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(extractedData))
+          } catch (err) {
+            console.error('Error saving to localStorage:', err)
+          }
+        } catch (err: any) {
+          console.error('Error loading existing visit:', err)
+          // Continue with new visit if loading fails
+        }
+      }
     } catch (err: any) {
       console.error('Error loading patient:', err)
       setError(err?.message || 'Failed to load patient')
@@ -151,6 +361,48 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
     }
     if (typeof allergies === 'string') return allergies
     return 'None'
+  }
+
+  const calculateAge = (dob: string | null | undefined): string => {
+    if (!dob) return 'N/A'
+    try {
+      const birthDate = new Date(dob)
+      const today = new Date()
+      let age = today.getFullYear() - birthDate.getFullYear()
+      const monthDiff = today.getMonth() - birthDate.getMonth()
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--
+      }
+      return age.toString()
+    } catch {
+      return 'N/A'
+    }
+  }
+
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      // Expand the section if it's collapsed
+      const sectionName = sectionId.replace('section-', '')
+      // Map kebab-case to camelCase for expandedSections keys
+      const sectionKeyMap: Record<string, keyof typeof expandedSections> = {
+        'subjective': 'subjective',
+        'objective': 'objective',
+        'assessment-plan': 'assessmentPlan',
+        'additional-notes': 'subjective', // Additional notes doesn't have its own expanded state
+        'vaccines': 'vaccines',
+        'family-history': 'familyHistory',
+        'risk-flags': 'riskFlags',
+        'surgical-history': 'surgicalHistory',
+        'past-medical-history': 'pastMedicalHistory',
+        'orders': 'orders'
+      }
+      const sectionKey = sectionKeyMap[sectionName]
+      if (sectionKey && !expandedSections[sectionKey]) {
+        setExpandedSections({ ...expandedSections, [sectionKey]: true })
+      }
+    }
   }
 
   const formatTime = (seconds: number): string => {
@@ -455,7 +707,7 @@ Transcript:
         )
       }
 
-      // Combine objective data
+      // Combine objective data as text
       const objectiveText = [
         visitData.objective.bp && `BP: ${visitData.objective.bp}`,
         visitData.objective.hr && `HR: ${visitData.objective.hr}`,
@@ -468,6 +720,30 @@ Transcript:
         await appendVisitNote(
           currentVisitId,
           objectiveText,
+          'objective',
+          'manual'
+        )
+      }
+
+      // Also save objective data as structured JSON for easier extraction
+      if (visitData.objective.bp || visitData.objective.hr || visitData.objective.temp || visitData.objective.weight) {
+        const structuredObjective = {
+          type: 'vitals',
+          physical_exam_findings: {
+            vital_signs: {
+              blood_pressure: visitData.objective.bp || null,
+              bp: visitData.objective.bp || null,
+              heart_rate: visitData.objective.hr || null,
+              hr: visitData.objective.hr || null,
+              temperature: visitData.objective.temp || null,
+              temp: visitData.objective.temp || null,
+              weight: visitData.objective.weight || null,
+            }
+          }
+        }
+        await appendVisitNote(
+          currentVisitId,
+          JSON.stringify(structuredObjective),
           'objective',
           'manual'
         )
@@ -504,8 +780,23 @@ Transcript:
       const hasValues = (section: Record<string, any>) =>
         Object.values(section).some((value) => value && (typeof value === 'string' ? value.trim().length > 0 : true))
 
-      // Save Vaccines
-      if (hasValues(visitData.vaccines)) {
+      // Save Vaccines to patient record (if name and date are provided)
+      if (hasValues(visitData.vaccines) && visitData.vaccines.name && visitData.vaccines.date) {
+        try {
+          await createVaccine(patientId, {
+            name: visitData.vaccines.name,
+            date: visitData.vaccines.date,
+            dose: visitData.vaccines.dose || undefined,
+            site: visitData.vaccines.site || undefined,
+            route: visitData.vaccines.route || undefined,
+            lotNumber: visitData.vaccines.lotNumber || undefined,
+            manufacturer: visitData.vaccines.manufacturer || undefined,
+          })
+        } catch (err) {
+          console.warn('Failed to save vaccine to patient record:', err)
+          // Continue even if this fails
+        }
+        // Also save to visit notes
         await appendVisitNote(
           currentVisitId,
           JSON.stringify({ type: 'vaccines', data: visitData.vaccines }),
@@ -514,8 +805,19 @@ Transcript:
         )
       }
 
-      // Save Family History
-      if (hasValues(visitData.familyHistory)) {
+      // Save Family History to patient record
+      if (hasValues(visitData.familyHistory) && visitData.familyHistory.relationship) {
+        try {
+          await createFamilyMember(patientId, {
+            relationship: visitData.familyHistory.relationship,
+            status: visitData.familyHistory.status || undefined,
+            conditions: visitData.familyHistory.conditions || undefined,
+          })
+        } catch (err) {
+          console.warn('Failed to save family history to patient record:', err)
+          // Continue even if this fails
+        }
+        // Also save to visit notes
         await appendVisitNote(
           currentVisitId,
           JSON.stringify({ type: 'family_history', data: visitData.familyHistory }),
@@ -524,7 +826,7 @@ Transcript:
         )
       }
 
-      // Save Risk Flags (Social History)
+      // Save Risk Flags (Social History) - save to visit notes only (no specific API endpoint)
       if (hasValues(visitData.riskFlags)) {
         await appendVisitNote(
           currentVisitId,
@@ -534,7 +836,7 @@ Transcript:
         )
       }
 
-      // Save Surgical History
+      // Save Surgical History - save to visit notes only (no specific API endpoint)
       if (hasValues(visitData.surgicalHistory)) {
         await appendVisitNote(
           currentVisitId,
@@ -544,8 +846,22 @@ Transcript:
         )
       }
 
-      // Save Past Medical History
-      if (hasValues(visitData.pastMedicalHistory)) {
+      // Save Past Medical History to patient record
+      if (hasValues(visitData.pastMedicalHistory) && visitData.pastMedicalHistory.condition) {
+        try {
+          await createMedicalCondition(patientId, {
+            condition: visitData.pastMedicalHistory.condition,
+            status: visitData.pastMedicalHistory.status || 'Active',
+            date: visitData.pastMedicalHistory.diagnosedDate || undefined,
+            impact: visitData.pastMedicalHistory.impact || undefined,
+            code: visitData.pastMedicalHistory.icd10 || undefined,
+            source: visitData.pastMedicalHistory.source || undefined,
+          })
+        } catch (err) {
+          console.warn('Failed to save past medical history to patient record:', err)
+          // Continue even if this fails
+        }
+        // Also save to visit notes
         await appendVisitNote(
           currentVisitId,
           JSON.stringify({ type: 'past_medical_history', data: visitData.pastMedicalHistory }),
@@ -554,7 +870,7 @@ Transcript:
         )
       }
 
-      // Save Orders
+      // Save Orders - save to visit notes only (no specific API endpoint)
       if (hasValues(visitData.orders)) {
         await appendVisitNote(
           currentVisitId,
@@ -562,6 +878,22 @@ Transcript:
           'plan',
           'manual'
         )
+      }
+
+      // Save Vitals to patient record
+      if (visitData.objective.bp || visitData.objective.hr || visitData.objective.temp || visitData.objective.weight) {
+        try {
+          await createVitals(patientId, {
+            bp: visitData.objective.bp || undefined,
+            hr: visitData.objective.hr || undefined,
+            temp: visitData.objective.temp || undefined,
+            weight: visitData.objective.weight || undefined,
+            visit_id: currentVisitId,
+          })
+        } catch (err) {
+          console.warn('Failed to save vitals to patient record:', err)
+          // Continue even if this fails - vitals will be extracted from visits automatically
+        }
       }
 
       // Log audit event
@@ -623,28 +955,83 @@ Transcript:
           <GlobalSearchBar />
         </header>
 
+        {/* AI Listener Ambient Indicator */}
+        <div className="fixed bottom-6 right-6 z-50">
+          {recording || uploading || transcribing ? (
+            <div className="relative">
+              {/* Pulsing glow effect */}
+              <div className={`absolute inset-0 rounded-full ${recording ? 'bg-red-500 animate-ping' :
+                uploading ? 'bg-blue-500 animate-ping' :
+                  'bg-purple-500 animate-ping'
+                } opacity-75`}></div>
+
+              {/* Main indicator */}
+              <div className={`relative flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg backdrop-blur-sm ${recording ? 'bg-red-500/90 text-white' :
+                uploading ? 'bg-blue-500/90 text-white' :
+                  'bg-purple-500/90 text-white'
+                }`}>
+                <div className="relative">
+                  <span className={`material-symbols-outlined text-lg ${recording ? 'animate-pulse' : ''
+                    }`}>
+                    {recording ? 'fiber_manual_record' : uploading ? 'cloud_upload' : 'auto_awesome'}
+                  </span>
+                  {recording && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>
+                    </div>
+                  )}
+                </div>
+                <span className="text-xs font-medium whitespace-nowrap">
+                  {recording ? 'Recording' : uploading ? 'Uploading' : 'Transcribing'}
+                </span>
+                {recording && (
+                  <span className="text-xs opacity-90">
+                    {formatTime(recorder.recordingTime)}
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Subtle "ready" indicator */
+            <div className="relative flex items-center gap-2 px-3 py-2 rounded-full shadow-md backdrop-blur-sm bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200/50 dark:border-gray-700/50">
+              <div className="relative">
+                <span className="material-symbols-outlined text-base text-gray-500 dark:text-gray-400">mic</span>
+                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border-2 border-white dark:border-gray-800 animate-pulse"></div>
+              </div>
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-300">AI Ready</span>
+            </div>
+          )}
+        </div>
+
+        {/* Fixed Save Button */}
+        <div className="fixed right-6 top-24 z-50">
+          <button
+            onClick={handleSaveVisit}
+            disabled={saving}
+            className="px-6 py-3 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-lg transition-colors flex items-center gap-2 disabled:opacity-50 backdrop-blur-sm"
+          >
+            {saving ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <span>Save Visit</span>
+                <span className="material-symbols-outlined text-sm">save</span>
+              </>
+            )}
+          </button>
+        </div>
+
         <div className="flex-1 overflow-y-auto p-6">
           <div className="w-full max-w-6xl mx-auto flex flex-col gap-6">
             {/* Patient Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex flex-col gap-2">
                 <div className="flex items-baseline gap-3">
                   <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{patient?.full_name || 'Patient'}</h1>
                   <span className="px-2.5 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 text-xs font-bold border border-yellow-200 dark:border-yellow-800">New Visit</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-6 text-gray-600 dark:text-gray-300 text-sm">
-                  {patient?.dob && (
-                    <span className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-sm">calendar_today</span>
-                      DOB: {patient.dob}
-                    </span>
-                  )}
-                  {patient?.allergies && (
-                    <span className="flex items-center gap-1.5 text-red-600 dark:text-red-400 font-medium">
-                      <span className="material-symbols-outlined text-sm">warning</span>
-                      Allergies: {formatAllergies(patient.allergies)}
-                    </span>
-                  )}
                 </div>
               </div>
               <div className="flex gap-3">
@@ -654,22 +1041,132 @@ Transcript:
                 >
                   Cancel
                 </Link>
+              </div>
+            </div>
+
+            {/* Patient Summary Card */}
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+              <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">Patient Information</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {patient?.dob && (
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-gray-400 dark:text-gray-500 text-sm">calendar_today</span>
+                    <div className="flex flex-col">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Date of Birth</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">{patient.dob} (Age: {calculateAge(patient.dob)})</span>
+                    </div>
+                  </div>
+                )}
+                {patient?.sex_at_birth && (
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-gray-400 dark:text-gray-500 text-sm">person</span>
+                    <div className="flex flex-col">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Gender</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">{patient.sex_at_birth === 'M' ? 'Male' : patient.sex_at_birth === 'F' ? 'Female' : patient.sex_at_birth}</span>
+                    </div>
+                  </div>
+                )}
+                {patient?.phone && (
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-gray-400 dark:text-gray-500 text-sm">phone</span>
+                    <div className="flex flex-col">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Phone</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">{patient.phone}</span>
+                    </div>
+                  </div>
+                )}
+                {patient?.email && (
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-gray-400 dark:text-gray-500 text-sm">email</span>
+                    <div className="flex flex-col">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Email</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">{patient.email}</span>
+                    </div>
+                  </div>
+                )}
+                {patient?.address && (
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-gray-400 dark:text-gray-500 text-sm">home</span>
+                    <div className="flex flex-col">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Address</span>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">{patient.address}</span>
+                    </div>
+                  </div>
+                )}
+                {patient?.allergies && (
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-red-500 dark:text-red-400 text-sm">warning</span>
+                    <div className="flex flex-col">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Allergies</span>
+                      <span className="text-sm font-medium text-red-600 dark:text-red-400">{formatAllergies(patient.allergies)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Section Navigation Pills */}
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4">
+              <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={handleSaveVisit}
-                  disabled={saving}
-                  className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50"
+                  onClick={() => scrollToSection('section-subjective')}
+                  className="px-3 py-1.5 text-xs font-medium rounded-full bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors"
                 >
-                  {saving ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span>Saving...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Save Visit</span>
-                      <span className="material-symbols-outlined text-sm">save</span>
-                    </>
-                  )}
+                  Subjective
+                </button>
+                <button
+                  onClick={() => scrollToSection('section-objective')}
+                  className="px-3 py-1.5 text-xs font-medium rounded-full bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors"
+                >
+                  Objective
+                </button>
+                <button
+                  onClick={() => scrollToSection('section-assessment-plan')}
+                  className="px-3 py-1.5 text-xs font-medium rounded-full bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors"
+                >
+                  Assessment & Plan
+                </button>
+                <button
+                  onClick={() => scrollToSection('section-additional-notes')}
+                  className="px-3 py-1.5 text-xs font-medium rounded-full bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors"
+                >
+                  Additional Notes
+                </button>
+                <button
+                  onClick={() => scrollToSection('section-vaccines')}
+                  className="px-3 py-1.5 text-xs font-medium rounded-full bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors"
+                >
+                  Vaccines
+                </button>
+                <button
+                  onClick={() => scrollToSection('section-family-history')}
+                  className="px-3 py-1.5 text-xs font-medium rounded-full bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors"
+                >
+                  Family History
+                </button>
+                <button
+                  onClick={() => scrollToSection('section-risk-flags')}
+                  className="px-3 py-1.5 text-xs font-medium rounded-full bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors"
+                >
+                  Risk Flags
+                </button>
+                <button
+                  onClick={() => scrollToSection('section-surgical-history')}
+                  className="px-3 py-1.5 text-xs font-medium rounded-full bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors"
+                >
+                  Surgical History
+                </button>
+                <button
+                  onClick={() => scrollToSection('section-past-medical-history')}
+                  className="px-3 py-1.5 text-xs font-medium rounded-full bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors"
+                >
+                  Past Medical History
+                </button>
+                <button
+                  onClick={() => scrollToSection('section-orders')}
+                  className="px-3 py-1.5 text-xs font-medium rounded-full bg-primary/10 dark:bg-primary/20 text-primary hover:bg-primary/20 dark:hover:bg-primary/30 transition-colors"
+                >
+                  Orders
                 </button>
               </div>
             </div>
@@ -751,7 +1248,7 @@ Transcript:
               {/* Form Content */}
               <div className="p-6 space-y-8">
                 {/* Subjective Section */}
-                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                <section id="section-subjective" className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                   <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
                   <button
                     onClick={() => setExpandedSections({ ...expandedSections, subjective: !expandedSections.subjective })}
@@ -798,7 +1295,7 @@ Transcript:
                 </section>
 
                 {/* Objective Section */}
-                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                <section id="section-objective" className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                   <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
                   <button
                     onClick={() => setExpandedSections({ ...expandedSections, objective: !expandedSections.objective })}
@@ -888,7 +1385,7 @@ Transcript:
                 </section>
 
                 {/* Assessment & Plan */}
-                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                <section id="section-assessment-plan" className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                   <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
                   <button
                     onClick={() => setExpandedSections({ ...expandedSections, assessmentPlan: !expandedSections.assessmentPlan })}
@@ -942,7 +1439,7 @@ Transcript:
                 </section>
 
                 {/* Additional Notes */}
-                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                <section id="section-additional-notes" className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                   <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
                   <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     Additional Notes
@@ -963,7 +1460,7 @@ Transcript:
                 </section>
 
                 {/* Vaccines Section */}
-                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                <section id="section-vaccines" className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                   <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
                   <button
                     onClick={() => setExpandedSections({ ...expandedSections, vaccines: !expandedSections.vaccines })}
@@ -1087,7 +1584,7 @@ Transcript:
                 </section>
 
                 {/* Family Health History Section */}
-                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                <section id="section-family-history" className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                   <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
                   <button
                     onClick={() => setExpandedSections({ ...expandedSections, familyHistory: !expandedSections.familyHistory })}
@@ -1154,7 +1651,7 @@ Transcript:
                 </section>
 
                 {/* Risk Flags Section */}
-                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                <section id="section-risk-flags" className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                   <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
                   <button
                     onClick={() => setExpandedSections({ ...expandedSections, riskFlags: !expandedSections.riskFlags })}
@@ -1261,7 +1758,7 @@ Transcript:
                 </section>
 
                 {/* Surgical History Section */}
-                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                <section id="section-surgical-history" className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                   <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
                   <button
                     onClick={() => setExpandedSections({ ...expandedSections, surgicalHistory: !expandedSections.surgicalHistory })}
@@ -1366,7 +1863,7 @@ Transcript:
                 </section>
 
                 {/* Past Medical History Section */}
-                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                <section id="section-past-medical-history" className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                   <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
                   <button
                     onClick={() => setExpandedSections({ ...expandedSections, pastMedicalHistory: !expandedSections.pastMedicalHistory })}
@@ -1473,7 +1970,7 @@ Transcript:
                 </section>
 
                 {/* Orders Section */}
-                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                <section id="section-orders" className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                   <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
                   <button
                     onClick={() => setExpandedSections({ ...expandedSections, orders: !expandedSections.orders })}

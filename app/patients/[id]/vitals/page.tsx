@@ -1,13 +1,83 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import Sidebar from '@/components/Sidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import { getPatient, getVitals, createVitals } from '@/lib/api'
 
 export default function PatientVitalsPage() {
   const params = useParams()
   const router = useRouter()
+  const patientId = params.id as string
+  const [patient, setPatient] = useState<any>(null)
+  const [vitalsHistory, setVitalsHistory] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const latestVitals = vitalsHistory[0]
+  const bpValue = latestVitals?.bp || '--'
+  const hrValue = latestVitals?.hr || '--'
+  const tempValue = latestVitals?.temp ? `${latestVitals.temp}` : '--'
+  const weightValue = latestVitals?.weight ? `${latestVitals.weight}` : '--'
+  const [vitals, setVitals] = useState({
+    systolic: '',
+    diastolic: '',
+    heartRate: '',
+    spo2: '',
+    notes: ''
+  })
+
+  useEffect(() => {
+    loadData()
+  }, [patientId])
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const [patientData, vitalsData] = await Promise.all([
+        getPatient(patientId).then(res => res.patient),
+        getVitals(patientId)
+      ])
+      setPatient(patientData)
+      setVitalsHistory(vitalsData || [])
+    } catch (err: any) {
+      console.error('Error loading data:', err)
+      setError(err?.message || 'Failed to load patient data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSaveVitals = async () => {
+    if (!vitals.systolic || !vitals.diastolic || !vitals.heartRate) {
+      setError('Please fill in at least BP (systolic and diastolic) and heart rate')
+      return
+    }
+
+    try {
+      setSaving(true)
+      setError(null)
+      const bp = `${vitals.systolic}/${vitals.diastolic}`
+      await createVitals(patientId, {
+        bp,
+        hr: vitals.heartRate,
+        temp: vitals.spo2 ? undefined : undefined, // SpO2 is not a standard vital in our API
+        weight: undefined,
+      })
+      // Reload vitals after saving
+      const updatedVitals = await getVitals(patientId)
+      setVitalsHistory(updatedVitals || [])
+      setVitals({ systolic: '', diastolic: '', heartRate: '', spo2: '', notes: '' })
+    } catch (err: any) {
+      console.error('Error saving vitals:', err)
+      setError(err?.message || 'Failed to save vitals')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -26,13 +96,19 @@ export default function PatientVitalsPage() {
 
         <div className="flex-1 overflow-y-auto p-6">
           <div className="w-full flex flex-col gap-6">
+            {error && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+              </div>
+            )}
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <>
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-gray-400 dark:text-gray-500 text-sm font-medium">Patients</span>
-                  <span className="material-symbols-outlined text-gray-400 dark:text-gray-500 text-sm">chevron_right</span>
-                  <span className="text-primary text-sm font-medium">Not recorded</span>
-                </div>
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Vitals Management</h2>
               </div>
               <div className="flex gap-3">
@@ -54,15 +130,17 @@ export default function PatientVitalsPage() {
                     <span className="material-symbols-outlined text-[18px]">favorite</span>
                     <span className="text-xs font-semibold uppercase tracking-wider">BP</span>
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">Normal</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    {latestVitals?.bp ? 'Recorded' : 'Not recorded'}
+                  </span>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white">120/80</span>
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{bpValue}</span>
                   <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">mmHg</span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500">
                   <span className="material-symbols-outlined text-[12px]">airline_seat_recline_normal</span>
-                  <span>Sitting (Left Arm)</span>
+                  <span>Not recorded</span>
                 </div>
               </div>
 
@@ -72,15 +150,17 @@ export default function PatientVitalsPage() {
                     <span className="material-symbols-outlined text-[18px]">ecg_heart</span>
                     <span className="text-xs font-semibold uppercase tracking-wider">HR</span>
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">Elevated</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    {latestVitals?.hr ? 'Recorded' : 'Not recorded'}
+                  </span>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white">92</span>
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{hrValue}</span>
                   <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">bpm</span>
                 </div>
-                <div className="flex items-center gap-1 text-red-500 dark:text-red-400 text-[11px] font-medium">
-                  <span className="material-symbols-outlined text-[12px]">trending_up</span>
-                  <span>+12 vs last visit</span>
+                <div className="flex items-center gap-1 text-gray-400 dark:text-gray-500 text-[11px] font-medium">
+                  <span className="material-symbols-outlined text-[12px]">trending_flat</span>
+                  <span>No trend data</span>
                 </div>
               </div>
 
@@ -124,14 +204,16 @@ export default function PatientVitalsPage() {
                     <span className="material-symbols-outlined text-[18px]">thermometer</span>
                     <span className="text-xs font-semibold uppercase tracking-wider">Temp</span>
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">Normal</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    {latestVitals?.temp ? 'Recorded' : 'Not recorded'}
+                  </span>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white">36.6</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">°C</span>
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">{tempValue}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">°F</span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500">
-                  <span>Oral</span>
+                  <span>Not recorded</span>
                 </div>
               </div>
 
@@ -144,11 +226,11 @@ export default function PatientVitalsPage() {
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">Normal</span>
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white">24.2</span>
+                  <span className="text-2xl font-bold text-gray-900 dark:text-white">--</span>
                   <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">kg/m²</span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500">
-                  <span>72kg • 172cm</span>
+                  <span>{weightValue !== '--' ? `${weightValue} lbs` : 'Not recorded'}</span>
                 </div>
               </div>
             </div>
@@ -160,10 +242,9 @@ export default function PatientVitalsPage() {
                     <span className="material-symbols-outlined text-xl">auto_awesome</span>
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">Clinical Insight Detected</h4>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">Clinical Insights</h4>
                     <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
-                      Patient's systolic BP has shown a consistent upward trend (+5 mmHg avg) over the last 3 visits. Consider evaluating for white coat hypertension or medication adjustment.
-                      <a className="text-primary font-semibold hover:underline ml-1" href="#">View Analysis</a>
+                      No automated insights available yet. Add more vitals to enable trend analysis.
                     </p>
                   </div>
                   <button className="ml-auto text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
@@ -203,32 +284,62 @@ export default function PatientVitalsPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="flex flex-col gap-1">
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-400">Systolic</label>
-                        <input className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary text-gray-900 dark:text-white" placeholder="120" type="number"/>
+                        <input 
+                          value={vitals.systolic}
+                          onChange={(e) => setVitals({...vitals, systolic: e.target.value})}
+                          className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary text-gray-900 dark:text-white" 
+                          placeholder="120" 
+                          type="number"
+                        />
                       </div>
                       <div className="flex flex-col gap-1">
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-400">Diastolic</label>
-                        <input className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary text-gray-900 dark:text-white" placeholder="80" type="number"/>
+                        <input 
+                          value={vitals.diastolic}
+                          onChange={(e) => setVitals({...vitals, diastolic: e.target.value})}
+                          className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary text-gray-900 dark:text-white" 
+                          placeholder="80" 
+                          type="number"
+                        />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="flex flex-col gap-1">
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-400">Heart Rate</label>
                         <div className="relative">
-                          <input className="w-full rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary pr-8 text-gray-900 dark:text-white" placeholder="72" type="number"/>
+                          <input 
+                            value={vitals.heartRate}
+                            onChange={(e) => setVitals({...vitals, heartRate: e.target.value})}
+                            className="w-full rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary pr-8 text-gray-900 dark:text-white" 
+                            placeholder="72" 
+                            type="number"
+                          />
                           <span className="absolute right-2 top-2 text-[10px] text-gray-400 dark:text-gray-500">bpm</span>
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-400">SpO₂</label>
                         <div className="relative">
-                          <input className="w-full rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary pr-6 text-gray-900 dark:text-white" placeholder="98" type="number"/>
+                          <input 
+                            value={vitals.spo2}
+                            onChange={(e) => setVitals({...vitals, spo2: e.target.value})}
+                            className="w-full rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary pr-6 text-gray-900 dark:text-white" 
+                            placeholder="98" 
+                            type="number"
+                          />
                           <span className="absolute right-2 top-2 text-[10px] text-gray-400 dark:text-gray-500">%</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex flex-col gap-1">
                       <label className="text-xs font-semibold text-gray-600 dark:text-gray-400">Quick Note</label>
-                      <textarea className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary resize-none text-gray-900 dark:text-white" placeholder="e.g. Patient anxious..." rows={2}></textarea>
+                      <textarea 
+                        value={vitals.notes}
+                        onChange={(e) => setVitals({...vitals, notes: e.target.value})}
+                        className="rounded-lg border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-primary focus:border-primary resize-none text-gray-900 dark:text-white" 
+                        placeholder="e.g. Patient anxious..." 
+                        rows={2}
+                      ></textarea>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-[10px] font-medium text-gray-600 dark:text-gray-400 transition">Post-exercise</button>
@@ -236,9 +347,22 @@ export default function PatientVitalsPage() {
                       <button className="px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-[10px] font-medium text-gray-600 dark:text-gray-400 transition">Lying</button>
                     </div>
                     <div className="mt-auto pt-4">
-                      <button className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2">
-                        <span className="material-symbols-outlined text-sm">save</span>
-                        Save Vitals
+                      <button 
+                        onClick={handleSaveVitals}
+                        disabled={saving}
+                        className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        {saving ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-sm">save</span>
+                            Save Vitals
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -279,53 +403,63 @@ export default function PatientVitalsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800 text-sm text-gray-700 dark:text-gray-300">
-                    <tr className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900 dark:text-white">May 12, 2024</div>
-                        <div className="text-xs text-gray-400 dark:text-gray-500">09:42 AM</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="font-bold text-gray-900 dark:text-white">120/80</span>
-                        <span className="text-xs text-gray-400 dark:text-gray-500 block">Sitting, L-Arm</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-amber-600 dark:text-amber-400">92</span>
-                          <span className="size-2 rounded-full bg-amber-500"></span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">16</td>
-                      <td className="px-6 py-4 whitespace-nowrap">36.6</td>
-                      <td className="px-6 py-4 whitespace-nowrap">98</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 w-fit">
-                          <span className="material-symbols-outlined text-sm text-gray-500 dark:text-gray-400">medical_services</span>
-                          <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Clinical</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <div className="bg-primary/10 text-primary rounded-full size-6 flex items-center justify-center text-[10px] font-bold">JD</div>
-                          <span className="text-xs font-medium">Not recorded</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button className="text-gray-400 dark:text-gray-500 hover:text-primary transition">
-                          <span className="material-symbols-outlined text-[18px]">edit_note</span>
-                        </button>
-                      </td>
-                    </tr>
+                    {vitalsHistory.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                          No vitals records found. Add vitals to see them here.
+                        </td>
+                      </tr>
+                    ) : (
+                      vitalsHistory.map((record) => {
+                        const date = new Date(record.recordedAt)
+                        const formattedDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        const formattedTime = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                        return (
+                          <tr key={record.visit_id || record.recordedAt} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="font-medium text-gray-900 dark:text-white">{formattedDate}</div>
+                              <div className="text-xs text-gray-400 dark:text-gray-500">{formattedTime}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="font-bold text-gray-900 dark:text-white">{record.bp || '--'}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-gray-900 dark:text-white">{record.hr || '--'}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">--</td>
+                            <td className="px-6 py-4 whitespace-nowrap">{record.temp ? `${record.temp}°F` : '--'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">--</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 w-fit">
+                                <span className="material-symbols-outlined text-sm text-gray-500 dark:text-gray-400">medical_services</span>
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Clinical</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Visit</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <button className="text-gray-400 dark:text-gray-500 hover:text-primary transition">
+                                <span className="material-symbols-outlined text-[18px]">edit_note</span>
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
               <div className="p-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                <span className="text-xs text-gray-500 dark:text-gray-400">Showing 3 of 124 records</span>
-                <div className="flex gap-2">
-                  <button className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400 disabled:opacity-50">Previous</button>
-                  <button className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400">Next</button>
-                </div>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Showing {vitalsHistory.length} record{vitalsHistory.length !== 1 ? 's' : ''}</span>
               </div>
             </div>
+              </>
+            )}
           </div>
         </div>
       </main>

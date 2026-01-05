@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { sharePatient } from '@/lib/api'
+import { useDoctor } from '@/contexts/DoctorContext'
 
 interface User {
   id: string
@@ -25,25 +26,47 @@ export default function AssignPatientModal({
   patientName,
   onSuccess,
 }: AssignPatientModalProps) {
+  const { doctor } = useDoctor()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
   const [assigning, setAssigning] = useState(false)
+  const [assigningToMe, setAssigningToMe] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [selectedEmail, setSelectedEmail] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
     if (isOpen) {
       loadUsers()
+      // Get current user email from doctor context or session
+      if (doctor?.email) {
+        setCurrentUserEmail(doctor.email)
+      } else {
+        // Fallback to getting from session
+        const getCurrentUserEmail = async () => {
+          try {
+            const supabase = (await import('@/lib/supabaseBrowser')).supabaseBrowser()
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session?.user?.email) {
+              setCurrentUserEmail(session.user.email)
+            }
+          } catch (err) {
+            console.error('Error getting current user email:', err)
+          }
+        }
+        getCurrentUserEmail()
+      }
     } else {
       // Reset state when modal closes
       setSelectedEmail('')
       setSearchQuery('')
       setError(null)
       setSuccess(false)
+      setAssigningToMe(false)
     }
-  }, [isOpen])
+  }, [isOpen, doctor])
 
   const loadUsers = async () => {
     try {
@@ -109,6 +132,33 @@ export default function AssignPatientModal({
     }
   }
 
+  const handleAssignToMe = async () => {
+    if (!currentUserEmail) {
+      setError('Unable to determine your email address')
+      return
+    }
+
+    try {
+      setAssigningToMe(true)
+      setError(null)
+
+      await sharePatient(patientId, currentUserEmail)
+
+      setSuccess(true)
+      setTimeout(() => {
+        if (onSuccess) {
+          onSuccess()
+        }
+        onClose()
+      }, 1500)
+    } catch (err: any) {
+      console.error('Error assigning patient to me:', err)
+      setError(err?.message || 'Failed to assign patient')
+    } finally {
+      setAssigningToMe(false)
+    }
+  }
+
   const filteredUsers = users.filter((user) =>
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.full_name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -159,10 +209,33 @@ export default function AssignPatientModal({
           </div>
         ) : (
           <>
+            {/* Assign to Me Button */}
+            {currentUserEmail && (
+              <div className="mb-4">
+                <button
+                  onClick={handleAssignToMe}
+                  disabled={assigningToMe || assigning}
+                  className="w-full px-4 py-3 bg-primary/10 hover:bg-primary/20 dark:bg-primary/20 dark:hover:bg-primary/30 border-2 border-primary/30 dark:border-primary/40 text-primary rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {assigningToMe ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                      <span>Assigning to me...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-sm">person</span>
+                      <span>Assign to Me</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Search for Doctor or Nurse
+                  Or search for another Doctor or Nurse
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 material-symbols-outlined text-sm">
@@ -243,7 +316,7 @@ export default function AssignPatientModal({
               </button>
               <button
                 onClick={handleAssign}
-                disabled={!selectedEmail || assigning}
+                disabled={!selectedEmail || assigning || assigningToMe}
                 className="flex-1 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {assigning ? (

@@ -136,10 +136,10 @@ export async function PATCH(
   const userRole = await getUserRole(userId);
   const body = await req.json();
 
-  // Only nurses can assign doctors to patients
-  if (userRole !== "nurse") {
+  // Nurses and doctors can assign doctors to patients
+  if (userRole !== "nurse" && userRole !== "doctor") {
     return NextResponse.json(
-      { error: "Only nurses can assign doctors to patients" },
+      { error: "Only nurses and doctors can assign doctors to patients" },
       { status: 403 }
     );
   }

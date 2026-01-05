@@ -205,7 +205,10 @@ export async function getPatient(id: string): Promise<{
   visits: Visit[];
 }> {
   const res = await authFetch(`/api/patients/${id}`);
-  if (!res.ok) throw new Error("Failed to load patient");
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ error: "Failed to load patient" }));
+    throw new Error(errorData.error || `Failed to load patient: ${res.status} ${res.statusText}`);
+  }
   return res.json();
 }
 
@@ -976,6 +979,34 @@ export async function getVitals(patientId: string) {
       weight: number | null;
     }>
   >;
+}
+
+export async function createVitals(
+  patientId: string,
+  payload: {
+    bp?: string;
+    hr?: string | number;
+    temp?: string | number;
+    weight?: string | number;
+    visit_id?: string;
+  }
+) {
+  const res = await authFetch(`/api/patients/${patientId}/vitals`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorText = await res.text();
+    let errorMessage = "Failed to create vitals";
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorMessage = errorJson.error || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+  return res.json();
 }
 
 export async function getCurrentUser() {

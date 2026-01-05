@@ -13,6 +13,7 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [visits, setVisits] = useState<any[]>([])
+  const [error, setError] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({
     chiefComplaint: '',
     hpi: '',
@@ -27,6 +28,7 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
   const loadVisits = async () => {
     try {
       setLoading(true)
+      setError(null)
       const { visits: apiVisits } = await getPatient(patientId)
 
       // Helper function to get user name from ID
@@ -286,6 +288,7 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
       setVisits(mappedVisits)
     } catch (err: any) {
       console.error('Error loading visits:', err)
+      setError(err?.message || 'Failed to load visit history')
       setVisits([])
     } finally {
       setLoading(false)
@@ -368,7 +371,17 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
         </span>
       </div>
 
-      {!selectedVisit ? (
+      {error && (
+        <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      ) : !selectedVisit ? (
         <div className="space-y-6">
           {/* Unsigned Visits Section */}
           {unsignedVisits.length > 0 && (

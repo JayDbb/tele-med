@@ -297,3 +297,98 @@ export async function GET(
 
   return NextResponse.json(validVitals);
 }
+
+// POST - Create a new vitals record
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: patientId } = await params;
+  const { userId, error } = await requireUser(req);
+  if (!userId) {
+    return NextResponse.json({ error }, { status: 401 });
+  }
+
+  try {
+    const body = await req.json();
+    const { bp, hr, temp, weight, visit_id } = body;
+
+    const supabase = supabaseServer();
+
+    // Verify patient access (nurses can access all, doctors only owned/shared)
+    const { hasAccess } = await verifyPatientAccess(userId, patientId);
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    // Get existing vitals from patients table (if vitals column exists)
+    const { data: patient, error: fetchError } = await supabase
+      .from("patients")
+      .select("vitals")
+      .eq("id", patientId)
+      .maybeSingle();
+
+    if (fetchError && !fetchError.message.includes("column")) {
+      return NextResponse.json({ error: fetchError.message }, { status: 400 });
+    }
+
+    // Parse existing vitals (if column exists)
+    let existingVitals: any[] = [];
+    if (patient?.vitals) {
+      try {
+        existingVitals = Array.isArray(patient.vitals)
+          ? patient.vitals
+          : typeof patient.vitals === "string"
+          ? JSON.parse(patient.vitals)
+          : [];
+      } catch {
+        existingVitals = [];
+      }
+    }
+
+    // Create new vitals entry
+    const vitalsEntry = {
+      id: crypto.randomUUID(),
+      visit_id: visit_id || null,
+      bp: bp || null,
+      hr: hr ? extractNumber(hr) : null,
+      temp: temp ? extractNumber(temp) : null,
+      weight: weight ? extractNumber(weight) : null,
+      recorded_by: userId,
+      recordedAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    };
+
+    // Append to existing vitals array
+    const updatedVitals = [vitalsEntry, ...existingVitals];
+
+    // Try to update patients table with new vitals JSONB (if column exists)
+    try {
+      const { data: updatedPatient, error: updateError } = await supabase
+        .from("patients")
+        .update({
+          vitals: updatedVitals,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", patientId)
+        .select("vitals")
+        .maybeSingle();
+
+      if (updateError && !updateError.message.includes("column")) {
+        console.warn("Failed to update vitals in patients table:", updateError);
+      }
+    } catch (updateErr: any) {
+      // If vitals column doesn't exist, that's okay - vitals will be extracted from visits
+      if (!updateErr.message?.includes("column")) {
+        console.warn("Failed to save vitals to patients table:", updateErr);
+      }
+    }
+
+    return NextResponse.json({ success: true, vitals: vitalsEntry });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error?.message || "Failed to create vitals" },
+      { status: 500 }
+    );
+  }
+}

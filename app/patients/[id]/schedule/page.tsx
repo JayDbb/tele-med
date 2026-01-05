@@ -1,16 +1,17 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import { PatientDataManager } from '@/utils/PatientDataManager'
 import NurseSidebar from '@/components/NurseSidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import { useDoctor } from '@/contexts/DoctorContext'
 
 interface SchedulePageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 interface Doctor {
@@ -26,7 +27,8 @@ interface Doctor {
 
 export default function SchedulePage({ params }: SchedulePageProps) {
   const router = useRouter()
-  const patientId = params.id
+  const { doctor, loading: doctorLoading } = useDoctor()
+  const { id: patientId } = use(params)
   const patient = PatientDataManager.getPatient(patientId)
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [doctorsLoading, setDoctorsLoading] = useState(true)
@@ -43,6 +45,34 @@ export default function SchedulePage({ params }: SchedulePageProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [isAddingToWaitlist, setIsAddingToWaitlist] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Get current user email and ID as fallback
+    const getCurrentUserInfo = async () => {
+      try {
+        if (doctor?.email) {
+          setCurrentUserEmail(doctor.email)
+          setCurrentUserId(doctor.id)
+        } else {
+          const supabase = (await import('@/lib/supabaseBrowser')).supabaseBrowser()
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session?.user) {
+            if (session.user.email) {
+              setCurrentUserEmail(session.user.email)
+            }
+            if (session.user.id) {
+              setCurrentUserId(session.user.id)
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error getting current user info:', err)
+      }
+    }
+    getCurrentUserInfo()
+  }, [doctor])
 
   useEffect(() => {
     const loadDoctors = async () => {
@@ -89,9 +119,18 @@ export default function SchedulePage({ params }: SchedulePageProps) {
 
         setDoctors(formattedDoctors)
 
-        // Set the first available doctor as selected if available and no doctor is currently selected
+        // Try to find and select current doctor first, otherwise select first available
         if (formattedDoctors.length > 0 && !selectedDoctor) {
-          setSelectedDoctor(formattedDoctors[0].id)
+          if (doctor?.id) {
+            const currentDoctor = formattedDoctors.find((d: { id: string; email: string }) => d.id === doctor.id || d.email === doctor.email)
+            if (currentDoctor) {
+              setSelectedDoctor(currentDoctor.id)
+            } else {
+              setSelectedDoctor(formattedDoctors[0].id)
+            }
+          } else {
+            setSelectedDoctor(formattedDoctors[0].id)
+          }
         }
       } catch (err: any) {
         console.error('Error loading doctors:', err)
@@ -264,7 +303,7 @@ export default function SchedulePage({ params }: SchedulePageProps) {
     return (
       <div className="flex h-screen w-full overflow-hidden">
         <NurseSidebar />
-        <PatientDetailSidebar patientId={params.id} />
+        <PatientDetailSidebar patientId={patientId} />
 
         <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
           <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
@@ -287,7 +326,7 @@ export default function SchedulePage({ params }: SchedulePageProps) {
   return (
     <div className="flex h-screen w-full overflow-hidden">
       <NurseSidebar />
-      <PatientDetailSidebar patientId={params.id} />
+      <PatientDetailSidebar patientId={patientId} />
 
       <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
         <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
@@ -307,7 +346,7 @@ export default function SchedulePage({ params }: SchedulePageProps) {
               </div>
               <div className="flex gap-3">
                 <button
-                  onClick={() => router.push(`/patients/${params.id}`)}
+                  onClick={() => router.push(`/patients/${patientId}`)}
                   className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all text-sm"
                 >
                   <span className="material-symbols-outlined text-[18px]">arrow_back</span>
@@ -342,6 +381,93 @@ export default function SchedulePage({ params }: SchedulePageProps) {
                     <p className="text-xs text-gray-500 dark:text-gray-400">Choose an available physician for the appointment</p>
                   </div>
                   <div className="p-4 space-y-3">
+                    {/* Assign to Me - shows current doctor if in list */}
+                    {!doctorsLoading && !doctorLoading && (doctor || currentUserEmail || currentUserId) && (() => {
+                      const currentDoctor = doctor
+                        ? doctors.find((d: Doctor) => d.id === doctor.id || d.email === doctor.email)
+                        : currentUserEmail
+                          ? doctors.find((d: Doctor) => d.email === currentUserEmail)
+                          : null
+
+                      // If current doctor is in the list, show them with (Me) label
+                      if (currentDoctor) {
+                        const isSelected = selectedDoctor === currentDoctor.id
+
+                        return (
+                          <label className="cursor-pointer group">
+                            <input
+                              className="hidden"
+                              name="doctor"
+                              type="radio"
+                              value={currentDoctor.id}
+                              checked={isSelected}
+                              onChange={(e) => setSelectedDoctor(e.target.value)}
+                            />
+                            <div className={`border rounded-lg p-4 flex items-center gap-4 transition-all ${isSelected
+                              ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                              : 'border-gray-200 dark:border-gray-700 hover:border-primary/50 dark:hover:border-primary/50'
+                              }`}>
+                              <div className="size-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-700 dark:text-gray-300">
+                                {currentDoctor.name.split(' ').map((n: string) => n[0]).join('')}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{currentDoctor.name}</h3>
+                                  <span className="text-xs text-primary font-medium">(Me)</span>
+                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{currentDoctor.specialty}</p>
+                              </div>
+                              <span className={`text-xs font-medium px-2 py-1 rounded ${currentDoctor.status === 'available' ? 'text-green-700 bg-green-100 dark:text-green-400 dark:bg-green-900/30' :
+                                currentDoctor.status === 'busy' ? 'text-orange-700 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30' :
+                                  'text-gray-500 bg-gray-100 dark:text-gray-400 dark:bg-gray-700'
+                                }`}>
+                                {currentDoctor.status === 'available' ? 'Available' :
+                                  currentDoctor.status === 'busy' ? `Next: ${currentDoctor.next}` :
+                                    'Unavailable'}
+                              </span>
+                            </div>
+                          </label>
+                        )
+                      }
+
+                      // If current doctor not in list but we have doctor info, show a special "Assign to Me" card
+                      if (doctor && doctor.id) {
+                        const isSelected = selectedDoctor === doctor.id
+
+                        return (
+                          <label className="cursor-pointer group">
+                            <input
+                              className="hidden"
+                              name="doctor"
+                              type="radio"
+                              value={doctor.id}
+                              checked={isSelected}
+                              onChange={(e) => setSelectedDoctor(e.target.value)}
+                            />
+                            <div className={`border rounded-lg p-4 flex items-center gap-4 transition-all ${isSelected
+                              ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                              : 'border-gray-200 dark:border-gray-700 hover:border-primary/50 dark:hover:border-primary/50'
+                              }`}>
+                              <div className="size-12 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center font-bold text-primary">
+                                {doctor.name.split(' ').map((n: string) => n[0]).join('')}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{doctor.name}</h3>
+                                  <span className="text-xs text-primary font-medium">(Me)</span>
+                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{doctor.specialty || 'General Practice'}</p>
+                              </div>
+                              <span className="text-xs font-medium px-2 py-1 rounded text-primary bg-primary/10 dark:bg-primary/20">
+                                Assign to Me
+                              </span>
+                            </div>
+                          </label>
+                        )
+                      }
+
+                      return null
+                    })()}
                     {doctorsLoading ? (
                       <div className="flex items-center justify-center py-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

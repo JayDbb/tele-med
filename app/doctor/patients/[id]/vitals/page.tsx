@@ -1,26 +1,27 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from '@/components/Sidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
 import AvailabilityToggle from '@/components/AvailabilityToggle'
-import { PatientDataManager } from '@/utils/PatientDataManager'
+import { getPatient, getVitals, createVitals } from '@/lib/api'
 
 export default function PatientVitalsPage() {
   const params = useParams()
   const router = useRouter()
   const patientId = params.id as string
-  const patient = PatientDataManager.getPatient(patientId)
-  const [vitalsHistory, setVitalsHistory] = useState<any[]>(
-    () => PatientDataManager.getPatientSectionList(patientId, 'vitals')
-  )
+  const [patient, setPatient] = useState<any>(null)
+  const [vitalsHistory, setVitalsHistory] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const latestVitals = vitalsHistory[0]
   const bpValue = latestVitals?.bp || '--'
   const hrValue = latestVitals?.hr || '--'
-  const tempValue = latestVitals?.temp || '--'
-  const weightValue = latestVitals?.weight || '--'
+  const tempValue = latestVitals?.temp ? `${latestVitals.temp}` : '--'
+  const weightValue = latestVitals?.weight ? `${latestVitals.weight}` : '--'
   const [vitals, setVitals] = useState({
     systolic: '',
     diastolic: '',
@@ -29,20 +30,53 @@ export default function PatientVitalsPage() {
     notes: ''
   })
 
-  const handleSaveVitals = () => {
-    if (vitals.systolic && vitals.diastolic && vitals.heartRate) {
-      const entry = {
-        id: Date.now().toString(),
-        recordedAt: new Date().toISOString(),
-        bp: `${vitals.systolic}/${vitals.diastolic}`,
+  useEffect(() => {
+    loadData()
+  }, [patientId])
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const [patientData, vitalsData] = await Promise.all([
+        getPatient(patientId).then(res => res.patient),
+        getVitals(patientId)
+      ])
+      setPatient(patientData)
+      setVitalsHistory(vitalsData || [])
+    } catch (err: any) {
+      console.error('Error loading data:', err)
+      setError(err?.message || 'Failed to load patient data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSaveVitals = async () => {
+    if (!vitals.systolic || !vitals.diastolic || !vitals.heartRate) {
+      setError('Please fill in at least BP (systolic and diastolic) and heart rate')
+      return
+    }
+
+    try {
+      setSaving(true)
+      setError(null)
+      const bp = `${vitals.systolic}/${vitals.diastolic}`
+      await createVitals(patientId, {
+        bp,
         hr: vitals.heartRate,
-        spo2: vitals.spo2,
-        notes: vitals.notes
-      }
-      const nextVitals = [entry, ...vitalsHistory]
-      PatientDataManager.savePatientSectionList(patientId, 'vitals', nextVitals)
-      setVitalsHistory(nextVitals)
+        temp: vitals.spo2 ? undefined : undefined, // SpO2 is not a standard vital in our API
+        weight: undefined,
+      })
+      // Reload vitals after saving
+      const updatedVitals = await getVitals(patientId)
+      setVitalsHistory(updatedVitals || [])
       setVitals({ systolic: '', diastolic: '', heartRate: '', spo2: '', notes: '' })
+    } catch (err: any) {
+      console.error('Error saving vitals:', err)
+      setError(err?.message || 'Failed to save vitals')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -59,6 +93,17 @@ export default function PatientVitalsPage() {
 
         <div className="flex-1 overflow-y-auto p-6">
           <div className="w-full flex flex-col gap-6">
+            {error && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+              </div>
+            )}
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <>
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Vitals Management</h2>
@@ -166,7 +211,7 @@ export default function PatientVitalsPage() {
                 </div>
                 <div className="flex items-baseline gap-1 mb-1">
                   <span className="text-2xl font-bold text-gray-900 dark:text-white">{tempValue}</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">°C</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">°F</span>
                 </div>
                 <div className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500">
                   <span>Not recorded</span>
@@ -307,10 +352,20 @@ export default function PatientVitalsPage() {
                     <div className="mt-auto pt-4">
                       <button 
                         onClick={handleSaveVitals}
-                        className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
+                        disabled={saving}
+                        className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                       >
-                        <span className="material-symbols-outlined text-sm">save</span>
-                        Save Vitals
+                        {saving ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-sm">save</span>
+                            Save Vitals
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -351,53 +406,63 @@ export default function PatientVitalsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800 text-sm text-gray-700 dark:text-gray-300">
-                    <tr className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900 dark:text-white">May 12, 2024</div>
-                        <div className="text-xs text-gray-400 dark:text-gray-500">09:42 AM</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="font-bold text-gray-900 dark:text-white">120/80</span>
-                        <span className="text-xs text-gray-400 dark:text-gray-500 block">Sitting, L-Arm</span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-amber-600 dark:text-amber-400">92</span>
-                          <span className="size-2 rounded-full bg-amber-500"></span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">16</td>
-                      <td className="px-6 py-4 whitespace-nowrap">36.6</td>
-                      <td className="px-6 py-4 whitespace-nowrap">98</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 w-fit">
-                          <span className="material-symbols-outlined text-sm text-gray-500 dark:text-gray-400">medical_services</span>
-                          <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Clinical</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <div className="bg-primary/10 text-primary rounded-full size-6 flex items-center justify-center text-[10px] font-bold">JD</div>
-                          <span className="text-xs font-medium">Not recorded</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button className="text-gray-400 dark:text-gray-500 hover:text-primary transition">
-                          <span className="material-symbols-outlined text-[18px]">edit_note</span>
-                        </button>
-                      </td>
-                    </tr>
+                    {vitalsHistory.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                          No vitals records found. Add vitals to see them here.
+                        </td>
+                      </tr>
+                    ) : (
+                      vitalsHistory.map((record) => {
+                        const date = new Date(record.recordedAt)
+                        const formattedDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        const formattedTime = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                        return (
+                          <tr key={record.visit_id || record.recordedAt} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="font-medium text-gray-900 dark:text-white">{formattedDate}</div>
+                              <div className="text-xs text-gray-400 dark:text-gray-500">{formattedTime}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="font-bold text-gray-900 dark:text-white">{record.bp || '--'}</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-gray-900 dark:text-white">{record.hr || '--'}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">--</td>
+                            <td className="px-6 py-4 whitespace-nowrap">{record.temp ? `${record.temp}°F` : '--'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">--</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 w-fit">
+                                <span className="material-symbols-outlined text-sm text-gray-500 dark:text-gray-400">medical_services</span>
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-300">Clinical</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Visit</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <button className="text-gray-400 dark:text-gray-500 hover:text-primary transition">
+                                <span className="material-symbols-outlined text-[18px]">edit_note</span>
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
               <div className="p-4 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                <span className="text-xs text-gray-500 dark:text-gray-400">Showing 3 of 124 records</span>
-                <div className="flex gap-2">
-                  <button className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400 disabled:opacity-50">Previous</button>
-                  <button className="px-3 py-1 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400">Next</button>
-                </div>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Showing {vitalsHistory.length} record{vitalsHistory.length !== 1 ? 's' : ''}</span>
               </div>
             </div>
+              </>
+            )}
           </div>
         </div>
       </main>
