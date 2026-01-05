@@ -21,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark icons-ready">
+    <html lang="en" className="dark icons-loading" suppressHydrationWarning>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="manifest" href="/manifest.json" />
@@ -35,14 +35,19 @@ export default function RootLayout({
             __html: `
               (function () {
                 var root = document.documentElement;
-                root.classList.add('icons-loading');
+                if (!root.classList.contains('icons-loading')) {
+                  root.classList.add('icons-loading');
+                }
                 if (document.fonts && document.fonts.load) {
                   document.fonts.load('24px \"Material Symbols Outlined\"').then(function () {
+                    root.classList.remove('icons-loading');
                     root.classList.add('icons-ready');
                   }).catch(function () {
+                    root.classList.remove('icons-loading');
                     root.classList.add('icons-ready');
                   });
                 } else {
+                  root.classList.remove('icons-loading');
                   root.classList.add('icons-ready');
                 }
               })();

@@ -134,15 +134,13 @@ const RoleBasedSidebar = () => {
                     return (
                         <Link
                             key={item.label}
-                            className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg relative ${isActive
-                                    ? 'text-primary'
-                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                            className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-lg relative ${isActive
+                                ? 'text-primary'
+                                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                                 }`}
                             href={item.href}
                         >
-                            {isActive && (
-                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-red-500 to-blue-500 rounded-r"></div>
-                            )}
+
                             <div className="relative">
                                 <span className={`material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center ${isActive ? 'fill' : ''}`}>
                                     {item.icon}
@@ -154,18 +152,16 @@ const RoleBasedSidebar = () => {
                 })}
             </nav>
 
-            <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1">
-                    <button
-                        onClick={handleLogout}
-                        className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800`}
-                    >
-                        <span className="material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center">logout</span>
-                        {!isCollapsed && <p className="text-sm font-medium">Logout</p>}
-                    </button>
-                </div>
+            <div className="flex flex-col gap-2">
+                <button
+                    onClick={handleLogout}
+                    className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-4 py-3 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800`}
+                >
+                    <span className="material-symbols-outlined text-xl w-6 h-6 flex items-center justify-center">logout</span>
+                    {!isCollapsed && <p className="text-sm font-medium">Logout</p>}
+                </button>
 
-                <div className={`border-t border-gray-200 dark:border-gray-700 pt-4 ${isCollapsed ? 'hidden' : ''}`}>
+                <div className={`border-t border-gray-200 dark:border-gray-700 pt-3 ${isCollapsed ? 'hidden' : ''}`}>
                     <div className="flex items-center gap-3">
                         <div
                             className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10"

@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react'
 import { getPatients } from '@/lib/api'
 import type { Patient } from '@/lib/types'
+import { useVideoCall } from '@/contexts/VideoCallContext'
 
 const PatientCards = () => {
   const [patients, setPatients] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const { startVideoCall } = useVideoCall()
 
   useEffect(() => {
     loadPatients()
@@ -114,6 +116,19 @@ const PatientCards = () => {
               <div className="flex gap-2 mt-2">
                 <button className="text-[10px] font-medium text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded flex items-center hover:bg-blue-100 dark:hover:bg-blue-800/40 transition">
                   <span className="material-icons-outlined text-[12px] mr-1">call</span> Phone
+                </button>
+                <button 
+                  onClick={async (e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    if (patient.email) {
+                      await startVideoCall(patient.name, patient.email, patient.id)
+                    }
+                  }}
+                  className="text-[10px] font-medium text-green-500 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded flex items-center hover:bg-green-100 dark:hover:bg-green-800/40 transition"
+                  title="Start Video Call"
+                >
+                  <span className="material-icons-outlined text-[12px] mr-1">videocam</span> Video Call
                 </button>
                 <button className="text-[10px] font-medium text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded flex items-center hover:bg-blue-100 dark:hover:bg-blue-800/40 transition">
                   <span className="material-icons-outlined text-[12px] mr-1">monitor_heart</span> Live Vital

@@ -29,6 +29,7 @@ export default function DraggableWidget({ id, children }: DraggableWidgetProps) 
       <div
         {...attributes}
         {...listeners}
+        suppressHydrationWarning
         className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded p-1"
       >
         <span className="material-symbols-outlined text-gray-600 dark:text-gray-300 text-sm">

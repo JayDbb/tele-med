@@ -892,10 +892,10 @@ export default function PatientVideoPage() {
       try {
         const transcriptionResult = await transcribeVisitAudio(upload.path, newVisit.id);
         console.log('Transcription completed');
-        
+
         // Import appendVisitNote for saving transcription to notes
         const { appendVisitNote } = await import('../../../../lib/api');
-        
+
         // Save the full transcript to visit notes as subjective (dictation source)
         if (transcriptionResult.transcript) {
           try {
@@ -927,7 +927,7 @@ export default function PatientVideoPage() {
         // Save structured data to notes if available
         if (transcriptionResult.structured) {
           const structured = transcriptionResult.structured;
-          
+
           // Save diagnosis
           if (structured.diagnosis) {
             const diagnosis = Array.isArray(structured.diagnosis)
@@ -959,7 +959,7 @@ export default function PatientVideoPage() {
             }
           }
         }
-        
+
         showToast('Recording saved and transcribed successfully');
       } catch (transcribeErr) {
         console.error('Transcription error:', transcribeErr);

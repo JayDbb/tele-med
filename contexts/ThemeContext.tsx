@@ -16,7 +16,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     document.documentElement.classList.add('dark')
-    document.documentElement.classList.add('icons-ready')
+    // icons-ready is handled by the inline script in layout.tsx
   }, [])
 
   const toggleTheme = () => {

@@ -30,6 +30,12 @@ A modern medical dashboard built with Next.js, TypeScript, and Tailwind CSS for 
 2. **Run the development server:**
    ```bash
    npm run dev
+   # or
+   yarn dev
+   # or
+   pnpm dev
+   # or
+   bun dev
    ```
 
 3. **Open your browser:**
@@ -53,6 +59,7 @@ A modern medical dashboard built with Next.js, TypeScript, and Tailwind CSS for 
 │   └── SearchBar.tsx      # Search functionality
 ├── types/                 # TypeScript interfaces
 └── tailwind.config.ts     # Tailwind configuration
+>>>>>>> medical-dashboard-nextjs
 ```
 
 ## Components

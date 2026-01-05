@@ -1,5 +1,10 @@
 import { supabaseBrowser } from "./supabaseBrowser";
 import type { Patient, Visit } from "./types";
+import {
+  queueMutation,
+  syncQueue,
+  removeQueuedItemByMatch,
+} from "./offlineQueue";
 
 async function getToken() {
   const supabase = supabaseBrowser();
@@ -145,12 +150,9 @@ export async function getPatients(): Promise<Patient[]> {
 }
 
 export async function checkDuplicatePatient(
-  email?: string | null,
-  phone?: string | null
-): Promise<{
-  isDuplicate: boolean;
-  patients: Patient[];
-}> {
+  email: string | null,
+  phone: string | null
+): Promise<{ isDuplicate: boolean; patients: any[] }> {
   const res = await authFetch("/api/patients/check-duplicate", {
     method: "POST",
     body: JSON.stringify({ email, phone }),
@@ -160,12 +162,42 @@ export async function checkDuplicatePatient(
 }
 
 export async function createPatient(payload: Partial<Patient>) {
-  const res = await authFetch("/api/patients", {
+  // Queue the mutation first
+  await queueMutation({
+    type: "insert",
+    endpoint: "/api/patients",
     method: "POST",
-    body: JSON.stringify(payload),
+    payload,
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+
+  // Try to execute immediately
+  try {
+    const res = await authFetch("/api/patients", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const result = await res.json();
+
+    // If successful, remove this specific item from queue
+    await removeQueuedItemByMatch("/api/patients", "POST", payload);
+
+    return result;
+  } catch (error: any) {
+    // If network error, the item is already queued and will sync later
+    if (
+      error.message?.includes("fetch") ||
+      error.message?.includes("network")
+    ) {
+      // Return a temporary response for offline mode
+      return {
+        ...payload,
+        _queued: true,
+      } as any;
+    }
+    // For other errors, rethrow
+    throw error;
+  }
 }
 
 export async function getPatient(id: string): Promise<{
@@ -184,12 +216,93 @@ export async function getAllVisits(): Promise<{ visits: Visit[] }> {
 }
 
 export async function createVisit(payload: Partial<Visit>) {
-  const res = await authFetch("/api/visits", {
+  // Generate a temp ID for the visit
+  const tempId = `temp_visit_${Date.now()}_${Math.random()
+    .toString(36)
+    .substr(2, 9)}`;
+
+  // Queue the mutation first with temp ID in metadata
+  await queueMutation({
+    type: "insert",
+    endpoint: "/api/visits",
     method: "POST",
-    body: JSON.stringify(payload),
+    payload: {
+      ...payload,
+      _tempId: tempId, // Store temp ID in payload for tracking
+    },
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+
+  // Try to execute immediately
+  try {
+    const res = await authFetch("/api/visits", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const result = await res.json();
+
+    // If successful, remove this specific item from queue IMMEDIATELY
+    // This is critical to prevent duplicate creation during sync
+    // Try multiple approaches to ensure removal
+    let removed = false;
+    try {
+      await removeQueuedItemByMatch("/api/visits", "POST", {
+        ...payload,
+        _tempId: tempId,
+      });
+      removed = true;
+      console.log(`Successfully removed queued visit with tempId: ${tempId}`);
+    } catch (removeError) {
+      console.warn("Failed to remove queued item by match:", removeError);
+    }
+
+    // Fallback: try to find and remove by tempId directly if first attempt failed
+    if (!removed) {
+      try {
+        const { db } = await import("./offlineQueue");
+        const items = await db.queue
+          .where("endpoint")
+          .equals("/api/visits")
+          .toArray();
+        for (const item of items) {
+          if (item.method === "POST" && item.payload?._tempId === tempId) {
+            await db.queue.delete(item.id!);
+            console.log(`Removed queued visit by tempId (fallback): ${tempId}`);
+            removed = true;
+            break;
+          }
+        }
+      } catch (fallbackError) {
+        console.error("Fallback removal also failed:", fallbackError);
+      }
+    }
+
+    // Store the ID mapping immediately so sync can detect it
+    if (result.id) {
+      try {
+        const { storeIdMapping } = await import("./offlineQueue");
+        await storeIdMapping(tempId, result.id, "visit");
+        console.log(`Stored ID mapping immediately: ${tempId} -> ${result.id}`);
+      } catch (mappingError) {
+        console.warn("Failed to store ID mapping:", mappingError);
+      }
+    }
+
+    return result;
+  } catch (error: any) {
+    // If network error, the item is already queued
+    if (
+      error.message?.includes("fetch") ||
+      error.message?.includes("network")
+    ) {
+      return {
+        id: tempId,
+        ...payload,
+        _queued: true,
+      } as any;
+    }
+    throw error;
+  }
 }
 
 export async function getVisit(
@@ -201,12 +314,37 @@ export async function getVisit(
 }
 
 export async function updateVisit(id: string, payload: Partial<Visit>) {
-  const res = await authFetch(`/api/visits/${id}`, {
+  // Queue the mutation first
+  await queueMutation({
+    type: "update",
+    endpoint: `/api/visits/${id}`,
     method: "PUT",
-    body: JSON.stringify(payload),
+    payload,
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+
+  // Try to execute immediately
+  try {
+    const res = await authFetch(`/api/visits/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const result = await res.json();
+
+    // If successful, remove this specific item from queue
+    await removeQueuedItemByMatch(`/api/visits/${id}`, "PUT", payload);
+
+    return result;
+  } catch (error: any) {
+    // If network error, the item is already queued
+    if (
+      error.message?.includes("fetch") ||
+      error.message?.includes("network")
+    ) {
+      return { id, ...payload, _queued: true } as any;
+    }
+    throw error;
+  }
 }
 
 export async function createSignedUploadUrl(params: {
@@ -226,47 +364,89 @@ export async function createSignedUploadUrl(params: {
   }>;
 }
 
-// Get all note entries for a visit (append-only system)
-export async function getVisitNotes(visitId: string) {
-  const res = await authFetch(`/api/visits/${visitId}/note`);
-  if (!res.ok) throw new Error(await res.text());
-  return res.json() as Promise<{
-    visit_id: string;
-    status: "draft" | "signed" | "pending";
-    entries: Array<{
-      id: string;
-      timestamp: string;
-      content: string;
-      section: "subjective" | "objective" | "assessment" | "plan";
-      source: "manual" | "dictation";
-      author_id: string;
-    }>;
-  }>;
+export async function upsertVisitNote(
+  visitId: string,
+  note: any,
+  status = "draft"
+) {
+  // Queue the mutation first
+  await queueMutation({
+    type: "update",
+    endpoint: `/api/visits/${visitId}/note`,
+    method: "PUT",
+    payload: { note, status },
+  });
+
+  // Try to execute immediately
+  try {
+    const res = await authFetch(`/api/visits/${visitId}/note`, {
+      method: "PUT",
+      body: JSON.stringify({ note, status }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const result = await res.json();
+
+    // If successful, remove this specific item from queue
+    await removeQueuedItemByMatch(`/api/visits/${visitId}/note`, "PUT", {
+      note,
+      status,
+    });
+
+    return result;
+  } catch (error: any) {
+    // If network error, the item is already queued
+    if (
+      error.message?.includes("fetch") ||
+      error.message?.includes("network")
+    ) {
+      return { visitId, note, status, _queued: true } as any;
+    }
+    throw error;
+  }
 }
 
-// Append a new note entry (append-only system)
+// Append a note entry to a visit note (append-only system)
 export async function appendVisitNote(
   visitId: string,
   content: string,
   section: "subjective" | "objective" | "assessment" | "plan",
   source: "manual" | "dictation" = "manual"
 ) {
-  const res = await authFetch(`/api/visits/${visitId}/note`, {
+  // Queue the mutation first
+  await queueMutation({
+    type: "insert",
+    endpoint: `/api/visits/${visitId}/note`,
     method: "POST",
-    body: JSON.stringify({ content, section, source }),
+    payload: { content, section, source },
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json() as Promise<{
-    entry: {
-      id: string;
-      timestamp: string;
-      content: string;
-      section: string;
-      source: string;
-      author_id: string;
-    };
-    totalEntries: number;
-  }>;
+
+  // Try to execute immediately
+  try {
+    const res = await authFetch(`/api/visits/${visitId}/note`, {
+      method: "POST",
+      body: JSON.stringify({ content, section, source }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const result = await res.json();
+
+    // If successful, remove this specific item from queue
+    await removeQueuedItemByMatch(`/api/visits/${visitId}/note`, "POST", {
+      content,
+      section,
+      source,
+    });
+
+    return result;
+  } catch (error: any) {
+    // If network error, the item is already queued
+    if (
+      error.message?.includes("fetch") ||
+      error.message?.includes("network")
+    ) {
+      return { visitId, content, section, source, _queued: true } as any;
+    }
+    throw error;
+  }
 }
 
 // Update note status (e.g., sign note)
@@ -274,63 +454,75 @@ export async function updateVisitNoteStatus(
   visitId: string,
   status: "draft" | "signed" | "pending"
 ) {
-  const res = await authFetch(`/api/visits/${visitId}/note`, {
+  // Queue the mutation first
+  await queueMutation({
+    type: "update",
+    endpoint: `/api/visits/${visitId}/note`,
     method: "PUT",
-    body: JSON.stringify({ status }),
+    payload: { status },
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
 
-export async function getVisitAuditTrail(visitId: string): Promise<
-  Array<{
-    id: string;
-    visit_id: string;
-    patient_id: string;
-    action: string;
-    entity_type: string;
-    entity_id: string;
-    user_id: string;
-    user_name: string;
-    changes: any;
-    notes: string | null;
-    created_at: string;
-  }>
-> {
-  const res = await authFetch(`/api/visits/${visitId}/audit`);
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
+  // Try to execute immediately
+  try {
+    const res = await authFetch(`/api/visits/${visitId}/note`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const result = await res.json();
 
-export async function logAuditEvent(
-  visitId: string,
-  action: string,
-  entityType: string,
-  changes?: any,
-  notes?: string,
-  entityId?: string
-) {
-  const res = await authFetch(`/api/visits/${visitId}/audit`, {
-    method: "POST",
-    body: JSON.stringify({
-      action,
-      entity_type: entityType,
-      entity_id: entityId || visitId,
-      changes,
-      notes,
-    }),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+    // If successful, remove this specific item from queue
+    await removeQueuedItemByMatch(`/api/visits/${visitId}/note`, "PUT", {
+      status,
+    });
+
+    return result;
+  } catch (error: any) {
+    // If network error, the item is already queued
+    if (
+      error.message?.includes("fetch") ||
+      error.message?.includes("network")
+    ) {
+      return { visitId, status, _queued: true } as any;
+    }
+    throw error;
+  }
 }
 
 export async function sharePatient(patientId: string, email: string) {
-  const res = await authFetch(`/api/patients/${patientId}/share`, {
+  // Queue the mutation first
+  await queueMutation({
+    type: "insert",
+    endpoint: `/api/patients/${patientId}/share`,
     method: "POST",
-    body: JSON.stringify({ email }),
+    payload: { email },
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+
+  // Try to execute immediately
+  try {
+    const res = await authFetch(`/api/patients/${patientId}/share`, {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const result = await res.json();
+
+    // If successful, remove this specific item from queue
+    await removeQueuedItemByMatch(`/api/patients/${patientId}/share`, "POST", {
+      email,
+    });
+
+    return result;
+  } catch (error: any) {
+    // If network error, the item is already queued
+    if (
+      error.message?.includes("fetch") ||
+      error.message?.includes("network")
+    ) {
+      return { patientId, email, _queued: true } as any;
+    }
+    throw error;
+  }
 }
 
 export async function getAllergies(patientId: string) {
@@ -379,6 +571,80 @@ export async function createAllergy(
     throw new Error(errorMessage);
   }
   return res.json();
+}
+
+export async function transcribeAudio(audioPath: string, visitId?: string) {
+  // Queue the transcription request first
+  await queueMutation({
+    type: "insert",
+    endpoint: "/api/transcribe",
+    method: "POST",
+    payload: {
+      path: audioPath,
+      visit_id: visitId,
+    },
+  });
+
+  // Try to execute immediately
+  try {
+    const res = await authFetch("/api/transcribe", {
+      method: "POST",
+      body: JSON.stringify({ path: audioPath, visit_id: visitId }),
+    });
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(errorText || "Failed to transcribe audio");
+    }
+    const result = await res.json();
+
+    // If successful, remove from queue
+    await removeQueuedItemByMatch("/api/transcribe", "POST", {
+      path: audioPath,
+      visit_id: visitId,
+    });
+
+    return result as {
+      transcript: string;
+      structured: {
+        past_medical_history: string[];
+        current_symptoms: Record<string, any>;
+        physical_exam_findings: Record<string, any>;
+        diagnosis: string | string[];
+        treatment_plan: string[];
+        prescriptions: Array<{
+          medication?: string;
+          dosage?: string;
+          frequency?: string;
+          duration?: string;
+        }>;
+      };
+      summary: string;
+    };
+  } catch (error: any) {
+    // If network error, the item is already queued and will sync later
+    if (
+      error.message?.includes("fetch") ||
+      error.message?.includes("network")
+    ) {
+      // Return a placeholder response for offline mode
+      // The actual transcription will happen during sync
+      console.log("Transcription queued for later sync");
+      return {
+        transcript: "",
+        structured: {
+          past_medical_history: [],
+          current_symptoms: [],
+          physical_exam_findings: {},
+          diagnosis: [],
+          treatment_plan: [],
+          prescriptions: [],
+        },
+        summary: "Transcription will be processed when online.",
+        _queued: true,
+      } as any;
+    }
+    throw error;
+  }
 }
 
 export async function deleteAllergy(patientId: string, allergyId: string) {

@@ -103,8 +103,8 @@ const PatientsList = () => {
     }
   }
 
-  const handleVideoCall = (patientEmail: string, patientName: string) => {
-    startVideoCall(patientName, patientEmail)
+  const handleVideoCall = async (patientEmail: string, patientName: string, patientId: string) => {
+    await startVideoCall(patientName, patientEmail, patientId)
   }
 
   const handleAssignClick = (e: React.MouseEvent, patient: any) => {
@@ -191,10 +191,10 @@ const PatientsList = () => {
                   <div className="flex items-center gap-2">
                     <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{patient.email}</p>
                     <button
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.preventDefault()
                         e.stopPropagation()
-                        handleVideoCall(patient.email, patient.name)
+                        await handleVideoCall(patient.email, patient.name, patient.id)
                       }}
                       className="bg-green-500 hover:bg-green-600 text-white p-1 rounded flex items-center justify-center transition-colors"
                       title="Start Video Call"
