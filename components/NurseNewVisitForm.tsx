@@ -18,7 +18,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   const router = useRouter()
   const { nurse } = useNurse()
   const { getPatientUrl } = usePatientRoutes()
-  const isNewPatient = patientId.length > 10
+  const isNewPatient = patientId?.length > 10
   const [activeTab, setActiveTab] = useState('record')
   const profilePhotoInputRef = useRef<HTMLInputElement | null>(null)
   const documentsInputRef = useRef<HTMLInputElement | null>(null)
@@ -529,8 +529,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                       <button
                         onClick={() => setActiveTab('record')}
                         className={`flex flex-col items-center justify-center border-b-2 gap-1 pb-3 pt-4 px-2 ${activeTab === 'record'
-                            ? 'border-primary text-primary'
-                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                          ? 'border-primary text-primary'
+                          : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                           }`}
                       >
                         <span className="material-symbols-outlined">mic</span>
@@ -539,8 +539,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                       <button
                         onClick={() => setActiveTab('upload')}
                         className={`flex flex-col items-center justify-center border-b-2 gap-1 pb-3 pt-4 px-2 ${activeTab === 'upload'
-                            ? 'border-primary text-primary'
-                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                          ? 'border-primary text-primary'
+                          : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                           }`}
                       >
                         <span className="material-symbols-outlined">cloud_upload</span>
@@ -549,8 +549,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                       <button
                         onClick={() => setActiveTab('type')}
                         className={`flex flex-col items-center justify-center border-b-2 gap-1 pb-3 pt-4 px-2 ${activeTab === 'type'
-                            ? 'border-primary text-primary'
-                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                          ? 'border-primary text-primary'
+                          : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                           }`}
                       >
                         <span className="material-symbols-outlined">keyboard</span>

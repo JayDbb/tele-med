@@ -32,6 +32,17 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
   const [transcription, setTranscription] = useState<any>(null)
   const [visitId, setVisitId] = useState<string | null>(null)
   const [previousSummary, setPreviousSummary] = useState<string | null>(null)
+  const [expandedSections, setExpandedSections] = useState({
+    subjective: true,
+    objective: true,
+    assessmentPlan: true,
+    vaccines: false,
+    familyHistory: false,
+    riskFlags: false,
+    surgicalHistory: false,
+    pastMedicalHistory: false,
+    orders: false
+  })
   // Load visit data from localStorage on mount
   const getStorageKey = () => `visit-form-${patientId}`
 
@@ -53,7 +64,52 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
       subjective: { chiefComplaint: '', hpi: '' },
       objective: { bp: '', hr: '', temp: '', weight: '', examFindings: '' },
       assessmentPlan: { assessment: '', plan: '' },
-      additionalNotes: ''
+      additionalNotes: '',
+      vaccines: {
+        name: '',
+        date: '',
+        dose: '',
+        site: '',
+        route: '',
+        lotNumber: '',
+        manufacturer: ''
+      },
+      familyHistory: {
+        relationship: '',
+        status: '',
+        conditions: ''
+      },
+      riskFlags: {
+        tobaccoUse: '',
+        tobaccoAmount: '',
+        alcoholUse: '',
+        alcoholFrequency: '',
+        housingStatus: '',
+        occupation: ''
+      },
+      surgicalHistory: {
+        procedure: '',
+        date: '',
+        site: '',
+        surgeon: '',
+        outcome: '',
+        source: ''
+      },
+      pastMedicalHistory: {
+        condition: '',
+        status: '',
+        diagnosedDate: '',
+        impact: '',
+        icd10: '',
+        source: ''
+      },
+      orders: {
+        type: '',
+        priority: '',
+        details: '',
+        status: '',
+        dateOrdered: ''
+      }
     }
   })
 
@@ -158,7 +214,13 @@ Extract the following information:
 4. diagnosis: String or array with the diagnosis or working diagnosis
 5. treatment_plan: Array of treatment recommendations, procedures, and follow-up plans
 6. prescriptions: Array of prescribed medications with dosage, frequency, and duration if mentioned
-7. summary: A concise, readable summary (2-3 paragraphs) of the entire medical consultation session written in continuous prose. The summary should include the chief complaint and current symptoms, key findings from physical examination, diagnosis, and treatment plan with any prescriptions. Keep it professional and easy to read for medical review. Write in continuous text format without bullet points.
+7. vaccines: Object with vaccine information if mentioned (name, date, dose, site, route, lot_number, manufacturer)
+8. family_history: Object with family health history if mentioned (relationship, status: "Living" | "Deceased", conditions)
+9. risk_flags: Object with social and lifestyle factors if mentioned (tobacco_use: "Current" | "Former" | "Never", tobacco_amount, alcohol_use: "Social" | "Heavy" | "None", alcohol_frequency, housing_status: "Stable" | "Unstable" | "Homeless", occupation)
+10. surgical_history: Object with surgical procedures if mentioned (procedure, date, site, surgeon, outcome: "No Issues" | "Complications" | "Unknown", source: "Patient Reported" | "Medical Records" | "External Record")
+11. past_medical_history_structured: Object with detailed past medical history if mentioned (condition, status: "Active" | "Resolved" | "Inactive", diagnosed_date, impact: "High" | "Medium" | "Low", icd10, source: "Clinician" | "Patient" | "Lab" | "Imaging")
+12. orders: Object with medical orders if mentioned (type: "Medication" | "Lab" | "Imaging" | "Referral", priority: "Routine" | "Urgent" | "STAT", details, status: "Pending" | "In Progress" | "Completed" | "Cancelled", date_ordered)
+13. summary: A concise, readable summary (2-3 paragraphs) of the entire medical consultation session written in continuous prose. The summary should include the chief complaint and current symptoms, key findings from physical examination, diagnosis, and treatment plan with any prescriptions. Keep it professional and easy to read for medical review. Write in continuous text format without bullet points.
 
 IMPORTANT - Unit Assumptions and Conversions:
 - Blood Pressure (BP): Assume mmHg if unit not specified. If given in other units, convert to mmHg (e.g., kPa to mmHg: multiply by 7.5).
@@ -173,6 +235,11 @@ For vital signs in physical_exam_findings:
 - Temperature format: "98.6" (just the number)
 - Weight format: "165" (just the number)
 
+For dates:
+- Use YYYY-MM-DD format for dates (e.g., "2024-01-15")
+- For years only, use YYYY format (e.g., "2020")
+- If only a year is mentioned, use that format
+
 Return ONLY valid JSON in this exact format (no markdown, no code blocks, no additional text):
 {
   "past_medical_history": [],
@@ -181,10 +248,16 @@ Return ONLY valid JSON in this exact format (no markdown, no code blocks, no add
   "diagnosis": "",
   "treatment_plan": [],
   "prescriptions": [],
+  "vaccines": { "name": "", "date": "", "dose": "", "site": "", "route": "", "lot_number": "", "manufacturer": "" },
+  "family_history": { "relationship": "", "status": "", "conditions": "" },
+  "risk_flags": { "tobacco_use": "", "tobacco_amount": "", "alcohol_use": "", "alcohol_frequency": "", "housing_status": "", "occupation": "" },
+  "surgical_history": { "procedure": "", "date": "", "site": "", "surgeon": "", "outcome": "", "source": "" },
+  "past_medical_history_structured": { "condition": "", "status": "", "diagnosed_date": "", "impact": "", "icd10": "", "source": "" },
+  "orders": { "type": "", "priority": "", "details": "", "status": "", "date_ordered": "" },
   "summary": ""
 }
 
-If any field is not mentioned in the transcript, use an empty array [] or empty object {} or empty string "" as appropriate.
+If any field is not mentioned in the transcript, use an empty array [] or empty object {} or empty string "" as appropriate. Only populate fields that are explicitly mentioned or can be reasonably inferred from the transcript.
 
 Transcript:
 `
@@ -252,6 +325,14 @@ Transcript:
         ? structured.treatment_plan.join('\n')
         : structured?.treatment_plan || ''
 
+      // Extract new structured fields
+      const vaccines = structured?.vaccines || {}
+      const familyHistory = structured?.family_history || {}
+      const riskFlags = structured?.risk_flags || {}
+      const surgicalHistory = structured?.surgical_history || {}
+      const pastMedicalHistoryStructured = structured?.past_medical_history_structured || {}
+      const orders = structured?.orders || {}
+
       setVisitData((prev: typeof visitData) => ({
         ...prev,
         subjective: {
@@ -273,6 +354,51 @@ Transcript:
           plan: treatmentPlan || prev.assessmentPlan.plan,
         },
         additionalNotes: summary || prev.additionalNotes,
+        vaccines: {
+          name: vaccines.name || prev.vaccines.name,
+          date: vaccines.date || prev.vaccines.date,
+          dose: vaccines.dose || prev.vaccines.dose,
+          site: vaccines.site || prev.vaccines.site,
+          route: vaccines.route || prev.vaccines.route,
+          lotNumber: vaccines.lot_number || vaccines.lotNumber || prev.vaccines.lotNumber,
+          manufacturer: vaccines.manufacturer || prev.vaccines.manufacturer,
+        },
+        familyHistory: {
+          relationship: familyHistory.relationship || prev.familyHistory.relationship,
+          status: familyHistory.status || prev.familyHistory.status,
+          conditions: familyHistory.conditions || prev.familyHistory.conditions,
+        },
+        riskFlags: {
+          tobaccoUse: riskFlags.tobacco_use || riskFlags.tobaccoUse || prev.riskFlags.tobaccoUse,
+          tobaccoAmount: riskFlags.tobacco_amount || riskFlags.tobaccoAmount || prev.riskFlags.tobaccoAmount,
+          alcoholUse: riskFlags.alcohol_use || riskFlags.alcoholUse || prev.riskFlags.alcoholUse,
+          alcoholFrequency: riskFlags.alcohol_frequency || riskFlags.alcoholFrequency || prev.riskFlags.alcoholFrequency,
+          housingStatus: riskFlags.housing_status || riskFlags.housingStatus || prev.riskFlags.housingStatus,
+          occupation: riskFlags.occupation || prev.riskFlags.occupation,
+        },
+        surgicalHistory: {
+          procedure: surgicalHistory.procedure || prev.surgicalHistory.procedure,
+          date: surgicalHistory.date || prev.surgicalHistory.date,
+          site: surgicalHistory.site || prev.surgicalHistory.site,
+          surgeon: surgicalHistory.surgeon || prev.surgicalHistory.surgeon,
+          outcome: surgicalHistory.outcome || prev.surgicalHistory.outcome,
+          source: surgicalHistory.source || prev.surgicalHistory.source,
+        },
+        pastMedicalHistory: {
+          condition: pastMedicalHistoryStructured.condition || prev.pastMedicalHistory.condition,
+          status: pastMedicalHistoryStructured.status || prev.pastMedicalHistory.status,
+          diagnosedDate: pastMedicalHistoryStructured.diagnosed_date || pastMedicalHistoryStructured.diagnosedDate || prev.pastMedicalHistory.diagnosedDate,
+          impact: pastMedicalHistoryStructured.impact || prev.pastMedicalHistory.impact,
+          icd10: pastMedicalHistoryStructured.icd10 || prev.pastMedicalHistory.icd10,
+          source: pastMedicalHistoryStructured.source || prev.pastMedicalHistory.source,
+        },
+        orders: {
+          type: orders.type || prev.orders.type,
+          priority: orders.priority || prev.orders.priority,
+          details: orders.details || prev.orders.details,
+          status: orders.status || prev.orders.status,
+          dateOrdered: orders.date_ordered || orders.dateOrdered || prev.orders.dateOrdered,
+        },
       }))
     } catch (err: any) {
       console.error('Error processing recording:', err)
@@ -370,6 +496,70 @@ Transcript:
           currentVisitId,
           visitData.additionalNotes,
           'subjective',
+          'manual'
+        )
+      }
+
+      // Save additional structured data sections
+      const hasValues = (section: Record<string, any>) =>
+        Object.values(section).some((value) => value && (typeof value === 'string' ? value.trim().length > 0 : true))
+
+      // Save Vaccines
+      if (hasValues(visitData.vaccines)) {
+        await appendVisitNote(
+          currentVisitId,
+          JSON.stringify({ type: 'vaccines', data: visitData.vaccines }),
+          'objective',
+          'manual'
+        )
+      }
+
+      // Save Family History
+      if (hasValues(visitData.familyHistory)) {
+        await appendVisitNote(
+          currentVisitId,
+          JSON.stringify({ type: 'family_history', data: visitData.familyHistory }),
+          'subjective',
+          'manual'
+        )
+      }
+
+      // Save Risk Flags (Social History)
+      if (hasValues(visitData.riskFlags)) {
+        await appendVisitNote(
+          currentVisitId,
+          JSON.stringify({ type: 'risk_flags', data: visitData.riskFlags }),
+          'subjective',
+          'manual'
+        )
+      }
+
+      // Save Surgical History
+      if (hasValues(visitData.surgicalHistory)) {
+        await appendVisitNote(
+          currentVisitId,
+          JSON.stringify({ type: 'surgical_history', data: visitData.surgicalHistory }),
+          'subjective',
+          'manual'
+        )
+      }
+
+      // Save Past Medical History
+      if (hasValues(visitData.pastMedicalHistory)) {
+        await appendVisitNote(
+          currentVisitId,
+          JSON.stringify({ type: 'past_medical_history', data: visitData.pastMedicalHistory }),
+          'subjective',
+          'manual'
+        )
+      }
+
+      // Save Orders
+      if (hasValues(visitData.orders)) {
+        await appendVisitNote(
+          currentVisitId,
+          JSON.stringify({ type: 'orders', data: visitData.orders }),
+          'plan',
           'manual'
         )
       }
@@ -563,163 +753,192 @@ Transcript:
                 {/* Subjective Section */}
                 <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                   <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                  <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => setExpandedSections({ ...expandedSections, subjective: !expandedSections.subjective })}
+                    className="w-full flex items-center justify-between text-left"
+                  >
                     <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       Subjective
                       <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Chief Complaint & HPI</span>
                     </h3>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Chief Complaint</label>
-                      <input
-                        value={visitData.subjective.chiefComplaint}
-                        onChange={(e) => setVisitData({
-                          ...visitData,
-                          subjective: { ...visitData.subjective, chiefComplaint: e.target.value }
-                        })}
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
-                        placeholder="e.g., Persistent cough, fever"
-                        type="text"
-                      />
+                    <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                      {expandedSections.subjective ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </button>
+                  {expandedSections.subjective && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Chief Complaint</label>
+                        <input
+                          value={visitData.subjective.chiefComplaint}
+                          onChange={(e) => setVisitData({
+                            ...visitData,
+                            subjective: { ...visitData.subjective, chiefComplaint: e.target.value }
+                          })}
+                          className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
+                          placeholder="e.g., Persistent cough, fever"
+                          type="text"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">History of Present Illness</label>
+                        <textarea
+                          value={visitData.subjective.hpi}
+                          onChange={(e) => setVisitData({
+                            ...visitData,
+                            subjective: { ...visitData.subjective, hpi: e.target.value }
+                          })}
+                          className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
+                          placeholder="Describe the HPI..."
+                          rows={4}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">History of Present Illness</label>
-                      <textarea
-                        value={visitData.subjective.hpi}
-                        onChange={(e) => setVisitData({
-                          ...visitData,
-                          subjective: { ...visitData.subjective, hpi: e.target.value }
-                        })}
-                        className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
-                        placeholder="Describe the HPI..."
-                        rows={4}
-                      />
-                    </div>
-                  </div>
+                  )}
                 </section>
 
                 {/* Objective Section */}
                 <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                   <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                  <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    Objective
-                    <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Vitals & Exam</span>
-                  </h3>
+                  <button
+                    onClick={() => setExpandedSections({ ...expandedSections, objective: !expandedSections.objective })}
+                    className="w-full flex items-center justify-between text-left"
+                  >
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      Objective
+                      <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Vitals & Exam</span>
+                    </h3>
+                    <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                      {expandedSections.objective ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </button>
+                  {expandedSections.objective && (
+                    <div className="space-y-4">
+                      {/* Vitals Grid */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">BP (mmHg)</label>
+                          <input
+                            value={visitData.objective.bp}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              objective: { ...visitData.objective, bp: e.target.value }
+                            })}
+                            className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                            placeholder="120/80"
+                            type="text"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">HR (bpm)</label>
+                          <input
+                            value={visitData.objective.hr}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              objective: { ...visitData.objective, hr: e.target.value }
+                            })}
+                            className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                            placeholder="72"
+                            type="text"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Temp (°F)</label>
+                          <input
+                            value={visitData.objective.temp}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              objective: { ...visitData.objective, temp: e.target.value }
+                            })}
+                            className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                            placeholder="98.6"
+                            type="text"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Weight (lbs)</label>
+                          <input
+                            value={visitData.objective.weight}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              objective: { ...visitData.objective, weight: e.target.value }
+                            })}
+                            className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                            placeholder="165"
+                            type="text"
+                          />
+                        </div>
+                      </div>
 
-                  {/* Vitals Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">BP (mmHg)</label>
-                      <input
-                        value={visitData.objective.bp}
-                        onChange={(e) => setVisitData({
-                          ...visitData,
-                          objective: { ...visitData.objective, bp: e.target.value }
-                        })}
-                        className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                        placeholder="120/80"
-                        type="text"
-                      />
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Physical Exam Findings</label>
+                        <textarea
+                          value={visitData.objective.examFindings}
+                          onChange={(e) => setVisitData({
+                            ...visitData,
+                            objective: { ...visitData.objective, examFindings: e.target.value }
+                          })}
+                          className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
+                          placeholder="General appearance, HEENT, Lungs, Heart..."
+                          rows={3}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">HR (bpm)</label>
-                      <input
-                        value={visitData.objective.hr}
-                        onChange={(e) => setVisitData({
-                          ...visitData,
-                          objective: { ...visitData.objective, hr: e.target.value }
-                        })}
-                        className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                        placeholder="72"
-                        type="text"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Temp (°F)</label>
-                      <input
-                        value={visitData.objective.temp}
-                        onChange={(e) => setVisitData({
-                          ...visitData,
-                          objective: { ...visitData.objective, temp: e.target.value }
-                        })}
-                        className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                        placeholder="98.6"
-                        type="text"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Weight (lbs)</label>
-                      <input
-                        value={visitData.objective.weight}
-                        onChange={(e) => setVisitData({
-                          ...visitData,
-                          objective: { ...visitData.objective, weight: e.target.value }
-                        })}
-                        className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
-                        placeholder="165"
-                        type="text"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Physical Exam Findings</label>
-                    <textarea
-                      value={visitData.objective.examFindings}
-                      onChange={(e) => setVisitData({
-                        ...visitData,
-                        objective: { ...visitData.objective, examFindings: e.target.value }
-                      })}
-                      className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
-                      placeholder="General appearance, HEENT, Lungs, Heart..."
-                      rows={3}
-                    />
-                  </div>
+                  )}
                 </section>
 
                 {/* Assessment & Plan */}
                 <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                   <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                  <h3 className="text-base font-bold text-gray-900 dark:text-white">Assessment & Plan</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Assessment / Diagnosis</label>
-                      <div className="relative">
-                        <span className="absolute top-2.5 left-3 text-gray-500 dark:text-gray-400">
-                          <span className="material-symbols-outlined text-sm">medical_services</span>
-                        </span>
-                        <textarea
-                          value={visitData.assessmentPlan.assessment}
-                          onChange={(e) => setVisitData({
-                            ...visitData,
-                            assessmentPlan: { ...visitData.assessmentPlan, assessment: e.target.value }
-                          })}
-                          className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none"
-                          placeholder="Primary diagnosis..."
-                          rows={5}
-                        />
+                  <button
+                    onClick={() => setExpandedSections({ ...expandedSections, assessmentPlan: !expandedSections.assessmentPlan })}
+                    className="w-full flex items-center justify-between text-left"
+                  >
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white">Assessment & Plan</h3>
+                    <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                      {expandedSections.assessmentPlan ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </button>
+                  {expandedSections.assessmentPlan && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Assessment / Diagnosis</label>
+                        <div className="relative">
+                          <span className="absolute top-2.5 left-3 text-gray-500 dark:text-gray-400">
+                            <span className="material-symbols-outlined text-sm">medical_services</span>
+                          </span>
+                          <textarea
+                            value={visitData.assessmentPlan.assessment}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              assessmentPlan: { ...visitData.assessmentPlan, assessment: e.target.value }
+                            })}
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none"
+                            placeholder="Primary diagnosis..."
+                            rows={5}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Treatment Plan</label>
+                        <div className="relative">
+                          <span className="absolute top-2.5 left-3 text-gray-500 dark:text-gray-400">
+                            <span className="material-symbols-outlined text-sm">healing</span>
+                          </span>
+                          <textarea
+                            value={visitData.assessmentPlan.plan}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              assessmentPlan: { ...visitData.assessmentPlan, plan: e.target.value }
+                            })}
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none"
+                            placeholder="Medications, referrals, follow-up..."
+                            rows={5}
+                          />
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Treatment Plan</label>
-                      <div className="relative">
-                        <span className="absolute top-2.5 left-3 text-gray-500 dark:text-gray-400">
-                          <span className="material-symbols-outlined text-sm">healing</span>
-                        </span>
-                        <textarea
-                          value={visitData.assessmentPlan.plan}
-                          onChange={(e) => setVisitData({
-                            ...visitData,
-                            assessmentPlan: { ...visitData.assessmentPlan, plan: e.target.value }
-                          })}
-                          className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none"
-                          placeholder="Medications, referrals, follow-up..."
-                          rows={5}
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </section>
 
                 {/* Additional Notes */}
@@ -741,6 +960,611 @@ Transcript:
                       rows={6}
                     />
                   </div>
+                </section>
+
+                {/* Vaccines Section */}
+                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                  <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                  <button
+                    onClick={() => setExpandedSections({ ...expandedSections, vaccines: !expandedSections.vaccines })}
+                    className="w-full flex items-center justify-between text-left"
+                  >
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      Vaccines
+                      <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Immunizations</span>
+                    </h3>
+                    <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                      {expandedSections.vaccines ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </button>
+                  {expandedSections.vaccines && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Vaccine</label>
+                        <input
+                          className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
+                          placeholder="Search vaccine (e.g. Tdap)"
+                          value={visitData.vaccines.name}
+                          onChange={(e) => setVisitData({
+                            ...visitData,
+                            vaccines: { ...visitData.vaccines, name: e.target.value }
+                          })}
+                          type="text"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Date</label>
+                          <input
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            type="date"
+                            value={visitData.vaccines.date}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              vaccines: { ...visitData.vaccines, date: e.target.value }
+                            })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Dose #</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.vaccines.dose}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              vaccines: { ...visitData.vaccines, dose: e.target.value }
+                            })}
+                          >
+                            <option>Booster</option>
+                            <option>1st</option>
+                            <option>2nd</option>
+                            <option>3rd</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Site</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.vaccines.site}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              vaccines: { ...visitData.vaccines, site: e.target.value }
+                            })}
+                          >
+                            <option>Left Deltoid</option>
+                            <option>Right Deltoid</option>
+                            <option>Left Thigh</option>
+                            <option>Right Thigh</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Route</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.vaccines.route}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              vaccines: { ...visitData.vaccines, route: e.target.value }
+                            })}
+                          >
+                            <option>Intramuscular (IM)</option>
+                            <option>Subcutaneous (SC)</option>
+                            <option>Oral</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Lot Number</label>
+                          <input
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            placeholder="Lot #"
+                            type="text"
+                            value={visitData.vaccines.lotNumber}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              vaccines: { ...visitData.vaccines, lotNumber: e.target.value }
+                            })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Manufacturer</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.vaccines.manufacturer}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              vaccines: { ...visitData.vaccines, manufacturer: e.target.value }
+                            })}
+                          >
+                            <option>Select Manufacturer</option>
+                            <option>Pfizer</option>
+                            <option>Moderna</option>
+                            <option>Johnson & Johnson</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                {/* Family Health History Section */}
+                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                  <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                  <button
+                    onClick={() => setExpandedSections({ ...expandedSections, familyHistory: !expandedSections.familyHistory })}
+                    className="w-full flex items-center justify-between text-left"
+                  >
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      Family Health History
+                      <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Genetic Risk Factors</span>
+                    </h3>
+                    <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                      {expandedSections.familyHistory ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </button>
+                  {expandedSections.familyHistory && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Relationship</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.familyHistory.relationship}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              familyHistory: { ...visitData.familyHistory, relationship: e.target.value }
+                            })}
+                          >
+                            <option>Select...</option>
+                            <option>Mother</option>
+                            <option>Father</option>
+                            <option>Sibling</option>
+                            <option>Grandparent</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Status</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.familyHistory.status}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              familyHistory: { ...visitData.familyHistory, status: e.target.value }
+                            })}
+                          >
+                            <option>Living</option>
+                            <option>Deceased</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Known Conditions</label>
+                        <input
+                          className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
+                          placeholder="Search other conditions..."
+                          value={visitData.familyHistory.conditions}
+                          onChange={(e) => setVisitData({
+                            ...visitData,
+                            familyHistory: { ...visitData.familyHistory, conditions: e.target.value }
+                          })}
+                          type="text"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                {/* Risk Flags Section */}
+                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                  <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                  <button
+                    onClick={() => setExpandedSections({ ...expandedSections, riskFlags: !expandedSections.riskFlags })}
+                    className="w-full flex items-center justify-between text-left"
+                  >
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      Risk Flags
+                      <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Social & Lifestyle</span>
+                    </h3>
+                    <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                      {expandedSections.riskFlags ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </button>
+                  {expandedSections.riskFlags && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Tobacco Use</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.riskFlags.tobaccoUse}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              riskFlags: { ...visitData.riskFlags, tobaccoUse: e.target.value }
+                            })}
+                          >
+                            <option>Current</option>
+                            <option>Former</option>
+                            <option>Never</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Amount</label>
+                          <input
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            placeholder="10 cigs / day"
+                            type="text"
+                            value={visitData.riskFlags.tobaccoAmount}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              riskFlags: { ...visitData.riskFlags, tobaccoAmount: e.target.value }
+                            })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Alcohol Use</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.riskFlags.alcoholUse}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              riskFlags: { ...visitData.riskFlags, alcoholUse: e.target.value }
+                            })}
+                          >
+                            <option>Social</option>
+                            <option>Heavy</option>
+                            <option>None</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Frequency</label>
+                          <input
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            placeholder="2-3 drinks / week"
+                            type="text"
+                            value={visitData.riskFlags.alcoholFrequency}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              riskFlags: { ...visitData.riskFlags, alcoholFrequency: e.target.value }
+                            })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Housing Status</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.riskFlags.housingStatus}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              riskFlags: { ...visitData.riskFlags, housingStatus: e.target.value }
+                            })}
+                          >
+                            <option>Stable</option>
+                            <option>Unstable</option>
+                            <option>Homeless</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Occupation</label>
+                          <input
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            placeholder="Logistics Manager"
+                            type="text"
+                            value={visitData.riskFlags.occupation}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              riskFlags: { ...visitData.riskFlags, occupation: e.target.value }
+                            })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                {/* Surgical History Section */}
+                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                  <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                  <button
+                    onClick={() => setExpandedSections({ ...expandedSections, surgicalHistory: !expandedSections.surgicalHistory })}
+                    className="w-full flex items-center justify-between text-left"
+                  >
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      Surgical History
+                      <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Procedures & Operations</span>
+                    </h3>
+                    <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                      {expandedSections.surgicalHistory ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </button>
+                  {expandedSections.surgicalHistory && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Procedure</label>
+                          <input
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
+                            placeholder="e.g. Appendectomy"
+                            value={visitData.surgicalHistory.procedure}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              surgicalHistory: { ...visitData.surgicalHistory, procedure: e.target.value }
+                            })}
+                            type="text"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Date / Year</label>
+                          <input
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            placeholder="YYYY"
+                            type="text"
+                            value={visitData.surgicalHistory.date}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              surgicalHistory: { ...visitData.surgicalHistory, date: e.target.value }
+                            })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Site</label>
+                          <input
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            placeholder="Left Knee"
+                            type="text"
+                            value={visitData.surgicalHistory.site}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              surgicalHistory: { ...visitData.surgicalHistory, site: e.target.value }
+                            })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Surgeon</label>
+                          <input
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            placeholder="Dr. R. Miller"
+                            type="text"
+                            value={visitData.surgicalHistory.surgeon}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              surgicalHistory: { ...visitData.surgicalHistory, surgeon: e.target.value }
+                            })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Outcome</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.surgicalHistory.outcome}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              surgicalHistory: { ...visitData.surgicalHistory, outcome: e.target.value }
+                            })}
+                          >
+                            <option>No Issues</option>
+                            <option>Complications</option>
+                            <option>Unknown</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Source</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.surgicalHistory.source}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              surgicalHistory: { ...visitData.surgicalHistory, source: e.target.value }
+                            })}
+                          >
+                            <option>Patient Reported</option>
+                            <option>Medical Records</option>
+                            <option>External Record</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                {/* Past Medical History Section */}
+                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                  <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                  <button
+                    onClick={() => setExpandedSections({ ...expandedSections, pastMedicalHistory: !expandedSections.pastMedicalHistory })}
+                    className="w-full flex items-center justify-between text-left"
+                  >
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      Past Medical History
+                      <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Chronic Conditions</span>
+                    </h3>
+                    <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                      {expandedSections.pastMedicalHistory ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </button>
+                  {expandedSections.pastMedicalHistory && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Condition</label>
+                          <input
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
+                            placeholder="Type 2 Diabetes Mellitus"
+                            value={visitData.pastMedicalHistory.condition}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              pastMedicalHistory: { ...visitData.pastMedicalHistory, condition: e.target.value }
+                            })}
+                            type="text"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Status</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.pastMedicalHistory.status}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              pastMedicalHistory: { ...visitData.pastMedicalHistory, status: e.target.value }
+                            })}
+                          >
+                            <option>Active</option>
+                            <option>Resolved</option>
+                            <option>Inactive</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Date Diagnosed</label>
+                          <input
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            type="date"
+                            value={visitData.pastMedicalHistory.diagnosedDate}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              pastMedicalHistory: { ...visitData.pastMedicalHistory, diagnosedDate: e.target.value }
+                            })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Impact</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.pastMedicalHistory.impact}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              pastMedicalHistory: { ...visitData.pastMedicalHistory, impact: e.target.value }
+                            })}
+                          >
+                            <option>High</option>
+                            <option>Medium</option>
+                            <option>Low</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">ICD-10 Code</label>
+                          <input
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            placeholder="E11.9"
+                            type="text"
+                            value={visitData.pastMedicalHistory.icd10}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              pastMedicalHistory: { ...visitData.pastMedicalHistory, icd10: e.target.value }
+                            })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Source</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.pastMedicalHistory.source}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              pastMedicalHistory: { ...visitData.pastMedicalHistory, source: e.target.value }
+                            })}
+                          >
+                            <option>Clinician</option>
+                            <option>Patient</option>
+                            <option>Lab</option>
+                            <option>Imaging</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                {/* Orders Section */}
+                <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
+                  <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                  <button
+                    onClick={() => setExpandedSections({ ...expandedSections, orders: !expandedSections.orders })}
+                    className="w-full flex items-center justify-between text-left"
+                  >
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                      Orders
+                      <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Labs, Imaging & Medications</span>
+                    </h3>
+                    <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                      {expandedSections.orders ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </button>
+                  {expandedSections.orders && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Order Type</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.orders.type}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              orders: { ...visitData.orders, type: e.target.value }
+                            })}
+                          >
+                            <option>Medication</option>
+                            <option>Lab</option>
+                            <option>Imaging</option>
+                            <option>Referral</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Priority</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.orders.priority}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              orders: { ...visitData.orders, priority: e.target.value }
+                            })}
+                          >
+                            <option>Routine</option>
+                            <option>Urgent</option>
+                            <option>STAT</option>
+                          </select>
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Order Details</label>
+                          <input
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
+                            placeholder="CBC with Differential"
+                            value={visitData.orders.details}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              orders: { ...visitData.orders, details: e.target.value }
+                            })}
+                            type="text"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Status</label>
+                          <select
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            value={visitData.orders.status}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              orders: { ...visitData.orders, status: e.target.value }
+                            })}
+                          >
+                            <option>Pending</option>
+                            <option>In Progress</option>
+                            <option>Completed</option>
+                            <option>Cancelled</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Date Ordered</label>
+                          <input
+                            className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary px-3 py-2"
+                            type="date"
+                            value={visitData.orders.dateOrdered}
+                            onChange={(e) => setVisitData({
+                              ...visitData,
+                              orders: { ...visitData.orders, dateOrdered: e.target.value }
+                            })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </section>
               </div>
             </div>
