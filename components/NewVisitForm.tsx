@@ -31,14 +31,43 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
   const [error, setError] = useState<string | null>(null)
   const [transcription, setTranscription] = useState<any>(null)
   const [visitId, setVisitId] = useState<string | null>(null)
-  const [visitData, setVisitData] = useState({
-    subjective: { chiefComplaint: '', hpi: '' },
-    objective: { bp: '', hr: '', temp: '', weight: '', examFindings: '' },
-    assessmentPlan: { assessment: '', plan: '' },
-    additionalNotes: ''
+  const [previousSummary, setPreviousSummary] = useState<string | null>(null)
+  // Load visit data from localStorage on mount
+  const getStorageKey = () => `visit-form-${patientId}`
+  
+  const loadFromStorage = () => {
+    try {
+      const stored = localStorage.getItem(getStorageKey())
+      if (stored) {
+        return JSON.parse(stored)
+      }
+    } catch (err) {
+      console.error('Error loading from localStorage:', err)
+    }
+    return null
+  }
+
+  const [visitData, setVisitData] = useState(() => {
+    const stored = loadFromStorage()
+    return stored || {
+      subjective: { chiefComplaint: '', hpi: '' },
+      objective: { bp: '', hr: '', temp: '', weight: '', examFindings: '' },
+      assessmentPlan: { assessment: '', plan: '' },
+      additionalNotes: ''
+    }
   })
 
   const recorder = useAudioRecorder()
+
+  // Auto-save to localStorage whenever visitData changes
+  useEffect(() => {
+    const storageKey = getStorageKey()
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(visitData))
+    } catch (err) {
+      console.error('Error saving to localStorage:', err)
+    }
+  }, [visitData, patientId])
 
   useEffect(() => {
     loadPatient()
@@ -57,9 +86,15 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
     }
   }
 
-  const formatAllergies = (allergies: string) => {
-    if (!allergies || allergies === 'None') return 'None'
-    return allergies
+  const formatAllergies = (allergies: string | any[] | null | undefined) => {
+    if (!allergies) return 'None'
+    if (allergies === 'None') return 'None'
+    if (Array.isArray(allergies)) {
+      if (allergies.length === 0) return 'None'
+      return allergies.map((a: any) => typeof a === 'string' ? a : a.name || 'Unknown').join(', ')
+    }
+    if (typeof allergies === 'string') return allergies
+    return 'None'
   }
 
   const formatTime = (seconds: number): string => {
@@ -87,21 +122,12 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
       setUploading(true)
       setError(null)
 
-      // Upload audio file
-      const formData = new FormData()
-      formData.append('audio', blob, 'recording.webm')
-
-      const uploadRes = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!uploadRes.ok) {
-        const errorData = await uploadRes.json()
-        throw new Error(errorData.error || 'Failed to upload audio')
-      }
-
-      const { audioUrl } = await uploadRes.json()
+      // Upload audio file using uploadToPrivateBucket
+      const { uploadToPrivateBucket } = await import('@/lib/storage')
+      const file = new File([blob], 'recording.webm', { type: 'audio/webm' })
+      const upload = await uploadToPrivateBucket(file)
+      const audioPath = upload.path
+      
       setUploading(false)
       setTranscribing(true)
 
@@ -109,7 +135,7 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
       const transcribeRes = await fetch('/api/transcribe/dictate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audioUrl }),
+        body: JSON.stringify({ path: audioPath }),
       })
 
       if (!transcribeRes.ok) {
@@ -119,41 +145,134 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
       const transcriptionResult = await transcribeRes.json()
 
       // Parse transcription
+      // Use default medical prompt for parsing, with previous summary as context if available
+      const contextSection = previousSummary 
+        ? `\n\nIMPORTANT CONTEXT - Previous Visit Summary:\n${previousSummary}\n\nPlease use this context to better understand the patient's medical history and current condition. This is a follow-up visit, so reference the previous visit when relevant.\n\n`
+        : ''
+      
+      const defaultMedicalPrompt = `You are a medical transcription assistant. Parse the following medical consultation transcript into structured JSON format and create a summary.${contextSection}
+Extract the following information:
+1. past_medical_history: Array of past medical conditions, surgeries, and relevant medical history
+2. current_symptoms: Object or array describing current symptoms, including onset, duration, severity, and characteristics
+3. physical_exam_findings: Object describing physical examination findings (vital signs, general appearance, system-specific findings)
+4. diagnosis: String or array with the diagnosis or working diagnosis
+5. treatment_plan: Array of treatment recommendations, procedures, and follow-up plans
+6. prescriptions: Array of prescribed medications with dosage, frequency, and duration if mentioned
+7. summary: A concise, readable summary (2-3 paragraphs) of the entire medical consultation session written in continuous prose. The summary should include the chief complaint and current symptoms, key findings from physical examination, diagnosis, and treatment plan with any prescriptions. Keep it professional and easy to read for medical review. Write in continuous text format without bullet points.
+
+IMPORTANT - Unit Assumptions and Conversions:
+- Blood Pressure (BP): Assume mmHg if unit not specified. If given in other units, convert to mmHg (e.g., kPa to mmHg: multiply by 7.5).
+- Heart Rate (HR): Assume bpm (beats per minute) if unit not specified. If given in other units, convert to bpm.
+- Temperature: Assume °F (Fahrenheit) if unit not specified. If given in °C (Celsius), convert to °F: (°C × 9/5) + 32.
+- Weight: Assume lbs (pounds) if unit not specified. If given in kg (kilograms), convert to lbs: kg × 2.20462. If given in other units, convert appropriately.
+
+For vital signs in physical_exam_findings:
+- Extract ONLY the numeric values in the assumed/converted units (remove units from the value itself)
+- Blood pressure format: "120/80" (systolic/diastolic)
+- Heart rate format: "72" (just the number)
+- Temperature format: "98.6" (just the number)
+- Weight format: "165" (just the number)
+
+Return ONLY valid JSON in this exact format (no markdown, no code blocks, no additional text):
+{
+  "past_medical_history": [],
+  "current_symptoms": [{ "symptom": "string", "characteristics": "mild | moderate | severe | unspecified" }],
+  "physical_exam_findings": {},
+  "diagnosis": "",
+  "treatment_plan": [],
+  "prescriptions": [],
+  "summary": ""
+}
+
+If any field is not mentioned in the transcript, use an empty array [] or empty object {} or empty string "" as appropriate.
+
+Transcript:
+`
+
       const parseRes = await fetch('/api/transcribe/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: transcriptionResult.transcript }),
+        body: JSON.stringify({ 
+          transcript: transcriptionResult.transcript,
+          prompt: defaultMedicalPrompt
+        }),
       })
 
       if (!parseRes.ok) {
         throw new Error('Failed to parse transcription')
       }
 
-      const parsedNotes = await parseRes.json()
-      setTranscription(parsedNotes)
+      const parsedResult = await parseRes.json()
+      // parsedResult is { structured: {...}, summary: "..." }
+      const { structured, summary } = parsedResult
+      
+      // Store the summary for context in future recordings
+      if (summary) {
+        setPreviousSummary(summary)
+      }
+      
+      // Combine with transcript for full transcription object
+      const fullTranscription = {
+        transcript: transcriptionResult.transcript,
+        structured,
+        summary
+      }
+      setTranscription(fullTranscription)
 
       // Auto-fill form with parsed data
+      // Extract chief complaint and HPI from current_symptoms or use structured fields
+      const currentSymptoms = structured?.current_symptoms
+      let chiefComplaint = ''
+      let hpi = ''
+      
+      if (Array.isArray(currentSymptoms) && currentSymptoms.length > 0) {
+        // If current_symptoms is an array of objects with symptom property
+        const firstSymptom = currentSymptoms[0]
+        if (typeof firstSymptom === 'string') {
+          chiefComplaint = firstSymptom
+        } else if (firstSymptom?.symptom) {
+          chiefComplaint = firstSymptom.symptom
+          hpi = firstSymptom.characteristics || ''
+        }
+      } else if (typeof currentSymptoms === 'string') {
+        chiefComplaint = currentSymptoms
+      }
+      
+      // Extract vital signs from physical_exam_findings
+      const physicalFindings = structured?.physical_exam_findings || {}
+      const vitalSigns = physicalFindings.vital_signs || {}
+      
+      // Extract diagnosis - can be string or array
+      const diagnosis = Array.isArray(structured?.diagnosis) 
+        ? structured.diagnosis.join(', ')
+        : structured?.diagnosis || ''
+      
+      // Extract treatment plan - should be array
+      const treatmentPlan = Array.isArray(structured?.treatment_plan)
+        ? structured.treatment_plan.join('\n')
+        : structured?.treatment_plan || ''
+      
       setVisitData(prev => ({
         ...prev,
         subjective: {
           ...prev.subjective,
-          chiefComplaint: parsedNotes.chief_complaint || prev.subjective.chiefComplaint,
-          hpi: parsedNotes.history_of_present_illness || prev.subjective.hpi,
+          chiefComplaint: chiefComplaint || prev.subjective.chiefComplaint,
+          hpi: hpi || prev.subjective.hpi,
         },
         objective: {
           ...prev.objective,
-          bp: parsedNotes.physical_exam_findings?.blood_pressure || parsedNotes.physical_exam_findings?.bp || prev.objective.bp,
-          hr: parsedNotes.physical_exam_findings?.heart_rate || parsedNotes.physical_exam_findings?.hr || prev.objective.hr,
-          temp: parsedNotes.physical_exam_findings?.temperature || parsedNotes.physical_exam_findings?.temp || prev.objective.temp,
-          weight: parsedNotes.physical_exam_findings?.weight || prev.objective.weight,
-          examFindings: JSON.stringify(parsedNotes.physical_exam_findings, null, 2) || prev.objective.examFindings,
+          bp: vitalSigns.blood_pressure || vitalSigns.bp || physicalFindings.blood_pressure || physicalFindings.bp || prev.objective.bp,
+          hr: vitalSigns.heart_rate || vitalSigns.hr || physicalFindings.heart_rate || physicalFindings.hr || prev.objective.hr,
+          temp: vitalSigns.temperature || vitalSigns.temp || physicalFindings.temperature || physicalFindings.temp || prev.objective.temp,
+          weight: vitalSigns.weight || physicalFindings.weight || prev.objective.weight,
+          examFindings: JSON.stringify(physicalFindings, null, 2) || prev.objective.examFindings,
         },
         assessmentPlan: {
           ...prev.assessmentPlan,
-          assessment: parsedNotes.diagnosis || prev.assessmentPlan.assessment,
-          plan: Array.isArray(parsedNotes.treatment_plan) ? parsedNotes.treatment_plan.join('\n') : prev.assessmentPlan.plan,
+          assessment: diagnosis || prev.assessmentPlan.assessment,
+          plan: treatmentPlan || prev.assessmentPlan.plan,
         },
-        additionalNotes: parsedNotes.summary || prev.additionalNotes,
+        additionalNotes: summary || prev.additionalNotes,
       }))
     } catch (err: any) {
       console.error('Error processing recording:', err)
@@ -268,12 +387,24 @@ const NewVisitForm = ({ patientId }: NewVisitFormProps) => {
         'New visit created and notes saved.'
       )
 
+      // Clear localStorage after successful save
+      clearStorage()
+
       setShowAssignPrompt(true)
     } catch (err: any) {
       console.error('Error saving visit:', err)
       setError(err?.message || 'Failed to save visit')
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Clear localStorage when component unmounts or on successful submission
+  const clearStorage = () => {
+    try {
+      localStorage.removeItem(getStorageKey())
+    } catch (err) {
+      console.error('Error clearing localStorage:', err)
     }
   }
 

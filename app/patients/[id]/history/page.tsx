@@ -1,15 +1,20 @@
-import Sidebar from '@/components/Sidebar'
+import RoleBasedSidebar from '@/components/RoleBasedSidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import VisitHistory from '@/components/VisitHistory'
+import GlobalSearchBar from '@/components/GlobalSearchBar'
 
 export default function VisitHistoryPage({ params }: { params: { id: string } }) {
   return (
     <div className="relative flex min-h-screen w-full">
-      <Sidebar />
-      <div className="flex flex-1 overflow-hidden">
-        <PatientDetailSidebar patientId={params.id} />
+      <RoleBasedSidebar />
+      <PatientDetailSidebar patientId={params.id} />
+
+      <main className="flex-1 p-8">
+        <div className="mb-6">
+          <GlobalSearchBar />
+        </div>
         <VisitHistory patientId={params.id} />
-      </div>
+      </main>
     </div>
   )
 }

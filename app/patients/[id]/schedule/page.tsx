@@ -41,6 +41,7 @@ export default function SchedulePage({ params }: SchedulePageProps) {
   const [deliveryEmail, setDeliveryEmail] = useState(patient?.email || '')
   const [deliveryPhone, setDeliveryPhone] = useState(patient?.phone || '')
   const [isSaving, setIsSaving] = useState(false)
+  const [isAddingToWaitlist, setIsAddingToWaitlist] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -74,6 +75,12 @@ export default function SchedulePage({ params }: SchedulePageProps) {
         const doctorsData = await res.json()
 
         // Format doctor names to include "Dr." prefix if not already present
+        // Filter to only show available doctors (status === 'available' or availability === 'online')
+        // const availableDoctorsData = doctorsData.filter((doctor: any) => 
+        //   doctor.status === 'available' || doctor.availability === 'online'
+        // )
+
+        // Format doctor names to include "Dr." prefix if not already present
         const formattedDoctors = doctorsData.map((doctor: any) => ({
           ...doctor,
           name: doctor.name.startsWith('Dr.') ? doctor.name : `Dr. ${doctor.name}`,
@@ -82,7 +89,7 @@ export default function SchedulePage({ params }: SchedulePageProps) {
 
         setDoctors(formattedDoctors)
 
-        // Set the first doctor as selected if available and no doctor is currently selected
+        // Set the first available doctor as selected if available and no doctor is currently selected
         if (formattedDoctors.length > 0 && !selectedDoctor) {
           setSelectedDoctor(formattedDoctors[0].id)
         }
@@ -110,72 +117,147 @@ export default function SchedulePage({ params }: SchedulePageProps) {
     return scheduledDate.toLocaleString()
   }
 
+  const handleAddToWaitlist = async () => {
+    if (!selectedDoctor || !selectedDoctorInfo) {
+      setSaveError('Please select a doctor')
+      return
+    }
+
+    setIsAddingToWaitlist(true)
+    setSaveError(null)
+
+    try {
+      const supabase = (await import('@/lib/supabaseBrowser')).supabaseBrowser()
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error('Not authenticated')
+      }
+
+      // Assign patient to doctor with waitlist flag
+      const response = await fetch(`/api/patients/${patientId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          clinician_id: selectedDoctor,
+          waitlist: true, // Flag to always create visit with "waiting" status
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to add to waitlist' }))
+        throw new Error(errorData.error || 'Failed to add to waitlist')
+      }
+
+      router.push(`/patients/${patientId}`)
+    } catch (err: any) {
+      console.error('Error adding to waitlist:', err)
+      setSaveError(err?.message || 'Failed to add to waitlist')
+      setIsAddingToWaitlist(false)
+    }
+  }
+
   const handleConfirmAppointment = async () => {
-    if (!patient || !canConfirm) return
+    if (!patient || !canConfirm || !selectedDoctor) return
 
     setIsSaving(true)
     setSaveError(null)
 
-    const nowIso = new Date().toISOString()
-    const scheduledFor = isScheduled
-      ? new Date(`${appointmentDate}T${appointmentTime}`).toISOString()
-      : nowIso
+    try {
+      const supabase = (await import('@/lib/supabaseBrowser')).supabaseBrowser()
+      const { data: { session } } = await supabase.auth.getSession()
 
-    const appointmentRecord = {
-      id: `appt-${Date.now()}`,
-      patientId,
-      patientName: patient.name,
-      doctorId: selectedDoctorInfo?.portalId || selectedDoctor,
-      doctorName: selectedDoctorInfo?.portalName || selectedDoctorInfo?.name || 'Assigned Doctor',
-      doctorDisplayName: selectedDoctorInfo?.name || 'Assigned Doctor',
-      doctorEmail: selectedDoctorInfo?.email || '',
-      type: appointmentType,
-      status: appointmentType === 'immediate' ? 'in-progress' : 'scheduled',
-      scheduledFor,
-      location: appointmentLocation || 'Virtual visit',
-      notes: appointmentNotes,
-      deliveryMethod,
-      contactEmail: deliveryEmail,
-      contactPhone: deliveryPhone,
-      createdAt: nowIso,
-      updatedAt: nowIso
-    }
-
-    const appointmentLabel = appointmentType === 'immediate'
-      ? 'Active Now'
-      : formatScheduledLabel(appointmentDate, appointmentTime)
-
-    const updatedPatient = {
-      ...patient,
-      physician: selectedDoctorInfo?.name || 'Assigned Doctor',
-      doctorId: selectedDoctorInfo?.portalId || selectedDoctor,
-      appointment: appointmentLabel,
-      status: appointmentType === 'immediate' ? 'In Progress' : 'Scheduled',
-      updatedAt: nowIso
-    }
-
-    PatientDataManager.savePatient(updatedPatient, 'update', 'system')
-    const existingAppointments = PatientDataManager.getPatientSectionList(patientId, 'appointments')
-    PatientDataManager.savePatientSectionList(patientId, 'appointments', [appointmentRecord, ...existingAppointments], 'system')
-
-    if (process.env.NEXT_PUBLIC_API_ENABLED === 'true') {
-      try {
-        const response = await fetch('/api/appointments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(appointmentRecord)
-        })
-        if (!response.ok) {
-          throw new Error('Failed to sync appointment')
-        }
-      } catch (error) {
-        console.error('Appointment sync failed:', error)
-        setSaveError('Saved locally. Sync to backend is pending.')
+      if (!session?.access_token) {
+        throw new Error('Not authenticated')
       }
-    }
 
-    setIsSaving(false)
-    router.push(`/nurse-portal/patients/${patientId}`)
+      // First, update the patient's clinician_id in the database
+      const assignResponse = await fetch(`/api/patients/${patientId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          clinician_id: selectedDoctor,
+          waitlist: false, // Not a waitlist, it's a confirmed appointment
+        }),
+      })
+
+      if (!assignResponse.ok) {
+        const errorData = await assignResponse.json().catch(() => ({ error: 'Failed to assign doctor' }))
+        throw new Error(errorData.error || 'Failed to assign doctor')
+      }
+
+      const nowIso = new Date().toISOString()
+      const scheduledFor = isScheduled
+        ? new Date(`${appointmentDate}T${appointmentTime}`).toISOString()
+        : nowIso
+
+      const appointmentRecord = {
+        id: `appt-${Date.now()}`,
+        patientId,
+        patientName: patient.name,
+        doctorId: selectedDoctorInfo?.portalId || selectedDoctor,
+        doctorName: selectedDoctorInfo?.portalName || selectedDoctorInfo?.name || 'Assigned Doctor',
+        doctorDisplayName: selectedDoctorInfo?.name || 'Assigned Doctor',
+        doctorEmail: selectedDoctorInfo?.email || '',
+        type: appointmentType,
+        status: appointmentType === 'immediate' ? 'in-progress' : 'scheduled',
+        scheduledFor,
+        location: appointmentLocation || 'Virtual visit',
+        notes: appointmentNotes,
+        deliveryMethod,
+        contactEmail: deliveryEmail,
+        contactPhone: deliveryPhone,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      }
+
+      const appointmentLabel = appointmentType === 'immediate'
+        ? 'Active Now'
+        : formatScheduledLabel(appointmentDate, appointmentTime)
+
+      const updatedPatient = {
+        ...patient,
+        physician: selectedDoctorInfo?.name || 'Assigned Doctor',
+        doctorId: selectedDoctor,
+        appointment: appointmentLabel,
+        status: appointmentType === 'immediate' ? 'In Progress' : 'Scheduled',
+        updatedAt: nowIso
+      }
+
+      PatientDataManager.savePatient(updatedPatient, 'update', 'system')
+      const existingAppointments = PatientDataManager.getPatientSectionList(patientId, 'appointments')
+      PatientDataManager.savePatientSectionList(patientId, 'appointments', [appointmentRecord, ...existingAppointments], 'system')
+
+      if (process.env.NEXT_PUBLIC_API_ENABLED === 'true') {
+        try {
+          const response = await fetch('/api/appointments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(appointmentRecord)
+          })
+          if (!response.ok) {
+            throw new Error('Failed to sync appointment')
+          }
+        } catch (error) {
+          console.error('Appointment sync failed:', error)
+          setSaveError('Saved locally. Sync to backend is pending.')
+        }
+      }
+
+      router.push(`/patients/${patientId}`)
+    } catch (err: any) {
+      console.error('Error confirming appointment:', err)
+      setSaveError(err?.message || 'Failed to confirm appointment')
+      setIsSaving(false)
+    }
   }
 
   if (!patient) {
@@ -225,7 +307,7 @@ export default function SchedulePage({ params }: SchedulePageProps) {
               </div>
               <div className="flex gap-3">
                 <button
-                  onClick={() => router.push(`/nurse-portal/patients/${params.id}`)}
+                  onClick={() => router.push(`/patients/${params.id}`)}
                   className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all text-sm"
                 >
                   <span className="material-symbols-outlined text-[18px]">arrow_back</span>
@@ -509,15 +591,25 @@ export default function SchedulePage({ params }: SchedulePageProps) {
                         {saveError}
                       </div>
                     )}
-                    <div className="mt-auto pt-4">
+                    <div className="mt-auto pt-4 space-y-2">
                       <button
                         onClick={handleConfirmAppointment}
-                        disabled={!canConfirm || isSaving}
+                        disabled={!canConfirm || isSaving || isAddingToWaitlist}
                         className="w-full bg-primary hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-600 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
                       >
                         <span className="material-symbols-outlined text-sm">check_circle</span>
                         {isSaving ? 'Saving...' : 'Confirm Appointment'}
                       </button>
+                      {selectedDoctor && (
+                        <button
+                          onClick={handleAddToWaitlist}
+                          disabled={!selectedDoctor || isSaving || isAddingToWaitlist}
+                          className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-gray-300 disabled:text-gray-600 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2"
+                        >
+                          <span className="material-symbols-outlined text-sm">hourglass_empty</span>
+                          {isAddingToWaitlist ? 'Adding...' : 'Add to Waitlist'}
+                        </button>
+                      )}
                       {!canConfirm && isScheduled && (
                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">
                           Select a date and time to continue.

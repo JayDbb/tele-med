@@ -2,11 +2,11 @@
 
 import Link from 'next/link'
 import { useState, useEffect, useMemo } from 'react'
-import NurseSidebar from '@/components/NurseSidebar'
+import RoleBasedSidebar from '@/components/RoleBasedSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import AvailabilityToggle from '@/components/AvailabilityToggle'
 import { getPatients } from '@/lib/api'
 import type { Patient } from '@/lib/types'
-import { PatientDataManager } from '@/utils/PatientDataManager'
 import { useNurse } from '@/contexts/NurseContext'
 
 type TabType = 'waitlist' | 'all' | 'my' | 'completed'
@@ -17,19 +17,134 @@ export default function NursePortalPage() {
   const [activeTab, setActiveTab] = useState<TabType>('waitlist')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [availableDoctors, setAvailableDoctors] = useState<any[]>([])
+  const [busyDoctors, setBusyDoctors] = useState<any[]>([])
+  const [offlineDoctors, setOfflineDoctors] = useState<any[]>([])
+  const [doctorsLoading, setDoctorsLoading] = useState(true)
+
+  const loadDoctors = async (showLoading = true) => {
+    try {
+      if (showLoading) {
+        setDoctorsLoading(true)
+      }
+      const supabase = (await import('@/lib/supabaseBrowser')).supabaseBrowser()
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error('Not authenticated')
+      }
+
+      const res = await fetch('/api/doctors', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      if (!res.ok) {
+        throw new Error('Failed to load doctors')
+      }
+
+      const doctorsData = await res.json()
+
+      // Group doctors by availability
+      const available = doctorsData.filter((d: any) => d.availability === 'available')
+      const busy = doctorsData.filter((d: any) => d.availability === 'busy')
+      const offline = doctorsData.filter((d: any) =>
+        !available.includes(d) &&
+        !busy.includes(d)
+      )
+
+      setAvailableDoctors(available)
+      setBusyDoctors(busy)
+      setOfflineDoctors(offline)
+    } catch (err: any) {
+      console.error('Error loading doctors:', err)
+      // Set empty arrays on error
+      setAvailableDoctors([])
+      setBusyDoctors([])
+      setOfflineDoctors([])
+    } finally {
+      if (showLoading) {
+        setDoctorsLoading(false)
+      }
+    }
+  }
 
   useEffect(() => {
     loadPatients()
+    loadDoctors()
 
     // Refresh patient list when page becomes visible
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         loadPatients()
+        loadDoctors()
       }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+
+    // Set up real-time subscription for doctor availability changes
+    let channel: any = null
+    let supabaseInstance: any = null
+
+    const setupRealtimeSubscription = async () => {
+      const { supabaseBrowser } = await import('@/lib/supabaseBrowser')
+      supabaseInstance = supabaseBrowser()
+
+      channel = supabaseInstance
+        .channel('doctors-availability-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'users'
+          },
+          (payload: any) => {
+            // Check if this is a doctor update
+            if (payload.new?.role === 'doctor' || payload.old?.role === 'doctor') {
+              console.log('Doctor availability changed:', payload)
+              loadDoctors(false)
+
+              // If doctor became available (online) and was previously busy, auto-process queue
+              if (payload.new?.availability === 'online' && payload.old?.availability === 'busy') {
+                const doctorId = payload.new?.id || payload.old?.id
+                if (doctorId) {
+                  // Trigger automatic queue processing
+                  fetch(`/api/doctors/${doctorId}/auto-process-queue`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                  }).catch(err => {
+                    console.warn('Failed to auto-process queue:', err)
+                  })
+                }
+              }
+            }
+          }
+        )
+        .subscribe((status: string) => {
+          console.log('Realtime subscription status:', status)
+          if (status === 'SUBSCRIBED') {
+            console.log('Successfully subscribed to doctor availability changes')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('Error subscribing to realtime channel - check if Realtime is enabled for the users table')
+          }
+        })
+    }
+
+    setupRealtimeSubscription()
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      if (channel && supabaseInstance) {
+        supabaseInstance.removeChannel(channel)
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -47,6 +162,14 @@ export default function NursePortalPage() {
       const supabase = supabaseBrowser()
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
+
+      // Fetch waiting visits to determine which patients are on waitlist
+      const { data: waitingVisits, error: visitsError } = await supabase
+        .from("visits")
+        .select("patient_id")
+        .eq("status", "waiting")
+
+      const waitingPatientIds = new Set((waitingVisits || []).map((v: any) => v.patient_id))
 
       // Helper function to fetch clinician name
       const fetchClinicianName = async (clinicianId: string | null | undefined): Promise<string> => {
@@ -87,6 +210,7 @@ export default function NursePortalPage() {
             allergies: patient.allergies || '',
             physician: physicianName,
             clinician_id: patient.clinician_id || null,
+            isWaiting: waitingPatientIds.has(patient.id),
             createdAt: patient.created_at || new Date().toISOString(),
             updatedAt: patient.created_at || new Date().toISOString(),
             initials,
@@ -110,17 +234,20 @@ export default function NursePortalPage() {
 
     switch (activeTab) {
       case 'waitlist':
-        // Patients without a clinician_id (unassigned)
-        filtered = allPatients.filter(p => !p.clinician_id)
+        // Patients with visits that have status "waiting"
+        filtered = allPatients.filter(p => p.isWaiting)
         break
       case 'all':
         // All patients
         filtered = allPatients
         break
       case 'my':
-        // For nurses, "my patients" could mean all patients they can see
-        // Or we could filter by some assignment logic if needed
-        filtered = allPatients
+        // Filter to show only patients assigned to the logged-in nurse
+        if (nurse?.id) {
+          filtered = allPatients.filter(p => p.clinician_id === nurse.id)
+        } else {
+          filtered = []
+        }
         break
       case 'completed':
         // Patients with completed visits or status
@@ -133,70 +260,22 @@ export default function NursePortalPage() {
 
     setFilteredPatients(filtered)
   }
-  const [patients, setPatients] = useState<any[]>([])
+
   const { nurse } = useNurse()
-  const availableDoctors: any[] = []
-  const busyDoctors: any[] = []
-  const todayLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
-  const isValidPatientId = (patientId: unknown) => {
-    const value = `${patientId ?? ''}`.trim()
-    return value.length > 0 && value !== 'undefined' && value !== 'null'
-  }
-
-  useEffect(() => {
-    const loadPatients = () => {
-      PatientDataManager.cleanupBlankPatients()
-      const allPatients = PatientDataManager.getAllPatients()
-      setPatients(allPatients)
-    }
-
-    loadPatients()
-
-    // Listen for patient updates
-    const handleStorageChange = () => {
-      loadPatients()
-    }
-
-    window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
-  }, [])
-
-  const handleClearPatients = () => {
-    if (!window.confirm('Clear all demo patients and locally saved visits?')) return
-    PatientDataManager.clearAllPatients()
-    setPatients([])
-  }
-
-  const myPatients = useMemo(() => {
-    if (!nurse?.id) return []
-    return patients.filter((patient) => {
-      const isCompleted = `${patient.status}`.toLowerCase() === 'completed'
-      return patient.nurseId === nurse.id && !isCompleted
-    })
-  }, [nurse?.id, patients])
-  const completedPatients = useMemo(
-    () => patients.filter((patient) => `${patient.status}`.toLowerCase() === 'completed'),
-    [patients]
-  )
-
-  const visiblePatients = (activeTab === 'completed'
-    ? completedPatients
-    : activeTab === 'all'
-      ? patients
-      : activeTab === 'my'
-        ? myPatients
-        : [])
   return (
     <div className="flex h-screen w-full overflow-hidden">
-      <NurseSidebar />
+      <RoleBasedSidebar />
 
       <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
         <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
           <GlobalSearchBar />
-          <Link href={`/patients/create`} className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-blue-600 transition-all text-sm">
-            <span className="material-symbols-outlined text-[18px]">add</span>
-            New Patient Intake
-          </Link>
+          <div className="flex items-center gap-4">
+            <AvailabilityToggle />
+            <Link href={`/patients/create`} className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-sm hover:bg-blue-600 transition-all text-sm">
+              <span className="material-symbols-outlined text-[18px]">add</span>
+              New Patient Intake
+            </Link>
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6">
@@ -221,7 +300,11 @@ export default function NursePortalPage() {
                     <a className="text-primary text-sm font-bold hover:underline" href="#">View All</a>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {availableDoctors.length === 0 ? (
+                    {doctorsLoading ? (
+                      <div className="col-span-full flex items-center justify-center rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                      </div>
+                    ) : availableDoctors.length === 0 ? (
                       <div className="col-span-full flex items-center justify-center rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 text-sm text-gray-500 dark:text-gray-400">
                         No available doctors recorded.
                       </div>
@@ -234,9 +317,14 @@ export default function NursePortalPage() {
                           <div className="flex flex-col flex-1 gap-1">
                             <div className="flex justify-between items-start">
                               <h3 className="text-gray-900 dark:text-white text-base font-bold">{doctor.name}</h3>
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary uppercase">{doctor.mode}</span>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary uppercase">Available</span>
                             </div>
                             <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">{doctor.specialty}</p>
+                            {doctor.last_seen_at && (
+                              <p className="text-gray-400 dark:text-gray-500 text-[10px] mt-0.5">
+                                Last seen: {new Date(doctor.last_seen_at).toLocaleTimeString()}
+                              </p>
+                            )}
                           </div>
                         </div>
                       ))
@@ -251,7 +339,11 @@ export default function NursePortalPage() {
                     Busy Doctors
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {busyDoctors.length === 0 ? (
+                    {doctorsLoading ? (
+                      <div className="col-span-full flex items-center justify-center rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                      </div>
+                    ) : busyDoctors.length === 0 ? (
                       <div className="col-span-full flex items-center justify-center rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 text-sm text-gray-500 dark:text-gray-400">
                         No busy doctors recorded.
                       </div>
@@ -262,8 +354,16 @@ export default function NursePortalPage() {
                             <span className="material-symbols-outlined">person</span>
                           </div>
                           <div className="flex flex-col flex-1 gap-1">
-                            <h3 className="text-gray-900 dark:text-white text-base font-bold">{doctor.name}</h3>
+                            <div className="flex justify-between items-start">
+                              <h3 className="text-gray-900 dark:text-white text-base font-bold">{doctor.name}</h3>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 uppercase">Busy</span>
+                            </div>
                             <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">{doctor.specialty}</p>
+                            {doctor.last_seen_at && (
+                              <p className="text-gray-400 dark:text-gray-500 text-[10px] mt-0.5">
+                                Last seen: {new Date(doctor.last_seen_at).toLocaleTimeString()}
+                              </p>
+                            )}
                           </div>
                         </div>
                       ))
@@ -289,7 +389,7 @@ export default function NursePortalPage() {
                       ? 'bg-primary/10 text-primary'
                       : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                       }`}>
-                      {allPatients.filter(p => !p.clinician_id).length}
+                      {allPatients.filter(p => p.isWaiting).length}
                     </span>
                   </button>
                   <button
@@ -319,7 +419,7 @@ export default function NursePortalPage() {
                       ? 'bg-primary/10 text-primary'
                       : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                       }`}>
-                      {allPatients.length}
+                      {nurse?.id ? allPatients.filter(p => p.clinician_id === nurse.id).length : 0}
                     </span>
                   </button>
                   <button
@@ -382,7 +482,7 @@ export default function NursePortalPage() {
                 ) : (
                   filteredPatients.map((patient) => {
                     return (
-                      <Link key={patient.id} href={`/nurse-portal/patients/${patient.id}`} className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 p-1 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/30 block">
+                      <Link key={patient.id} href={`/patients/${patient.id}`} className="group bg-white dark:bg-gray-800 rounded-xl border border-slate-200 dark:border-gray-700 p-1 shadow-sm hover:shadow-md transition-all duration-200 hover:border-primary/30 block">
                         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between p-4 gap-4 lg:gap-8">
                           <div className="flex items-center gap-4 min-w-[240px]">
                             <div className="size-12 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg border border-blue-100 dark:border-blue-800 shadow-sm">

@@ -20,6 +20,7 @@ const Sidebar = () => {
   const navItems = [
     { icon: 'home', label: 'Home', href: '/doctor/dashboard' },
     { icon: 'groups', label: 'My Patients', href: '/patients' },
+    { icon: 'event_note', label: 'Visits', href: '/visits' },
   ]
 
   const bottomItems: Array<{ icon: string; label: string; href: string }> = []
@@ -50,6 +51,7 @@ const Sidebar = () => {
         {navItems.map((item) => {
           const isActive = pathname === item.href || 
             (item.href === '/patients' && pathname.startsWith('/patients')) ||
+            (item.href === '/visits' && pathname.startsWith('/visits')) ||
             (item.href === '/medications' && pathname.startsWith('/medications'))
           return (
             <Link

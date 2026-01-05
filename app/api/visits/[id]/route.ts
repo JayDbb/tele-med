@@ -85,6 +85,11 @@ export async function PUT(
   }
 
   const payload = await req.json();
+  
+  // Check if visit is being finalized/closed (status changed to 'completed' or 'finalized')
+  const wasOpen = existingVisit.status === "draft" || existingVisit.status === "in-progress";
+  const isBeingClosed = payload.status && (payload.status === "completed" || payload.status === "finalized");
+
   const { data, error: dbError } = await supabase
     .from("visits")
     .update(payload)
@@ -94,6 +99,32 @@ export async function PUT(
 
   if (dbError) {
     return NextResponse.json({ error: dbError.message }, { status: 400 });
+  }
+
+  // If visit was closed/finalized and doctor had an open visit, update availability to 'available'
+  if (isBeingClosed && wasOpen && existingVisit.clinician_id) {
+    const userRole = await getUserRole(userId);
+    if (userRole === "doctor" || existingVisit.clinician_id === userId) {
+      // Check if doctor has any other open visits
+      const { data: otherOpenVisits } = await supabase
+        .from("visits")
+        .select("id")
+        .eq("clinician_id", existingVisit.clinician_id)
+        .in("status", ["draft", "in-progress"])
+        .neq("id", id)
+        .limit(1);
+
+      // Only update availability if no other open visits exist
+      if (!otherOpenVisits || otherOpenVisits.length === 0) {
+        await supabase
+          .from("users")
+          .update({
+            availability: "available",
+            availability_updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingVisit.clinician_id);
+      }
+    }
   }
 
   // Log audit trail for visit changes

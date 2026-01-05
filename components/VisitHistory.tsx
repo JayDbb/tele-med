@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { getPatient } from '@/lib/api'
+import { getPatient, updateVisitNoteStatus } from '@/lib/api'
 import type { Visit } from '@/lib/types'
 
 interface VisitHistoryProps {
@@ -319,6 +319,10 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
 
   const selectedVisitData = visits.find(v => v.id === selectedVisit)
 
+  // Separate visits into signed and unsigned
+  const signedVisits = visits.filter(v => v.signature?.status === 'Signed')
+  const unsignedVisits = visits.filter(v => v.signature?.status !== 'Signed')
+
   const startEditing = () => {
     if (!selectedVisitData) return
     // Extract from the mapped visit data structure
@@ -340,6 +344,21 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
     await loadVisits()
   }
 
+  const handleSignNote = async () => {
+    if (!selectedVisitData) return
+
+    try {
+      await updateVisitNoteStatus(selectedVisitData.id, 'signed')
+      // Reload visits to refresh the data
+      await loadVisits()
+      // Keep the same visit selected after reload
+      setSelectedVisit(selectedVisitData.id)
+    } catch (err: any) {
+      console.error('Error signing note:', err)
+      alert(err?.message || 'Failed to sign note')
+    }
+  }
+
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm">
       <div className="flex items-center justify-between mb-6">
@@ -350,35 +369,88 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
       </div>
 
       {!selectedVisit ? (
-        <div className="space-y-3">
-          {visits.length > 0 ? (
-            visits.map((visit) => (
-              <div
-                key={visit.id}
-                onClick={() => setSelectedVisit(visit.id)}
-                className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {visit.date}
-                    </span>
-                    {visit.time && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {visit.time}
-                      </span>
-                    )}
-                    <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
-                      {visit.type}
-                    </span>
+        <div className="space-y-6">
+          {/* Unsigned Visits Section */}
+          {unsignedVisits.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                Unsigned Visits ({unsignedVisits.length})
+              </h4>
+              <div className="space-y-3">
+                {unsignedVisits.map((visit) => (
+                  <div
+                    key={visit.id}
+                    onClick={() => setSelectedVisit(visit.id)}
+                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {visit.date}
+                        </span>
+                        {visit.time && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {visit.time}
+                          </span>
+                        )}
+                        <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                          {visit.type}
+                        </span>
+                        <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-2 py-0.5 rounded-full">
+                          Unsigned
+                        </span>
+                      </div>
+                      <span className="material-symbols-outlined text-gray-400">chevron_right</span>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{visit.provider}</p>
+                    <p className="text-sm text-gray-900 dark:text-white">{visit.chiefComplaint}</p>
                   </div>
-                  <span className="material-symbols-outlined text-gray-400">chevron_right</span>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{visit.provider}</p>
-                <p className="text-sm text-gray-900 dark:text-white">{visit.chiefComplaint}</p>
+                ))}
               </div>
-            ))
-          ) : (
+            </div>
+          )}
+
+          {/* Signed Visits Section */}
+          {signedVisits.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                Signed Visits ({signedVisits.length})
+              </h4>
+              <div className="space-y-3">
+                {signedVisits.map((visit) => (
+                  <div
+                    key={visit.id}
+                    onClick={() => setSelectedVisit(visit.id)}
+                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {visit.date}
+                        </span>
+                        {visit.time && (
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {visit.time}
+                          </span>
+                        )}
+                        <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
+                          {visit.type}
+                        </span>
+                        <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full">
+                          Signed
+                        </span>
+                      </div>
+                      <span className="material-symbols-outlined text-gray-400">chevron_right</span>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{visit.provider}</p>
+                    <p className="text-sm text-gray-900 dark:text-white">{visit.chiefComplaint}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {visits.length === 0 && (
             <div className="p-6 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-center text-sm text-gray-500 dark:text-gray-400">
               No visits recorded yet.
             </div>
@@ -409,14 +481,27 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
                 >
                   <span className="material-symbols-outlined text-sm">print</span>
                 </button>
-                
-                <button
-                  onClick={startEditing}
-                  className="p-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                  title="Edit Record"
-                >
-                  <span className="material-symbols-outlined text-sm">edit_document</span>
-                </button>
+
+                {selectedVisitData?.signature?.status !== 'Signed' && (
+                  <>
+                    <button
+                      onClick={startEditing}
+                      className="p-2 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      title="Edit Record"
+                    >
+                      <span className="material-symbols-outlined text-sm">edit_document</span>
+                    </button>
+
+                    <button
+                      onClick={handleSignNote}
+                      className="px-3 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors flex items-center gap-2"
+                      title="Sign Note"
+                    >
+                      <span className="material-symbols-outlined text-sm">draw</span>
+                      <span className="text-sm font-medium">Sign Note</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -576,11 +661,10 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-xs text-gray-500 dark:text-gray-400">Status:</span>
-                    <span className={`text-xs font-medium ${
-                      selectedVisitData?.signature.status === 'Signed' 
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-yellow-600 dark:text-yellow-400'
-                    }`}>
+                    <span className={`text-xs font-medium ${selectedVisitData?.signature.status === 'Signed'
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-yellow-600 dark:text-yellow-400'
+                      }`}>
                       {selectedVisitData?.signature.status}
                     </span>
                   </div>

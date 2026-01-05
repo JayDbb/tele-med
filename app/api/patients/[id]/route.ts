@@ -155,20 +155,113 @@ export async function PATCH(
     return NextResponse.json({ error: "Patient not found" }, { status: 404 });
   }
 
-  // Update clinician_id
-  const { data: updatedPatient, error: updateError } = await supabase
-    .from("patients")
-    .update({
-      clinician_id: body.clinician_id || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .select()
-    .single();
+  // If assigning a clinician, check their availability and create visit accordingly
+  if (body.clinician_id) {
+    const { data: clinicianData, error: clinicianError } = await supabase
+      .from("users")
+      .select("availability, role")
+      .eq("id", body.clinician_id)
+      .maybeSingle();
 
-  if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 400 });
+    if (clinicianError || !clinicianData) {
+      return NextResponse.json(
+        { error: "Clinician not found" },
+        { status: 404 }
+      );
+    }
+
+    // Update clinician_id (allow assignment even if busy)
+    const { data: updatedPatient, error: updateError } = await supabase
+      .from("patients")
+      .update({
+        clinician_id: body.clinician_id || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 400 });
+    }
+
+    // Create or update visit based on doctor availability
+    // If waitlist mode is requested, always set status to "waiting"
+    const visitStatus = body.waitlist ? "waiting" : (clinicianData.availability === "available" ? "draft" : "waiting");
+    
+    // Check for the most recent visit for this patient (regardless of clinician)
+    const { data: mostRecentVisit, error: visitQueryError } = await supabase
+      .from("visits")
+      .select("id, status, clinician_id")
+      .eq("patient_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (visitQueryError) {
+      console.error("Error querying visits:", visitQueryError);
+    }
+
+    // Check if the most recent visit is signed/completed
+    let shouldCreateNewVisit = true;
+    let visitToUpdate = null;
+
+    if (mostRecentVisit) {
+      // Check if the visit is signed by checking the notes table
+      const { data: visitNote } = await supabase
+        .from("notes")
+        .select("status")
+        .eq("visit_id", mostRecentVisit.id)
+        .maybeSingle();
+
+      const isSigned = visitNote?.status === "signed" || 
+                       mostRecentVisit.status === "completed" || 
+                       mostRecentVisit.status === "finalized";
+
+      if (!isSigned) {
+        // Visit exists and is not signed - update it instead of creating new one
+        shouldCreateNewVisit = false;
+        visitToUpdate = mostRecentVisit;
+      }
+    }
+
+    if (shouldCreateNewVisit) {
+      // Most recent visit is signed/completed or no visits exist - create new visit
+      await supabase
+        .from("visits")
+        .insert({
+          patient_id: id,
+          clinician_id: body.clinician_id,
+          status: visitStatus,
+        });
+    } else {
+      // Update existing unsigned visit - assign to new clinician and set to waiting
+      await supabase
+        .from("visits")
+        .update({
+          clinician_id: body.clinician_id,
+          status: "waiting",
+        })
+        .eq("id", visitToUpdate.id);
+    }
+
+    return NextResponse.json({ patient: updatedPatient, visitStatus });
+  } else {
+    // Removing assignment
+    const { data: updatedPatient, error: updateError } = await supabase
+      .from("patients")
+      .update({
+        clinician_id: body.clinician_id || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 400 });
+    }
+
+    return NextResponse.json({ patient: updatedPatient });
   }
-
-  return NextResponse.json({ patient: updatedPatient });
 }

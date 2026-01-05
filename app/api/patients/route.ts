@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "../../../lib/auth";
+import { requireUser, getUserRole } from "../../../lib/auth";
 import { supabaseServer } from "../../../lib/supabaseServer";
 
 export async function GET(req: NextRequest) {
@@ -9,45 +9,62 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = supabaseServer();
+  const userRole = await getUserRole(userId);
 
-  // Get patients owned by the clinician
-  const { data: ownedPatients, error: ownedError } = await supabase
-    .from("patients")
-    .select("*")
-    .eq("clinician_id", userId)
-    .order("created_at", { ascending: false });
+  let patients: any[] = [];
 
-  if (ownedError) {
-    return NextResponse.json({ error: ownedError.message }, { status: 400 });
+  // Nurses can see all patients
+  if (userRole === "nurse") {
+    const { data: allPatients, error: allError } = await supabase
+      .from("patients")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (allError) {
+      return NextResponse.json({ error: allError.message }, { status: 400 });
+    }
+
+    patients = allPatients || [];
+  } else {
+    // Get patients owned by the clinician
+    const { data: ownedPatients, error: ownedError } = await supabase
+      .from("patients")
+      .select("*")
+      .eq("clinician_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (ownedError) {
+      return NextResponse.json({ error: ownedError.message }, { status: 400 });
+    }
+
+    // Get shared patients
+    const { data: sharedPatients, error: sharedError } = await supabase
+      .from("patient_shares")
+      .select("patients(*)")
+      .eq("shared_user_id", userId);
+
+    if (sharedError) {
+      return NextResponse.json({ error: sharedError.message }, { status: 400 });
+    }
+
+    // Combine owned and shared patients, marking shared ones
+    const owned = (ownedPatients || []).map((p: any) => ({
+      ...p,
+      is_shared: false,
+    }));
+    const shared = (sharedPatients || [])
+      .map((s: any) => s.patients)
+      .filter(Boolean)
+      .map((p: any) => ({ ...p, is_shared: true }));
+
+    // Remove duplicates (in case a patient is both owned and shared)
+    const allPatients = [...owned, ...shared];
+    patients = Array.from(
+      new Map(allPatients.map((p) => [p.id, p])).values()
+    );
   }
 
-  // Get shared patients
-  const { data: sharedPatients, error: sharedError } = await supabase
-    .from("patient_shares")
-    .select("patients(*)")
-    .eq("shared_user_id", userId);
-
-  if (sharedError) {
-    return NextResponse.json({ error: sharedError.message }, { status: 400 });
-  }
-
-  // Combine owned and shared patients, marking shared ones
-  const owned = (ownedPatients || []).map((p: any) => ({
-    ...p,
-    is_shared: false,
-  }));
-  const shared = (sharedPatients || [])
-    .map((s: any) => s.patients)
-    .filter(Boolean)
-    .map((p: any) => ({ ...p, is_shared: true }));
-
-  // Remove duplicates (in case a patient is both owned and shared)
-  const allPatients = [...owned, ...shared];
-  const uniquePatients = Array.from(
-    new Map(allPatients.map((p) => [p.id, p])).values()
-  );
-
-  return NextResponse.json(uniquePatients);
+  return NextResponse.json(patients);
 }
 
 export async function POST(request: NextRequest) {

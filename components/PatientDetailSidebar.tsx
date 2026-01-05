@@ -17,11 +17,11 @@ const PatientDetailSidebar = ({ patientId }: PatientDetailSidebarProps) => {
   const lastLoggedPath = useRef<string | null>(null)
 
   const baseUrl = isNursePortal
-    ? '/nurse-portal/patients'
+    ? '/patients'
     : isDoctorPortal
       ? '/doctor/patients'
       : '/patients'
-  
+
   const menuItems = [
     { label: 'Overview', href: `${baseUrl}/${patientId}`, hasAlert: false },
     { label: 'Visit History', href: `${baseUrl}/${patientId}/history`, hasAlert: false },
@@ -62,7 +62,7 @@ const PatientDetailSidebar = ({ patientId }: PatientDetailSidebarProps) => {
           {!isCollapsed && <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Patient Details</h1>}
         </div>
       </div>
-      
+
       <div className="px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
         {!isCollapsed && (
           <span className="font-semibold text-gray-500 dark:text-gray-400 uppercase text-xs tracking-wider">
@@ -78,28 +78,27 @@ const PatientDetailSidebar = ({ patientId }: PatientDetailSidebarProps) => {
           </span>
         </button>
       </div>
-      
+
       {!isCollapsed && (
         <nav className="flex-1 space-y-0.5 text-sm">
-        {menuItems.map((item, index) => {
-          const isActive = pathname === item.href
-          return (
-            <Link
-              key={index}
-              className={`flex items-center px-4 py-2 relative transition-colors ${
-                isActive
-                  ? 'bg-white dark:bg-gray-700 border-l-4 border-primary text-primary font-medium shadow-sm'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border-l-4 border-transparent hover:border-gray-300'
-              }`}
-              href={item.href}
-            >
-              {item.hasAlert && (
-                <div className="absolute left-1 top-1/2 -mt-4 w-0.5 h-8 bg-red-400 rounded" />
-              )}
-              {item.label}
-            </Link>
-          )
-        })}
+          {menuItems.map((item, index) => {
+            const isActive = pathname === item.href
+            return (
+              <Link
+                key={index}
+                className={`flex items-center px-4 py-2 relative transition-colors ${isActive
+                    ? 'bg-white dark:bg-gray-700 border-l-4 border-primary text-primary font-medium shadow-sm'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border-l-4 border-transparent hover:border-gray-300'
+                  }`}
+                href={item.href}
+              >
+                {item.hasAlert && (
+                  <div className="absolute left-1 top-1/2 -mt-4 w-0.5 h-8 bg-red-400 rounded" />
+                )}
+                {item.label}
+              </Link>
+            )
+          })}
         </nav>
       )}
     </aside>

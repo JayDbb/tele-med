@@ -45,7 +45,7 @@ export default function PatientVitalsEntryPage() {
     PatientDataManager.logActionAuto(patientId, 'update', 'vitals', {
       notes: 'Added vitals entry.'
     })
-    router.push(`/nurse-portal/patients/${patientId}/vitals`)
+    router.push(`/patients/${patientId}/vitals`)
   }
 
   return (
@@ -70,7 +70,7 @@ export default function PatientVitalsEntryPage() {
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Add Vitals</h2>
               </div>
               <button
-                onClick={() => router.push(`/nurse-portal/patients/${patientId}/vitals`)}
+                onClick={() => router.push(`/patients/${patientId}/vitals`)}
                 className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all text-sm"
               >
                 <span className="material-symbols-outlined text-[18px]">arrow_back</span>
@@ -166,7 +166,7 @@ export default function PatientVitalsEntryPage() {
               )}
               <div className="mt-6 flex justify-end gap-3">
                 <button
-                  onClick={() => router.push(`/nurse-portal/patients/${patientId}/vitals`)}
+                  onClick={() => router.push(`/patients/${patientId}/vitals`)}
                   className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-sm font-semibold"
                 >
                   Cancel

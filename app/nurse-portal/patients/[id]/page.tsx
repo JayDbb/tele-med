@@ -4,6 +4,7 @@ import NurseSidebar from '@/components/NurseSidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import PatientDetail from '@/components/PatientDetail'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import AvailabilityToggle from '@/components/AvailabilityToggle'
 import { PatientDataManager } from '@/utils/PatientDataManager'
 import { useNurse } from '@/contexts/NurseContext'
 import { useRouter } from 'next/navigation'
@@ -100,8 +101,9 @@ export default function PatientPage({ params }: PatientPageProps) {
       <PatientDetailSidebar patientId={params.id} />
       
       <main className="flex-1 p-8">
-        <div className="mb-6">
+        <div className="mb-6 flex items-center justify-between gap-4">
           <GlobalSearchBar />
+          <AvailabilityToggle />
         </div>
         
         {/* Action Buttons */}

@@ -116,7 +116,7 @@ export default function PatientVitalsPage() {
     <div className="flex h-screen w-full overflow-hidden">
       <NurseSidebar />
       <PatientDetailSidebar patientId={params.id as string} />
-      
+
       <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
         <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
           <GlobalSearchBar />
@@ -137,7 +137,7 @@ export default function PatientVitalsPage() {
                   Export Report
                 </button>
                 <button
-                  onClick={() => router.push(`/nurse-portal/patients/${patientId}/vitals/new`)}
+                  onClick={() => router.push(`/patients/${patientId}/vitals/new`)}
                   className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-semibold rounded-lg shadow-lg shadow-primary/30 hover:bg-blue-600 transition-all text-sm"
                 >
                   <span className="material-symbols-outlined text-[18px]">add</span>
@@ -503,11 +503,10 @@ export default function PatientVitalsPage() {
               <div className="border-t border-gray-100 dark:border-gray-800 pt-4">
                 <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Send to Patient</p>
                 <div className="flex gap-3 mb-3">
-                  <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold cursor-pointer ${
-                    exportMethod === 'email'
+                  <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold cursor-pointer ${exportMethod === 'email'
                       ? 'border-primary bg-primary/5 text-primary'
                       : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
-                  }`}>
+                    }`}>
                     <input
                       type="radio"
                       name="export-method"
@@ -519,11 +518,10 @@ export default function PatientVitalsPage() {
                     <span className="material-symbols-outlined text-[16px]">mail</span>
                     Email
                   </label>
-                  <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold cursor-pointer ${
-                    exportMethod === 'text'
+                  <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold cursor-pointer ${exportMethod === 'text'
                       ? 'border-primary bg-primary/5 text-primary'
                       : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
-                  }`}>
+                    }`}>
                     <input
                       type="radio"
                       name="export-method"
@@ -537,11 +535,10 @@ export default function PatientVitalsPage() {
                   </label>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3">
-                  <div className={`rounded-lg border px-3 py-2 ${
-                    exportMethod === 'email'
+                  <div className={`rounded-lg border px-3 py-2 ${exportMethod === 'email'
                       ? 'border-primary/60 bg-primary/5'
                       : 'border-gray-200 dark:border-gray-700'
-                  }`}>
+                    }`}>
                     <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Email</label>
                     <input
                       type="email"
@@ -551,11 +548,10 @@ export default function PatientVitalsPage() {
                       className="w-full bg-transparent text-sm text-gray-900 dark:text-white focus:outline-none"
                     />
                   </div>
-                  <div className={`rounded-lg border px-3 py-2 ${
-                    exportMethod === 'text'
+                  <div className={`rounded-lg border px-3 py-2 ${exportMethod === 'text'
                       ? 'border-primary/60 bg-primary/5'
                       : 'border-gray-200 dark:border-gray-700'
-                  }`}>
+                    }`}>
                     <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Phone</label>
                     <input
                       type="tel"

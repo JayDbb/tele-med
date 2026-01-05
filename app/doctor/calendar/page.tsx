@@ -6,6 +6,7 @@ import Sidebar from '@/components/Sidebar'
 import NewAppointmentModal from '@/components/NewAppointmentModal'
 import { useAppointments } from '@/contexts/AppointmentsContext'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import AvailabilityToggle from '@/components/AvailabilityToggle'
 
 interface CalendarEvent {
   id: string
@@ -315,6 +316,7 @@ export default function CalendarPage() {
           <GlobalSearchBar />
           
           <div className="flex items-center gap-4">
+            <AvailabilityToggle />
             <button className="relative p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
               <span className="material-symbols-outlined">notifications</span>
               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></span>

@@ -173,9 +173,9 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
-    
+
     PatientDataManager.savePatient(newPatient, isNewPatient ? 'create' : 'update', nurse.id)
-    
+
     // Clear draft after successful save
     PatientDataManager.clearDraft(patientId, draftKey)
 
@@ -318,7 +318,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
 
   const handleSavePatientAndSchedule = () => {
     savePatientData()
-    router.push(`/nurse-portal/patients/${patientId}/schedule`)
+    router.push(`/patients/${patientId}/schedule`)
   }
 
   const handleSavePatientAndClose = () => {
@@ -357,7 +357,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
     <div className="flex h-screen w-full overflow-hidden">
       <NurseSidebar />
       {!isNewPatient && <PatientDetailSidebar patientId={patientId} />}
-      
+
       <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
         <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
           <GlobalSearchBar />
@@ -373,15 +373,15 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                 </div>
                 <div className="flex flex-wrap items-center gap-6 text-gray-600 dark:text-gray-300 text-sm">
                   <span className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-sm">calendar_today</span> 
+                    <span className="material-symbols-outlined text-sm">calendar_today</span>
                     DOB: {patient.dob}
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-sm">id_card</span> 
+                    <span className="material-symbols-outlined text-sm">id_card</span>
                     MRN: {patient.mrn}
                   </span>
                   <span className="flex items-center gap-1.5 text-red-600 dark:text-red-400 font-medium">
-                    <span className="material-symbols-outlined text-sm">warning</span> 
+                    <span className="material-symbols-outlined text-sm">warning</span>
                     Allergies: {patient.allergies}
                   </span>
                 </div>
@@ -396,21 +396,21 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                 </button>
                 {isNewPatient ? (
                   <>
-                    <button 
+                    <button
                       onClick={handleSavePatientAndSchedule}
                       className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2"
                     >
                       <span>Save Patient & Schedule Doctor</span>
                       <span className="material-symbols-outlined text-sm">event</span>
                     </button>
-                    <button 
+                    <button
                       onClick={handleSavePatientAndClose}
                       className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2"
                     >
                       <span>Save Patient & Close</span>
                       <span className="material-symbols-outlined text-sm">close</span>
                     </button>
-                    <button 
+                    <button
                       onClick={handleSavePatient}
                       className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2"
                     >
@@ -442,14 +442,14 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                       </div>
                       <h2 className="text-lg font-bold text-gray-900 dark:text-white">Patient Registration</h2>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 gap-3">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name *</label>
                         <input
                           type="text"
                           value={patientData.name}
-                          onChange={(e) => setPatientData({...patientData, name: e.target.value})}
+                          onChange={(e) => setPatientData({ ...patientData, name: e.target.value })}
                           className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
                           placeholder="Enter patient's full name"
                         />
@@ -460,7 +460,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                           <input
                             type="date"
                             value={patientData.dob}
-                            onChange={(e) => setPatientData({...patientData, dob: e.target.value})}
+                            onChange={(e) => setPatientData({ ...patientData, dob: e.target.value })}
                             className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
                           />
                         </div>
@@ -479,7 +479,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Gender</label>
                           <select
                             value={patientData.gender}
-                            onChange={(e) => setPatientData({...patientData, gender: e.target.value})}
+                            onChange={(e) => setPatientData({ ...patientData, gender: e.target.value })}
                             className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
                           >
                             <option value="">Select gender</option>
@@ -493,7 +493,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                           <input
                             type="tel"
                             value={patientData.phone}
-                            onChange={(e) => setPatientData({...patientData, phone: e.target.value})}
+                            onChange={(e) => setPatientData({ ...patientData, phone: e.target.value })}
                             className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
                             placeholder="(555) 123-4567"
                           />
@@ -504,7 +504,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                         <input
                           type="email"
                           value={patientData.email}
-                          onChange={(e) => setPatientData({...patientData, email: e.target.value})}
+                          onChange={(e) => setPatientData({ ...patientData, email: e.target.value })}
                           className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
                           placeholder="patient@example.com"
                         />
@@ -514,7 +514,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                         <input
                           type="text"
                           value={patientData.allergies}
-                          onChange={(e) => setPatientData({...patientData, allergies: e.target.value})}
+                          onChange={(e) => setPatientData({ ...patientData, allergies: e.target.value })}
                           className="w-full px-2 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
                           placeholder="e.g., Penicillin, Shellfish (or 'None')"
                         />
@@ -526,42 +526,39 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                 <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                   <div className="border-b border-gray-200 dark:border-gray-700 px-4 bg-gray-50 dark:bg-gray-800/50">
                     <div className="flex gap-6">
-                      <button 
+                      <button
                         onClick={() => setActiveTab('record')}
-                        className={`flex flex-col items-center justify-center border-b-2 gap-1 pb-3 pt-4 px-2 ${
-                          activeTab === 'record' 
-                            ? 'border-primary text-primary' 
+                        className={`flex flex-col items-center justify-center border-b-2 gap-1 pb-3 pt-4 px-2 ${activeTab === 'record'
+                            ? 'border-primary text-primary'
                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                        }`}
+                          }`}
                       >
                         <span className="material-symbols-outlined">mic</span>
                         <span className="text-sm font-medium">Record</span>
                       </button>
-                      <button 
+                      <button
                         onClick={() => setActiveTab('upload')}
-                        className={`flex flex-col items-center justify-center border-b-2 gap-1 pb-3 pt-4 px-2 ${
-                          activeTab === 'upload' 
-                            ? 'border-primary text-primary' 
+                        className={`flex flex-col items-center justify-center border-b-2 gap-1 pb-3 pt-4 px-2 ${activeTab === 'upload'
+                            ? 'border-primary text-primary'
                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                        }`}
+                          }`}
                       >
                         <span className="material-symbols-outlined">cloud_upload</span>
                         <span className="text-sm font-medium">Upload</span>
                       </button>
-                      <button 
+                      <button
                         onClick={() => setActiveTab('type')}
-                        className={`flex flex-col items-center justify-center border-b-2 gap-1 pb-3 pt-4 px-2 ${
-                          activeTab === 'type' 
-                            ? 'border-primary text-primary' 
+                        className={`flex flex-col items-center justify-center border-b-2 gap-1 pb-3 pt-4 px-2 ${activeTab === 'type'
+                            ? 'border-primary text-primary'
                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
-                        }`}
+                          }`}
                       >
                         <span className="material-symbols-outlined">keyboard</span>
                         <span className="text-sm font-medium">Profile Photo</span>
                       </button>
                     </div>
                   </div>
-                  
+
                   <div className="p-6 flex flex-col items-center justify-center min-h-[300px]">
                     {activeTab === 'record' ? (
                       <div className="flex flex-col items-center justify-center w-full h-full border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/30 dark:bg-gray-800/30 p-8 text-center gap-6 hover:border-primary/40 transition-colors cursor-pointer">
@@ -663,8 +660,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                   <div className="p-6 space-y-8 overflow-y-auto flex-1">
                     <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                       <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                      <button 
-                        onClick={() => setExpandedSections({...expandedSections, subjective: !expandedSections.subjective})}
+                      <button
+                        onClick={() => setExpandedSections({ ...expandedSections, subjective: !expandedSections.subjective })}
                         className="w-full flex items-center justify-between text-left"
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -679,9 +676,9 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                         <div className="space-y-4">
                           <div>
                             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Chief Complaint</label>
-                            <input 
-                              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2" 
-                              placeholder="e.g., Persistent cough, fever" 
+                            <input
+                              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
+                              placeholder="e.g., Persistent cough, fever"
                               value={visitData.subjective.chiefComplaint}
                               onChange={(e) => setVisitData({
                                 ...visitData,
@@ -692,9 +689,9 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                           </div>
                           <div>
                             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">History of Present Illness</label>
-                            <textarea 
-                              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none" 
-                              placeholder="Describe the HPI..." 
+                            <textarea
+                              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
+                              placeholder="Describe the HPI..."
                               value={visitData.subjective.hpi}
                               onChange={(e) => setVisitData({
                                 ...visitData,
@@ -709,8 +706,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
 
                     <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                       <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                      <button 
-                        onClick={() => setExpandedSections({...expandedSections, objective: !expandedSections.objective})}
+                      <button
+                        onClick={() => setExpandedSections({ ...expandedSections, objective: !expandedSections.objective })}
                         className="w-full flex items-center justify-between text-left"
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -777,12 +774,12 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                               />
                             </div>
                           </div>
-                          
+
                           <div>
                             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Physical Exam Findings</label>
-                            <textarea 
-                              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none" 
-                              placeholder="General appearance, HEENT, Lungs, Heart..." 
+                            <textarea
+                              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2 resize-none"
+                              placeholder="General appearance, HEENT, Lungs, Heart..."
                               value={visitData.objective.examFindings}
                               onChange={(e) => setVisitData({
                                 ...visitData,
@@ -797,8 +794,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
 
                     <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                       <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                      <button 
-                        onClick={() => setExpandedSections({...expandedSections, assessmentPlan: !expandedSections.assessmentPlan})}
+                      <button
+                        onClick={() => setExpandedSections({ ...expandedSections, assessmentPlan: !expandedSections.assessmentPlan })}
                         className="w-full flex items-center justify-between text-left"
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white">Assessment & Plan</h3>
@@ -814,9 +811,9 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                               <span className="absolute top-2.5 left-3 text-gray-500 dark:text-gray-400">
                                 <span className="material-symbols-outlined text-sm">medical_services</span>
                               </span>
-                              <textarea 
-                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none" 
-                                placeholder="Primary diagnosis..." 
+                              <textarea
+                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none"
+                                placeholder="Primary diagnosis..."
                                 value={visitData.assessmentPlan.assessment}
                                 onChange={(e) => setVisitData({
                                   ...visitData,
@@ -832,9 +829,9 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                               <span className="absolute top-2.5 left-3 text-gray-500 dark:text-gray-400">
                                 <span className="material-symbols-outlined text-sm">healing</span>
                               </span>
-                              <textarea 
-                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none" 
-                                placeholder="Medications, referrals, follow-up..." 
+                              <textarea
+                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 pl-10 py-2 resize-none"
+                                placeholder="Medications, referrals, follow-up..."
                                 value={visitData.assessmentPlan.plan}
                                 onChange={(e) => setVisitData({
                                   ...visitData,
@@ -850,8 +847,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
 
                     <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                       <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                      <button 
-                        onClick={() => setExpandedSections({...expandedSections, vaccines: !expandedSections.vaccines})}
+                      <button
+                        onClick={() => setExpandedSections({ ...expandedSections, vaccines: !expandedSections.vaccines })}
                         className="w-full flex items-center justify-between text-left"
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -866,9 +863,9 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                         <div className="space-y-4">
                           <div>
                             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Vaccine</label>
-                            <input 
-                              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2" 
-                              placeholder="Search vaccine (e.g. Tdap)" 
+                            <input
+                              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
+                              placeholder="Search vaccine (e.g. Tdap)"
                               value={visitData.vaccines.name}
                               onChange={(e) => setVisitData({
                                 ...visitData,
@@ -973,8 +970,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
 
                     <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                       <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                      <button 
-                        onClick={() => setExpandedSections({...expandedSections, familyHistory: !expandedSections.familyHistory})}
+                      <button
+                        onClick={() => setExpandedSections({ ...expandedSections, familyHistory: !expandedSections.familyHistory })}
                         className="w-full flex items-center justify-between text-left"
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -1022,9 +1019,9 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                           </div>
                           <div>
                             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Known Conditions</label>
-                            <input 
-                              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2" 
-                              placeholder="Search other conditions..." 
+                            <input
+                              className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
+                              placeholder="Search other conditions..."
                               value={visitData.familyHistory.conditions}
                               onChange={(e) => setVisitData({
                                 ...visitData,
@@ -1039,8 +1036,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
 
                     <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                       <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                      <button 
-                        onClick={() => setExpandedSections({...expandedSections, riskFlags: !expandedSections.riskFlags})}
+                      <button
+                        onClick={() => setExpandedSections({ ...expandedSections, riskFlags: !expandedSections.riskFlags })}
                         className="w-full flex items-center justify-between text-left"
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -1145,8 +1142,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
 
                     <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                       <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                      <button 
-                        onClick={() => setExpandedSections({...expandedSections, surgicalHistory: !expandedSections.surgicalHistory})}
+                      <button
+                        onClick={() => setExpandedSections({ ...expandedSections, surgicalHistory: !expandedSections.surgicalHistory })}
                         className="w-full flex items-center justify-between text-left"
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -1162,9 +1159,9 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Procedure</label>
-                              <input 
-                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2" 
-                                placeholder="e.g. Appendectomy" 
+                              <input
+                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
+                                placeholder="e.g. Appendectomy"
                                 value={visitData.surgicalHistory.procedure}
                                 onChange={(e) => setVisitData({
                                   ...visitData,
@@ -1249,8 +1246,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
 
                     <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                       <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                      <button 
-                        onClick={() => setExpandedSections({...expandedSections, pastMedicalHistory: !expandedSections.pastMedicalHistory})}
+                      <button
+                        onClick={() => setExpandedSections({ ...expandedSections, pastMedicalHistory: !expandedSections.pastMedicalHistory })}
                         className="w-full flex items-center justify-between text-left"
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -1266,9 +1263,9 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Condition</label>
-                              <input 
-                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2" 
-                                placeholder="Type 2 Diabetes Mellitus" 
+                              <input
+                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
+                                placeholder="Type 2 Diabetes Mellitus"
                                 value={visitData.pastMedicalHistory.condition}
                                 onChange={(e) => setVisitData({
                                   ...visitData,
@@ -1355,8 +1352,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
 
                     <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
                       <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                      <button 
-                        onClick={() => setExpandedSections({...expandedSections, orders: !expandedSections.orders})}
+                      <button
+                        onClick={() => setExpandedSections({ ...expandedSections, orders: !expandedSections.orders })}
                         className="w-full flex items-center justify-between text-left"
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -1403,9 +1400,9 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                             </div>
                             <div className="md:col-span-2">
                               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Order Details</label>
-                              <input 
-                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2" 
-                                placeholder="CBC with Differential" 
+                              <input
+                                className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2"
+                                placeholder="CBC with Differential"
                                 value={visitData.orders.details}
                                 onChange={(e) => setVisitData({
                                   ...visitData,

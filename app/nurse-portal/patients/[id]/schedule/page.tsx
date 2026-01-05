@@ -112,7 +112,7 @@ export default function SchedulePage({ params }: SchedulePageProps) {
     }
 
     setIsSaving(false)
-    router.push(`/nurse-portal/patients/${patientId}`)
+    router.push(`/patients/${patientId}`)
   }
 
   if (!patient) {
@@ -120,12 +120,12 @@ export default function SchedulePage({ params }: SchedulePageProps) {
       <div className="flex h-screen w-full overflow-hidden">
         <NurseSidebar />
         <PatientDetailSidebar patientId={params.id} />
-        
+
         <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
           <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
             <GlobalSearchBar />
           </header>
-          
+
           <div className="flex-1 overflow-y-auto p-6">
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
@@ -143,7 +143,7 @@ export default function SchedulePage({ params }: SchedulePageProps) {
     <div className="flex h-screen w-full overflow-hidden">
       <NurseSidebar />
       <PatientDetailSidebar patientId={params.id} />
-      
+
       <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
         <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
           <GlobalSearchBar />
@@ -161,8 +161,8 @@ export default function SchedulePage({ params }: SchedulePageProps) {
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">Schedule Appointment</h2>
               </div>
               <div className="flex gap-3">
-                <button 
-                  onClick={() => router.push(`/nurse-portal/patients/${params.id}`)}
+                <button
+                  onClick={() => router.push(`/patients/${params.id}`)}
                   className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all text-sm"
                 >
                   <span className="material-symbols-outlined text-[18px]">arrow_back</span>
@@ -199,19 +199,18 @@ export default function SchedulePage({ params }: SchedulePageProps) {
                   <div className="p-4 space-y-3">
                     {doctors.map((doctor) => (
                       <label key={doctor.id} className="cursor-pointer group">
-                        <input 
-                          className="hidden" 
-                          name="doctor" 
+                        <input
+                          className="hidden"
+                          name="doctor"
                           type="radio"
                           value={doctor.id}
                           checked={selectedDoctor === doctor.id}
                           onChange={(e) => setSelectedDoctor(e.target.value)}
                         />
-                        <div className={`border rounded-lg p-4 flex items-center gap-4 transition-all ${
-                          selectedDoctor === doctor.id 
-                            ? 'border-primary bg-primary/5 dark:bg-primary/10' 
+                        <div className={`border rounded-lg p-4 flex items-center gap-4 transition-all ${selectedDoctor === doctor.id
+                            ? 'border-primary bg-primary/5 dark:bg-primary/10'
                             : 'border-gray-200 dark:border-gray-700 hover:border-primary/50 dark:hover:border-primary/50'
-                        }`}>
+                          }`}>
                           <div className="size-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-700 dark:text-gray-300">
                             {doctor.name.split(' ').map(n => n[0]).join('')}
                           </div>
@@ -219,14 +218,13 @@ export default function SchedulePage({ params }: SchedulePageProps) {
                             <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{doctor.name}</h3>
                             <p className="text-xs text-gray-500 dark:text-gray-400">{doctor.specialty}</p>
                           </div>
-                          <span className={`text-xs font-medium px-2 py-1 rounded ${
-                            doctor.status === 'available' ? 'text-green-700 bg-green-100 dark:text-green-400 dark:bg-green-900/30' :
-                            doctor.status === 'busy' ? 'text-orange-700 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30' :
-                            'text-gray-500 bg-gray-100 dark:text-gray-400 dark:bg-gray-700'
-                          }`}>
+                          <span className={`text-xs font-medium px-2 py-1 rounded ${doctor.status === 'available' ? 'text-green-700 bg-green-100 dark:text-green-400 dark:bg-green-900/30' :
+                              doctor.status === 'busy' ? 'text-orange-700 bg-orange-100 dark:text-orange-400 dark:bg-orange-900/30' :
+                                'text-gray-500 bg-gray-100 dark:text-gray-400 dark:bg-gray-700'
+                            }`}>
                             {doctor.status === 'available' ? 'Available' :
-                             doctor.status === 'busy' ? `Next: ${doctor.next}` :
-                             'Unavailable'}
+                              doctor.status === 'busy' ? `Next: ${doctor.next}` :
+                                'Unavailable'}
                           </span>
                         </div>
                       </label>
@@ -241,14 +239,13 @@ export default function SchedulePage({ params }: SchedulePageProps) {
                     <p className="text-xs text-gray-500 dark:text-gray-400">Choose when to schedule the appointment</p>
                   </div>
                   <div className="p-4 space-y-3">
-                    <label className={`cursor-pointer rounded-lg border p-4 block ${
-                      appointmentType === 'immediate' 
-                        ? 'border-primary bg-primary/5 dark:bg-primary/10' 
+                    <label className={`cursor-pointer rounded-lg border p-4 block ${appointmentType === 'immediate'
+                        ? 'border-primary bg-primary/5 dark:bg-primary/10'
                         : 'border-gray-200 dark:border-gray-700'
-                    }`}>
-                      <input 
-                        className="sr-only" 
-                        name="app-type" 
+                      }`}>
+                      <input
+                        className="sr-only"
+                        name="app-type"
                         type="radio"
                         value="immediate"
                         checked={appointmentType === 'immediate'}
@@ -258,14 +255,13 @@ export default function SchedulePage({ params }: SchedulePageProps) {
                       <span className="text-xs text-gray-500 dark:text-gray-400">Generate a meeting link immediately.</span>
                     </label>
 
-                    <label className={`cursor-pointer rounded-lg border p-4 block ${
-                      appointmentType === 'scheduled' 
-                        ? 'border-primary bg-primary/5 dark:bg-primary/10' 
+                    <label className={`cursor-pointer rounded-lg border p-4 block ${appointmentType === 'scheduled'
+                        ? 'border-primary bg-primary/5 dark:bg-primary/10'
                         : 'border-gray-200 dark:border-gray-700'
-                    }`}>
-                      <input 
-                        className="sr-only" 
-                        name="app-type" 
+                      }`}>
+                      <input
+                        className="sr-only"
+                        name="app-type"
                         type="radio"
                         value="scheduled"
                         checked={appointmentType === 'scheduled'}
@@ -327,11 +323,10 @@ export default function SchedulePage({ params }: SchedulePageProps) {
                     <div className="sm:col-span-2 border-t border-gray-100 dark:border-gray-800 pt-4">
                       <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Video Link Delivery</h4>
                       <div className="flex flex-wrap gap-3 mb-3">
-                        <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold cursor-pointer ${
-                          deliveryMethod === 'email'
+                        <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold cursor-pointer ${deliveryMethod === 'email'
                             ? 'border-primary bg-primary/5 text-primary'
                             : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
-                        }`}>
+                          }`}>
                           <input
                             type="radio"
                             name="delivery-method"
@@ -343,11 +338,10 @@ export default function SchedulePage({ params }: SchedulePageProps) {
                           <span className="material-symbols-outlined text-[16px]">mail</span>
                           Email
                         </label>
-                        <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold cursor-pointer ${
-                          deliveryMethod === 'text'
+                        <label className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold cursor-pointer ${deliveryMethod === 'text'
                             ? 'border-primary bg-primary/5 text-primary'
                             : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
-                        }`}>
+                          }`}>
                           <input
                             type="radio"
                             name="delivery-method"
@@ -361,11 +355,10 @@ export default function SchedulePage({ params }: SchedulePageProps) {
                         </label>
                       </div>
                       <div className="grid sm:grid-cols-2 gap-4">
-                        <div className={`rounded-lg border px-3 py-2 ${
-                          deliveryMethod === 'email'
+                        <div className={`rounded-lg border px-3 py-2 ${deliveryMethod === 'email'
                             ? 'border-primary/60 bg-primary/5'
                             : 'border-gray-200 dark:border-gray-700'
-                        }`}>
+                          }`}>
                           <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Email</label>
                           <input
                             type="email"
@@ -375,11 +368,10 @@ export default function SchedulePage({ params }: SchedulePageProps) {
                             className="w-full bg-transparent text-sm text-gray-900 dark:text-white focus:outline-none"
                           />
                         </div>
-                        <div className={`rounded-lg border px-3 py-2 ${
-                          deliveryMethod === 'text'
+                        <div className={`rounded-lg border px-3 py-2 ${deliveryMethod === 'text'
                             ? 'border-primary/60 bg-primary/5'
                             : 'border-gray-200 dark:border-gray-700'
-                        }`}>
+                          }`}>
                           <label className="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Phone</label>
                           <input
                             type="tel"
@@ -441,7 +433,7 @@ export default function SchedulePage({ params }: SchedulePageProps) {
                       </div>
                     )}
                     <div className="mt-auto pt-4">
-                      <button 
+                      <button
                         onClick={handleConfirmAppointment}
                         disabled={!canConfirm || isSaving}
                         className="w-full bg-primary hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-600 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"

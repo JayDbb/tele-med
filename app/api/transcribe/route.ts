@@ -61,6 +61,19 @@ Extract the following information:
 6. prescriptions: Array of prescribed medications with dosage, frequency, and duration if mentioned
 7. summary: A concise, readable summary (2-3 paragraphs) of the entire medical consultation session written in continuous prose. The summary should include the chief complaint and current symptoms, key findings from physical examination, diagnosis, and treatment plan with any prescriptions. Keep it professional and easy to read for medical review. Write in continuous text format without bullet points.
 
+IMPORTANT - Unit Assumptions and Conversions:
+- Blood Pressure (BP): Assume mmHg if unit not specified. If given in other units, convert to mmHg (e.g., kPa to mmHg: multiply by 7.5).
+- Heart Rate (HR): Assume bpm (beats per minute) if unit not specified. If given in other units, convert to bpm.
+- Temperature: Assume °F (Fahrenheit) if unit not specified. If given in °C (Celsius), convert to °F: (°C × 9/5) + 32.
+- Weight: Assume lbs (pounds) if unit not specified. If given in kg (kilograms), convert to lbs: kg × 2.20462. If given in other units, convert appropriately.
+
+For vital signs in physical_exam_findings:
+- Extract ONLY the numeric values in the assumed/converted units (remove units from the value itself)
+- Blood pressure format: "120/80" (systolic/diastolic)
+- Heart rate format: "72" (just the number)
+- Temperature format: "98.6" (just the number)
+- Weight format: "165" (just the number)
+
 Return ONLY valid JSON in this exact format (no markdown, no code blocks, no additional text):
 {
   "past_medical_history": [],

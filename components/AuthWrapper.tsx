@@ -38,6 +38,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     async function fetchUserRole() {
       try {
         const user = await getCurrentUser()
+        console.log('[AuthWrapper] User:', user)
         if (user) {
           setUserRole(user.role || null)
         } else {
@@ -46,6 +47,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
           const { data: { session } } = await supabase.auth.getSession()
           if (session?.user) {
             const role = session.user.user_metadata?.role
+            console.log('[AuthWrapper] User role:', role)
             if (role) {
               setUserRole(role)
             }
@@ -67,13 +69,13 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const publicRoutes = ['/login', '/signup']
 
   // Shared routes - accessible by both nurses and doctors
-  const sharedRoutes = ['/patients']
+  const sharedRoutes = ['/patients', '/visits']
 
   // Nurse portal routes - only accessible by nurses
   const nurseRoutes = ['/nurse-portal']
 
   // Doctor portal routes - only accessible by doctors
-  const doctorRoutes = ['/doctor', '/dashboard', '/calendar', '/inbox', '/visits', '/medications']
+  const doctorRoutes = ['/doctor', '/dashboard', '/calendar', '/inbox', '/medications']
 
   // If any provider is still checking session, don't decide yet — prevent flash-to-login
   // But if we have a role and it matches the route, we can proceed
@@ -96,17 +98,45 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
     return <>{children}</>
   }
 
+  // Skip API routes - AuthWrapper shouldn't handle API routes
+  if (pathname?.startsWith('/api')) {
+    return <>{children}</>
+  }
+
+  // Role-based access control - check BEFORE authentication to prevent showing login page
+  const isSharedRoute = sharedRoutes.some(route => pathname?.startsWith(route))
+  const isNurseRoute = nurseRoutes.some(route => pathname?.startsWith(route))
+  const isDoctorRoute = doctorRoutes.some(route => pathname?.startsWith(route))
+
   // Check if user is authenticated at all
   const isAuthenticated = doctorAuth || nurseAuth
+
+  // If we're on a role-specific route and role is still loading, wait for it
+  // This prevents showing login page before we know if we should redirect
+  if ((isDoctorRoute || isNurseRoute) && roleLoading && !userRole) {
+    if (!timedOut) {
+      return null // Wait for role to load
+    }
+  }
+
+  // Handle cross-role access attempts IMMEDIATELY (before authentication check)
+  // This prevents showing login page when a nurse tries to access doctor routes
+  if (userRole && !roleLoading) {
+    if (isDoctorRoute && userRole === 'nurse') {
+      console.log('[AuthWrapper] Nurse trying to access doctor route, redirecting to nurse portal')
+      router.replace('/nurse-portal')
+      return null
+    }
+    if (isNurseRoute && userRole === 'doctor') {
+      console.log('[AuthWrapper] Doctor trying to access nurse route, redirecting to doctor dashboard')
+      router.replace('/doctor/dashboard')
+      return null
+    }
+  }
 
   if (!isAuthenticated) {
     return <LoginPage />
   }
-
-  // Role-based access control
-  const isSharedRoute = sharedRoutes.some(route => pathname.startsWith(route))
-  const isNurseRoute = nurseRoutes.some(route => pathname.startsWith(route))
-  const isDoctorRoute = doctorRoutes.some(route => pathname.startsWith(route))
 
   // If role is still loading and user is authenticated, wait a bit more
   if (isAuthenticated && userRole === null && !timedOut) {
@@ -132,11 +162,6 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   // If accessing nurse portal
   if (isNurseRoute) {
     // Only nurses can access nurse routes
-    if (userRole === 'doctor') {
-      console.log('[AuthWrapper] Doctor trying to access nurse route, redirecting to doctor dashboard')
-      router.replace('/doctor/dashboard')
-      return null
-    }
     if (userRole !== 'nurse' || !nurseAuth) {
       return <LoginPage />
     }
@@ -146,11 +171,6 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   // If accessing doctor portal routes
   if (isDoctorRoute) {
     // Only doctors can access doctor routes
-    if (userRole === 'nurse') {
-      console.log('[AuthWrapper] Nurse trying to access doctor route, redirecting to nurse portal')
-      router.replace('/nurse-portal')
-      return null
-    }
     if (userRole !== 'doctor' || !doctorAuth) {
       return <LoginPage />
     }

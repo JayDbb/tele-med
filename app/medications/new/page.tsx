@@ -11,7 +11,7 @@ const PrescriptionPage = () => {
   const { doctor } = useDoctor()
   const { nurse } = useNurse()
   const backHref = nurse
-    ? '/nurse-portal/patients'
+    ? '/patients'
     : doctor
       ? '/doctor/patients'
       : '/patients'
@@ -38,7 +38,7 @@ const PrescriptionPage = () => {
   return (
     <div className="flex h-screen bg-background-light dark:bg-background-dark">
       <Sidebar />
-      
+
       <div className="flex-1 flex flex-col">
         {/* Patient Context Banner */}
         <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 shrink-0 shadow-sm">
@@ -62,7 +62,7 @@ const PrescriptionPage = () => {
                 <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Patient profile not loaded.</p>
               </div>
             </div>
-            
+
             <div className="flex gap-4 overflow-x-auto pb-2 lg:pb-0 w-full lg:w-auto">
               <div className="flex flex-col min-w-[80px]">
                 <span className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase">Weight</span>
@@ -97,14 +97,14 @@ const PrescriptionPage = () => {
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500 dark:text-gray-400">
                   <span className="material-symbols-outlined text-xl">search</span>
                 </div>
-                <input 
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm text-gray-900 dark:text-white" 
-                  placeholder="Search generic or brand..." 
+                <input
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary text-sm text-gray-900 dark:text-white"
+                  placeholder="Search generic or brand..."
                   type="text"
                 />
               </div>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -114,14 +114,14 @@ const PrescriptionPage = () => {
                   </h4>
                   <span className="text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded">High Confidence</span>
                 </div>
-                
+
                 {medications.length === 0 ? (
                   <div className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600 text-sm text-gray-500 dark:text-gray-400">
                     No medications available yet.
                   </div>
                 ) : (
                   medications.map((med) => (
-                    <div 
+                    <div
                       key={med.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, med)}
@@ -179,14 +179,14 @@ const PrescriptionPage = () => {
                             <p className="text-xs text-gray-500 dark:text-gray-400">{med.details}</p>
                           </div>
                         </div>
-                        <button 
+                        <button
                           onClick={() => setDroppedMeds(droppedMeds.filter(m => m.id !== med.id))}
                           className="text-gray-400 hover:text-red-500 transition-colors p-1"
                         >
                           <span className="material-symbols-outlined">delete</span>
                         </button>
                       </div>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                         <div>
                           <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-1">Dose (mg/m²)</label>
@@ -219,7 +219,7 @@ const PrescriptionPage = () => {
                 </div>
               )}
 
-              <div 
+              <div
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
                 className="border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 rounded-xl p-4 flex items-center justify-center gap-2 text-gray-400 dark:text-gray-500 opacity-60"
@@ -254,7 +254,7 @@ const PrescriptionPage = () => {
                 Clinical Intelligence
               </h3>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-600 rounded-lg p-3">
                 <div className="flex gap-3">

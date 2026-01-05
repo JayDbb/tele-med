@@ -69,15 +69,6 @@ export default function LoginPage() {
     }
   }
 
-  const result = doctorLogin(email, password).then((result) => {
-    if (result.success) {
-      router.push('/doctor/dashboard')
-    } else {
-      setError('Invalid email or password')
-    }
-  })
-
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
       <div className="max-w-md w-full space-y-8 p-8">

@@ -31,7 +31,7 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
   const searchRef = useRef<HTMLDivElement>(null)
   const { doctor } = useDoctor()
   const { nurse } = useNurse()
-  
+
   const currentUser = doctor || nurse
   const userId = doctor?.id || nurse?.id
   const isValidPatientId = (patientId: unknown) => {
@@ -44,14 +44,14 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
       fetchPatients()
       loadRecentPatients()
     }
-    
+
     // Refresh patients when page becomes visible (to catch new patients)
     const handleVisibilityChange = () => {
       if (!document.hidden && currentUser) {
         fetchPatients()
       }
     }
-    
+
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [currentUser])
@@ -68,7 +68,7 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
 
   const fetchPatients = () => {
     if (!currentUser) return
-    
+
     try {
       const allPatients = PatientDataManager.getAllPatients()
         .filter((patient) => isValidPatientId(patient?.id))
@@ -89,15 +89,15 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
 
   const loadRecentPatients = () => {
     if (!userId) return
-    
+
     const recent = localStorage.getItem(`recent-patients-${userId}`)
     if (recent) {
       const parsed = JSON.parse(recent)
       const sanitized = Array.isArray(parsed)
         ? parsed.filter((patient) => {
-            const idValue = `${patient?.id ?? ''}`.trim()
-            return idValue.length > 0 && idValue !== 'undefined' && idValue !== 'null'
-          })
+          const idValue = `${patient?.id ?? ''}`.trim()
+          return idValue.length > 0 && idValue !== 'undefined' && idValue !== 'null'
+        })
         : []
       if (sanitized.length !== parsed.length) {
         localStorage.setItem(`recent-patients-${userId}`, JSON.stringify(sanitized))
@@ -108,7 +108,7 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
 
   const addToRecentPatients = (patient: Patient) => {
     if (!userId) return
-    
+
     const recent = recentPatients.filter(p => p.id !== patient.id)
     const updated = [patient, ...recent].slice(0, 5) // Keep only 5 recent
     setRecentPatients(updated)
@@ -118,7 +118,7 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
   const handleSearch = (value: string) => {
     setQuery(value)
     if (value.length > 0) {
-      const filtered = patients.filter(patient => 
+      const filtered = patients.filter(patient =>
         patient.name.toLowerCase().includes(value.toLowerCase()) ||
         patient.id.toLowerCase().includes(value.toLowerCase()) ||
         patient.mrn?.toLowerCase().includes(value.toLowerCase()) ||
@@ -140,10 +140,10 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
     addToRecentPatients(patient)
     setQuery('')
     setShowDropdown(false)
-    
+
     // Route to appropriate portal based on user type
     if (nurse) {
-      router.push(`/nurse-portal/patients/${patient.id}`)
+      router.push(`/patients/${patient.id}`)
     } else {
       router.push(`/doctor/patients/${patient.id}`)
     }
@@ -170,8 +170,8 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
     <div ref={searchRef} className="relative w-full max-w-md">
       <label className="flex w-full items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg px-3 h-10 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
         <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">search</span>
-        <input 
-          className="bg-transparent border-none text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0 w-full h-full p-0" 
+        <input
+          className="bg-transparent border-none text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0 w-full h-full p-0"
           placeholder={placeholder}
           type="text"
           value={query}

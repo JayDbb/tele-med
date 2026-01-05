@@ -1,4 +1,5 @@
 import Sidebar from '@/components/Sidebar'
+import AvailabilityToggle from '@/components/AvailabilityToggle'
 
 export default function InboxPage() {
   return (

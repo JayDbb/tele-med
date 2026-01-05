@@ -39,12 +39,17 @@ export class PatientDataManager {
   private static sectionCache = new Map<string, any>()
   private static auditCache = new Map<string, AuditLog[]>()
 
+  private static isClient(): boolean {
+    return typeof window !== 'undefined' && typeof localStorage !== 'undefined'
+  }
+
   private static getCurrentUserKey(): string {
     return 'current-user'
   }
 
   static setCurrentUser(user: { id: string; name: string; email?: string; role?: string } | null): void {
     try {
+      if (!this.isClient()) return
       if (!user) {
         localStorage.removeItem(this.getCurrentUserKey())
         return
@@ -57,6 +62,7 @@ export class PatientDataManager {
 
   static getCurrentUser(): { id: string; name: string; email?: string; role?: string } | null {
     try {
+      if (!this.isClient()) return null
       const data = localStorage.getItem(this.getCurrentUserKey())
       return data ? JSON.parse(data) : null
     } catch (error) {
@@ -109,6 +115,7 @@ export class PatientDataManager {
   // Save patient data with audit logging
   static savePatient(patientData: PatientData, action: string = 'create', userId: string = 'current-user'): void {
     try {
+      if (!this.isClient()) return
       if (!this.isValidPatientId(patientData?.id)) {
         console.warn('Skipping save for invalid patient id:', patientData?.id)
         return
@@ -158,6 +165,7 @@ export class PatientDataManager {
   // Get patient data from isolated container
   static getPatient(patientId: string): PatientData | null {
     try {
+      if (!this.isClient()) return null
       if (!this.isValidPatientId(patientId)) return null
       // Don't seed patients anymore
       if (this.patientCache.has(patientId)) {
@@ -184,6 +192,7 @@ export class PatientDataManager {
     userId: string = 'current-user'
   ): void {
     try {
+      if (!this.isClient()) return
       const patient = this.getPatient(patientId)
       if (!patient) return
 
@@ -225,6 +234,7 @@ export class PatientDataManager {
   // Get specific patient section data
   static getPatientSection(patientId: string, section: string): any {
     try {
+      if (!this.isClient()) return null
       const sectionKey = this.getSectionKey(patientId, section)
       if (this.sectionCache.has(sectionKey)) {
         return this.sectionCache.get(sectionKey)
@@ -267,6 +277,7 @@ export class PatientDataManager {
     details?: any
   ): void {
     try {
+      if (!this.isClient()) return
       const auditKey = this.getAuditKey(patientId)
       const existingLogs = localStorage.getItem(auditKey)
       const logs: AuditLog[] = existingLogs ? JSON.parse(existingLogs) : []
@@ -310,6 +321,7 @@ export class PatientDataManager {
   // Get audit logs for a patient
   static getAuditLogs(patientId: string): AuditLog[] {
     try {
+      if (!this.isClient()) return []
       if (this.auditCache.has(patientId)) {
         return this.auditCache.get(patientId) || []
       }
@@ -326,6 +338,7 @@ export class PatientDataManager {
 
   static saveDraft(patientId: string, section: string, data: any): void {
     try {
+      if (!this.isClient()) return
       const draftKey = this.getDraftKey(patientId, section)
       localStorage.setItem(draftKey, JSON.stringify({
         data,
@@ -338,6 +351,7 @@ export class PatientDataManager {
 
   static getDraft(patientId: string, section: string): any {
     try {
+      if (!this.isClient()) return null
       const draftKey = this.getDraftKey(patientId, section)
       const data = localStorage.getItem(draftKey)
       return data ? JSON.parse(data) : null
@@ -349,6 +363,7 @@ export class PatientDataManager {
 
   static clearDraft(patientId: string, section: string): void {
     try {
+      if (!this.isClient()) return
       const draftKey = this.getDraftKey(patientId, section)
       localStorage.removeItem(draftKey)
     } catch (error) {
@@ -367,6 +382,7 @@ export class PatientDataManager {
     user: { id: string; name: string }
   ): void {
     try {
+      if (!this.isClient()) return
       const outboxKey = this.getOutboxKey()
       const existing = localStorage.getItem(outboxKey)
       const items = existing ? JSON.parse(existing) : []
@@ -387,6 +403,7 @@ export class PatientDataManager {
 
   static flushPendingSync(): void {
     try {
+      if (!this.isClient()) return
       if (typeof navigator !== 'undefined' && !navigator.onLine) return
       const outboxKey = this.getOutboxKey()
       const existing = localStorage.getItem(outboxKey)
@@ -406,6 +423,7 @@ export class PatientDataManager {
   // Clear all patient data from localStorage
   static clearAllPatients(): void {
     try {
+      if (!this.isClient()) return
       const keysToRemove: string[] = []
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
@@ -425,6 +443,7 @@ export class PatientDataManager {
   // Get all patients (for listing)
   static getAllPatients(): PatientData[] {
     try {
+      if (!this.isClient()) return []
       const patients: PatientData[] = []
       
       for (let i = 0; i < localStorage.length; i++) {
@@ -459,6 +478,7 @@ export class PatientDataManager {
 
   static cleanupBlankPatients(): void {
     try {
+      if (!this.isClient()) return
       const keysToRemove: string[] = []
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
@@ -490,6 +510,7 @@ export class PatientDataManager {
 
   static deletePatient(patientId: string): void {
     try {
+      if (!this.isClient()) return
       if (!this.isValidPatientId(patientId)) return
       const keysToRemove: string[] = []
       const patientKey = this.getPatientKey(patientId)

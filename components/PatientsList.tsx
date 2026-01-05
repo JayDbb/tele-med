@@ -233,10 +233,10 @@ const PatientsList = () => {
                   <Link
                     href={`${getPatientUrl(patient.id)}/schedule`}
                     className="text-primary hover:text-primary/80 text-sm font-medium flex items-center gap-1 transition-colors"
-                    title="Assign Doctor"
+                    title="Assign To Doctor"
                   >
                     <span className="material-symbols-outlined text-sm">medical_services</span>
-                    Assign Doctor
+                    Assign To Doctor
                   </Link>
 
                 </div>

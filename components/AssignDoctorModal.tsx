@@ -77,14 +77,14 @@ export default function AssignDoctorModal({
       }
 
       const doctorsData = await res.json()
-      
+
       // Format doctor names to include "Dr." prefix if not already present
       const formattedDoctors = doctorsData.map((doctor: any) => ({
         ...doctor,
         name: doctor.name.startsWith('Dr.') ? doctor.name : `Dr. ${doctor.name}`,
         portalName: doctor.portalName || doctor.name,
       }))
-      
+
       setDoctors(formattedDoctors)
     } catch (err: any) {
       console.error('Error loading doctors:', err)
@@ -167,7 +167,7 @@ export default function AssignDoctorModal({
             </div>
             <div>
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                Assign Doctor
+                Assign To Doctor
               </h3>
               {patientName && (
                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -236,11 +236,10 @@ export default function AssignDoctorModal({
                   {filteredDoctors.map((doctor) => (
                     <label
                       key={doctor.id}
-                      className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
-                        selectedDoctorId === doctor.id
+                      className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${selectedDoctorId === doctor.id
                           ? 'bg-primary/5 border-l-4 border-primary'
                           : 'border-l-4 border-transparent'
-                      }`}
+                        }`}
                     >
                       <input
                         type="radio"

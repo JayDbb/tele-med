@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar'
 import PatientDetail from '@/components/PatientDetail'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import AvailabilityToggle from '@/components/AvailabilityToggle'
 import { PatientDataManager } from '@/utils/PatientDataManager'
 import { useDoctor } from '@/contexts/DoctorContext'
 
@@ -46,7 +47,9 @@ export default function PatientDetailPage({ params }: { params: { id: string } }
       <main className="flex-1 p-8">
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <GlobalSearchBar />
-          <button
+          <div className="flex items-center gap-4">
+            <AvailabilityToggle />
+            <button
             onClick={handleMarkComplete}
             disabled={isCompleting}
             className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors"
@@ -54,6 +57,7 @@ export default function PatientDetailPage({ params }: { params: { id: string } }
             <span className="material-symbols-outlined text-sm">check_circle</span>
             Mark Complete
           </button>
+          </div>
         </div>
         <PatientDetail patientId={params.id} />
       </main>

@@ -14,70 +14,134 @@ interface PatientDetailProps {
 
 const PatientDetail = ({ patientId }: PatientDetailProps) => {
   const pathname = usePathname()
-  const [patient, setPatient] = useState(PatientDataManager.getPatient(patientId))
-  const [loading, setLoading] = useState(!patient)
+  const [patient, setPatient] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const basePath = pathname.startsWith('/nurse-portal')
-    ? '/nurse-portal/patients'
+    ? '/patients'
     : pathname.startsWith('/doctor')
       ? '/doctor/patients'
       : '/patients'
   const patientBasePath = `${basePath}/${patientId}`
 
-  useEffect(() => {
-    // If patient is not in local storage, fetch from API
-    if (!patient && patientId) {
-      const loadPatientFromAPI = async () => {
-        try {
-          setLoading(true)
-          setError(null)
-
-          const response = await getPatient(patientId)
-
-          if (response.patient) {
-            // Transform API patient data to match PatientDataManager format
-            const transformedPatient: any = {
-              id: response.patient.id,
-              name: response.patient.full_name || (response.patient as any).name || 'Unnamed Patient',
-              dob: response.patient.dob || '',
-              phone: response.patient.phone || '',
-              email: response.patient.email || '',
-              address: response.patient.address || '',
-              gender: response.patient.sex_at_birth || (response.patient as any).gender_identity || (response.patient as any).gender || '',
-              language: (response.patient as any).language || '',
-              height: (response.patient as any).height || '',
-              physician: (response.patient as any).physician || '',
-              lastConsultation: (response.patient as any).last_consultation || '',
-              appointment: (response.patient as any).appointment || '',
-              notes: (response.patient as any).notes || '',
-              status: (response.patient as any).status || 'Active',
-              statusColor: 'green',
-              doctorId: response.patient.clinician_id || '',
-              createdAt: response.patient.created_at || new Date().toISOString(),
-              updatedAt: (response.patient as any).updated_at || response.patient.created_at || new Date().toISOString(),
-              tags: (response.patient as any).tags || [],
-              image: undefined,
-              mrn: (response.patient as any).mrn || '',
-              allergies: response.patient.allergies || '',
-            }
-
-            // Save to PatientDataManager
-            PatientDataManager.savePatient(transformedPatient, 'update', 'system')
-            setPatient(transformedPatient)
-          } else {
-            setError('Patient not found')
-          }
-        } catch (err: any) {
-          console.error('Error loading patient:', err)
-          setError(err?.message || 'Failed to load patient')
-        } finally {
-          setLoading(false)
-        }
-      }
-
-      loadPatientFromAPI()
+  // Helper function for age calculation (must be defined before hooks)
+  function getAge(dob?: string) {
+    if (!dob) return 'Not provided'
+    const birthDate = new Date(dob)
+    if (Number.isNaN(birthDate.getTime())) return 'Not provided'
+    const today = new Date()
+    let age = today.getFullYear() - birthDate.getFullYear()
+    const monthDiff = today.getMonth() - birthDate.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age -= 1
     }
-  }, [patientId, patient])
+    return `${age}`
+  }
+
+  // Initialize hooks that depend on patient data - use safe defaults
+  // All hooks must be declared before any early returns
+  const [editMode, setEditMode] = useState(false)
+  const [draft, setDraft] = useState({
+    name: '',
+    dob: '',
+    phone: '',
+    address: '',
+    email: '',
+    gender: '',
+    language: '',
+    height: '',
+    physician: '',
+    lastConsultation: '',
+    appointment: '',
+    notes: '',
+    tags: ''
+  })
+
+  useEffect(() => {
+    // Load patient data on client side only (prevents hydration mismatch)
+    if (!patientId) return
+
+    const loadPatient = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        // Try to get from localStorage first (client-side only)
+        const localPatient = PatientDataManager.getPatient(patientId)
+        if (localPatient) {
+          setPatient(localPatient)
+          setLoading(false)
+          return
+        }
+
+        // If not in localStorage, fetch from API
+        const response = await getPatient(patientId)
+
+        if (response.patient) {
+          // Transform API patient data to match PatientDataManager format
+          const transformedPatient: any = {
+            id: response.patient.id,
+            name: response.patient.full_name || (response.patient as any).name || 'Unnamed Patient',
+            dob: response.patient.dob || '',
+            phone: response.patient.phone || '',
+            email: response.patient.email || '',
+            address: response.patient.address || '',
+            gender: response.patient.sex_at_birth || (response.patient as any).gender_identity || (response.patient as any).gender || '',
+            language: (response.patient as any).language || '',
+            height: (response.patient as any).height || '',
+            physician: (response.patient as any).physician || '',
+            lastConsultation: (response.patient as any).last_consultation || '',
+            appointment: (response.patient as any).appointment || '',
+            notes: (response.patient as any).notes || '',
+            status: (response.patient as any).status || 'Active',
+            statusColor: 'green',
+            doctorId: response.patient.clinician_id || '',
+            createdAt: response.patient.created_at || new Date().toISOString(),
+            updatedAt: (response.patient as any).updated_at || response.patient.created_at || new Date().toISOString(),
+            tags: (response.patient as any).tags || [],
+            image: undefined,
+            mrn: (response.patient as any).mrn || '',
+            allergies: response.patient.allergies || '',
+          }
+
+          // Save to PatientDataManager
+          PatientDataManager.savePatient(transformedPatient, 'update', 'system')
+          setPatient(transformedPatient)
+        } else {
+          setError('Patient not found')
+        }
+      } catch (err: any) {
+        console.error('Error loading patient:', err)
+        setError(err?.message || 'Failed to load patient')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadPatient()
+  }, [patientId])
+
+  // Update draft when patient data changes (must be before early returns)
+  useEffect(() => {
+    if (patient) {
+      const updatedTags = Array.isArray(patient.tags) ? patient.tags : []
+      setDraft({
+        name: patient.name || '',
+        dob: patient.dob || '',
+        phone: patient.phone || '',
+        address: patient.address || '',
+        email: patient.email || '',
+        gender: patient.gender || '',
+        language: patient.language || '',
+        height: patient.height || '',
+        physician: patient.physician || '',
+        lastConsultation: patient.lastConsultation || '',
+        appointment: patient.appointment || '',
+        notes: patient.notes || '',
+        tags: updatedTags.join(', ')
+      })
+    }
+  }, [patientId, patient?.name, patient?.dob, patient?.phone, patient?.address, patient?.email, patient?.gender, patient?.language, patient?.height, patient?.physician, patient?.lastConsultation, patient?.appointment, patient?.notes, patient?.tags])
 
   if (loading) {
     return (
@@ -101,61 +165,14 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
     )
   }
 
+  // Calculate derived values (after early returns, when patient is guaranteed to exist)
+  const tags = Array.isArray(patient.tags) ? patient.tags : []
+  const patientAge = patient.dob ? Number(getAge(patient.dob)) : undefined
   const vitals = PatientDataManager.getPatientSectionList(patientId, 'vitals')
   const allergies = PatientDataManager.getPatientSectionList(patientId, 'allergies')
   const medications = PatientDataManager.getPatientSectionList(patientId, 'medications')
   const history = PatientDataManager.getPatientSectionList(patientId, 'past-medical-history')
   const isNewPatient = vitals.length === 0 && allergies.length === 0 && medications.length === 0 && history.length === 0
-
-  const getAge = (dob?: string) => {
-    if (!dob) return 'Not provided'
-    const birthDate = new Date(dob)
-    if (Number.isNaN(birthDate.getTime())) return 'Not provided'
-    const today = new Date()
-    let age = today.getFullYear() - birthDate.getFullYear()
-    const monthDiff = today.getMonth() - birthDate.getMonth()
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age -= 1
-    }
-    return `${age}`
-  }
-
-  const tags = Array.isArray(patient.tags) ? patient.tags : []
-  const patientAge = patient.dob ? Number(getAge(patient.dob)) : undefined
-  const [editMode, setEditMode] = useState(false)
-  const [draft, setDraft] = useState({
-    name: patient.name || '',
-    dob: patient.dob || '',
-    phone: patient.phone || '',
-    address: patient.address || '',
-    email: patient.email || '',
-    gender: patient.gender || '',
-    language: patient.language || '',
-    height: patient.height || '',
-    physician: patient.physician || '',
-    lastConsultation: patient.lastConsultation || '',
-    appointment: patient.appointment || '',
-    notes: patient.notes || '',
-    tags: tags.join(', ')
-  })
-
-  useEffect(() => {
-    setDraft({
-      name: patient.name || '',
-      dob: patient.dob || '',
-      phone: patient.phone || '',
-      address: patient.address || '',
-      email: patient.email || '',
-      gender: patient.gender || '',
-      language: patient.language || '',
-      height: patient.height || '',
-      physician: patient.physician || '',
-      lastConsultation: patient.lastConsultation || '',
-      appointment: patient.appointment || '',
-      notes: patient.notes || '',
-      tags: tags.join(', ')
-    })
-  }, [patientId, patient.name, patient.dob, patient.phone, patient.address, patient.email, patient.gender, patient.language, patient.height, patient.physician, patient.lastConsultation, patient.appointment, patient.notes, tags.join(', ')])
 
   const getNameParts = () => {
     const parts = draft.name.trim().split(' ')
@@ -259,7 +276,7 @@ const PatientDetail = ({ patientId }: PatientDetailProps) => {
                 className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               >
                 <span className="material-symbols-outlined text-sm">medical_services</span>
-                Assign Doctor
+                Assign To Doctor
               </Link>
               <Link href={`${patientBasePath}/new-visit`} className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg flex items-center gap-2 shadow-sm transition-colors">
                 <span className="material-symbols-outlined text-sm">edit_calendar</span>

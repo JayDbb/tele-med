@@ -1,11 +1,11 @@
-import NurseSidebar from '@/components/NurseSidebar'
+import RoleBasedSidebar from '@/components/RoleBasedSidebar'
 import SearchBar from '@/components/SearchBar'
 import PatientsList from '@/components/PatientsList'
 
 export default function NursePatientsPage() {
   return (
     <div className="relative flex min-h-screen w-full">
-      <NurseSidebar />
+      <RoleBasedSidebar />
       
       <main className="flex-1 p-8">
         <div className="mb-6">

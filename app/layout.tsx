@@ -7,7 +7,6 @@ import { VideoCallProvider } from '../contexts/VideoCallContext'
 import { DoctorProvider } from '../contexts/DoctorContext'
 import { NurseProvider } from '../contexts/NurseContext'
 import VideoCallWrapper from '../components/VideoCallWrapper'
-import AuthWrapper from '../components/AuthWrapper'
 import SyncManager from '../components/SyncManager'
 import PwaManager from '../components/PwaManager'
 
@@ -58,9 +57,7 @@ export default function RootLayout({
               <AppointmentsProvider>
                 <VideoCallProvider>
                   <ClientThemeWrapper>
-                    <AuthWrapper>
-                      {children}
-                    </AuthWrapper>
+                    {children}
                     <VideoCallWrapper />
                     <SyncManager />
                     <PwaManager />

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import AvailabilityToggle from '@/components/AvailabilityToggle'
 import ClinicalSections from '@/components/ClinicalSections'
 import AITransparency from '@/components/AITransparency'
 
@@ -259,6 +260,7 @@ export default function PatientNotesPage() {
           </div>
           
           <div className="flex items-center gap-4">
+            <AvailabilityToggle />
             {getAutoSaveIndicator()}
             <button className="relative p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
               <span className="material-symbols-outlined">notifications</span>

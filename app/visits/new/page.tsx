@@ -33,7 +33,7 @@ function NewVisitPageContent() {
   } | null>(null);
   const recorder = useAudioRecorder();
   const getPatientHref = (id: string) => {
-    if (nurse) return `/nurse-portal/patients/${id}`;
+    if (nurse) return `/patients/${id}`;
     if (doctor) return `/doctor/patients/${id}`;
     return `/patients/${id}`;
   };
@@ -133,10 +133,10 @@ function NewVisitPageContent() {
       const transcriptionResult = await transcribeVisitAudio(upload.path, visitId);
       setTranscription(transcriptionResult);
       console.log("Transcription completed:", transcriptionResult);
-      
+
       // Import appendVisitNote for saving transcription to notes
       const { appendVisitNote } = await import("../../../lib/api");
-      
+
       // Save the full transcript to visit notes as subjective (dictation source)
       if (transcriptionResult.transcript) {
         try {
@@ -168,7 +168,7 @@ function NewVisitPageContent() {
       // Save structured data to notes if available
       if (transcriptionResult.structured) {
         const structured = transcriptionResult.structured;
-        
+
         // Save diagnosis
         if (structured.diagnosis) {
           const diagnosis = Array.isArray(structured.diagnosis)

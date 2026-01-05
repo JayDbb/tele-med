@@ -2,9 +2,20 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { PatientDataManager } from '@/utils/PatientDataManager'
+import { useRouter } from 'next/navigation'
 import { useDoctor } from '@/contexts/DoctorContext'
 import { useVideoCall } from '@/contexts/VideoCallContext'
+import { getAllVisits } from '@/lib/api'
+import type { Visit } from '@/lib/types'
+
+interface VisitWithPatient extends Visit {
+  patients?: {
+    full_name: string
+    email: string
+    dob: string
+    id: string
+  } | null
+}
 
 interface AppointmentRecord {
   id: string
@@ -26,53 +37,67 @@ interface AppointmentRecord {
 const DoctorAssignedPatients = () => {
   const { doctor } = useDoctor()
   const { startVideoCall, endVideoCall } = useVideoCall()
-  const [appointments, setAppointments] = useState<AppointmentRecord[]>([])
+  const router = useRouter()
+  const [visits, setVisits] = useState<VisitWithPatient[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const loadAppointments = () => {
-      const allPatients = PatientDataManager.getAllPatients()
-      const nextAppointments: AppointmentRecord[] = []
-      allPatients.forEach((patient) => {
-        const patientAppointments = PatientDataManager.getPatientSectionList<AppointmentRecord>(
-          patient.id,
-          'appointments'
-        )
-        patientAppointments.forEach((appointment) => {
-          nextAppointments.push({
-            ...appointment,
-            patientId: appointment.patientId || patient.id,
-            patientName: appointment.patientName || patient.name || 'Unnamed Patient',
-            contactEmail: appointment.contactEmail || patient.email || '',
-            contactPhone: appointment.contactPhone || patient.phone || ''
-          })
-        })
-      })
-      setAppointments(nextAppointments)
+    if (!doctor) {
+      setLoading(false)
+      return
     }
+    loadVisits()
+  }, [doctor])
 
-    loadAppointments()
-    const handleStorageChange = () => loadAppointments()
-    window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
-  }, [])
+  const loadVisits = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await getAllVisits()
+      // The API already filters visits for the current doctor
+      setVisits(data.visits || [])
+    } catch (err: any) {
+      console.error('Error loading visits:', err)
+      setError(err?.message || 'Failed to load visits')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const assignedAppointments = useMemo(() => {
     if (!doctor) return []
-    const normalizedName = doctor.name.toLowerCase()
-    return appointments
-      .filter((appointment) => {
-        const doctorName = `${appointment.doctorName || appointment.doctorDisplayName || ''}`.toLowerCase()
-        return appointment.doctorId === doctor.id
-          || appointment.doctorEmail === doctor.email
-          || (doctorName && (doctorName.includes(normalizedName) || normalizedName.includes(doctorName)))
+
+    return visits
+      .filter((visit) => {
+        // Filter out completed/finalized visits
+        const status = (visit.status || '').toLowerCase()
+        return status !== 'completed' && status !== 'finalized'
       })
-      .filter((appointment) => `${appointment.status || ''}`.toLowerCase() !== 'completed')
+      .map((visit) => {
+        // Map visit to AppointmentRecord format
+        // The API returns visits with nested patient data as `patients` (plural)
+        const patient = visit.patients
+        return {
+          id: visit.id,
+          patientId: visit.patient_id,
+          patientName: patient?.full_name || 'Unknown Patient',
+          scheduledFor: visit.created_at,
+          status: visit.status || 'draft',
+          doctorId: visit.clinician_id || doctor.id,
+          contactEmail: patient?.email || '',
+          contactPhone: undefined, // Phone not in visit/patient data from API
+          deliveryMethod: 'email' as const,
+          location: 'Virtual visit',
+          updatedAt: visit.created_at
+        }
+      })
       .sort((a, b) => {
         const aTime = a.scheduledFor ? new Date(a.scheduledFor).getTime() : 0
         const bTime = b.scheduledFor ? new Date(b.scheduledFor).getTime() : 0
         return aTime - bTime
       })
-  }, [appointments, doctor])
+  }, [visits, doctor])
 
   const formatScheduledTime = (value?: string) => {
     if (!value) return 'Immediate'
@@ -82,40 +107,23 @@ const DoctorAssignedPatients = () => {
   }
 
   const handleMarkCompleted = (appointment: AppointmentRecord) => {
-    const patient = PatientDataManager.getPatient(appointment.patientId)
-    if (!patient) return
-
-    const appointmentsList = PatientDataManager.getPatientSectionList<AppointmentRecord>(
-      appointment.patientId,
-      'appointments'
-    )
-    const updatedAppointments = appointmentsList.map((item) =>
-      item.id === appointment.id
-        ? { ...item, status: 'completed', updatedAt: new Date().toISOString() }
-        : item
-    )
-    PatientDataManager.savePatientSectionList(appointment.patientId, 'appointments', updatedAppointments, doctor?.id || 'system')
-
-    PatientDataManager.savePatient(
-      {
-        ...patient,
-        status: 'Completed',
-        appointment: 'Completed',
-        updatedAt: new Date().toISOString()
-      },
-      'update',
-      doctor?.id || 'system'
-    )
-
+    // Navigate to patient's visit history page where they can sign the note to complete
     endVideoCall()
+    router.push(`/patients/${appointment.patientId}/history`)
+  }
 
-    setAppointments((prev) =>
-      prev.map((item) =>
-        item.id === appointment.id
-          ? { ...item, status: 'completed', updatedAt: new Date().toISOString() }
-          : item
-      )
-    )
+  const getStatusColor = (status?: string) => {
+    const s = (status || '').toLowerCase()
+    if (s === 'completed' || s === 'finalized') {
+      return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+    }
+    if (s === 'waiting') {
+      return 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
+    }
+    if (s === 'in-progress') {
+      return 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+    }
+    return 'bg-gray-50 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300'
   }
 
   return (
@@ -133,6 +141,15 @@ const DoctorAssignedPatients = () => {
       {!doctor ? (
         <div className="flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 py-10">
           Sign in as a doctor to view assignments.
+        </div>
+      ) : loading ? (
+        <div className="flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 py-10">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mr-2"></div>
+          Loading visits...
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center text-sm text-red-600 dark:text-red-400 py-10">
+          {error}
         </div>
       ) : assignedAppointments.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-sm text-gray-500 dark:text-gray-400 py-10 text-center">
@@ -155,15 +172,17 @@ const DoctorAssignedPatients = () => {
                     {formatScheduledTime(appointment.scheduledFor)}
                   </p>
                 </div>
-                <span className="text-[10px] font-bold uppercase px-2 py-1 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${getStatusColor(appointment.status)}`}>
                   {appointment.status || 'Scheduled'}
                 </span>
               </div>
               <div className="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
-                <span className="flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[16px]">mail</span>
-                  {appointment.deliveryMethod === 'text' ? appointment.contactPhone || 'Text delivery' : appointment.contactEmail || 'Email delivery'}
-                </span>
+                {appointment.contactEmail && (
+                  <span className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[16px]">mail</span>
+                    {appointment.contactEmail}
+                  </span>
+                )}
                 <span className="flex items-center gap-1">
                   <span className="material-symbols-outlined text-[16px]">location_on</span>
                   {appointment.location || 'Virtual visit'}
@@ -171,7 +190,7 @@ const DoctorAssignedPatients = () => {
               </div>
               <div className="flex flex-wrap gap-3">
                 <Link
-                  href={`/doctor/patients/${appointment.patientId}`}
+                  href={`/patients/${appointment.patientId}`}
                   className="px-3 py-2 text-xs font-semibold rounded-lg border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   Open Profile

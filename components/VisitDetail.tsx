@@ -12,7 +12,7 @@ interface VisitDetailProps {
 export default function VisitDetail({ patientId, visitId }: VisitDetailProps) {
   const pathname = usePathname()
   const basePath = pathname.startsWith('/nurse-portal')
-    ? '/nurse-portal/patients'
+    ? '/patients'
     : pathname.startsWith('/doctor')
       ? '/doctor/patients'
       : '/patients'

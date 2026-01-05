@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
+import AvailabilityToggle from '@/components/AvailabilityToggle'
 import { useState } from 'react'
 
 export default function PatientMessagingPage() {
@@ -49,6 +50,7 @@ export default function PatientMessagingPage() {
       <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
         <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
           <GlobalSearchBar />
+          <AvailabilityToggle />
         </header>
         <header className="bg-white dark:bg-gray-800 border-b border-slate-200 dark:border-gray-700 px-6 py-3 shrink-0 z-20">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
