@@ -27,6 +27,8 @@ export default function PatientVisitPage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("record");
   const [transcription, setTranscription] = useState<any>(null);
+  const [showAssignPrompt, setShowAssignPrompt] = useState(false);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
 
   // SOAP Note fields
   const [chiefComplaint, setChiefComplaint] = useState("");
@@ -712,7 +714,7 @@ export default function PatientVisitPage() {
 
   if (loading) {
     return (
-      <div className="relative flex min-h-screen w-full">
+      <div className="relative flex flex-col lg:flex-row min-h-screen w-full">
         <Sidebar />
         <PatientDetailSidebar patientId={params.id} />
         <main className="flex-1 p-8">
@@ -731,7 +733,7 @@ export default function PatientVisitPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen w-full">
+    <div className="relative flex flex-col lg:flex-row min-h-screen w-full">
       <Sidebar />
       <PatientDetailSidebar patientId={params.id} />
 

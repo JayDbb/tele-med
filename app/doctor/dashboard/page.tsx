@@ -7,7 +7,7 @@ import GlobalSearchBar from '@/components/GlobalSearchBar'
 // Force cache refresh - timestamp: 2025-01-02-13:35
 export default function Dashboard() {
   return (
-    <div className="relative flex min-h-screen w-full">
+    <div className="relative flex flex-col lg:flex-row min-h-screen w-full">
       <Sidebar />
       
       <main className="flex-1 p-8">

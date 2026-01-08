@@ -32,9 +32,8 @@ const PatientsList = () => {
   const getNewVisitUrl = (patientId: string) => {
     if (nurse) {
       return `/nurse-portal/patients/${patientId}/new-visit`
-    } else {
-      return `/doctor/patients/${patientId}/new-visit`
     }
+    return `/doctor/patients/${patientId}/new`
   }
 
   useEffect(() => {
@@ -133,7 +132,6 @@ const PatientsList = () => {
   }
 
   const handleAddPatient = () => {
-    // Generate new patient ID
     const newPatientId = Date.now().toString()
     router.push(getNewVisitUrl(newPatientId))
   }

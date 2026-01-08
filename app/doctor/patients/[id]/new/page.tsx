@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import NurseSidebar from '@/components/NurseSidebar'
+import Sidebar from '@/components/Sidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
 import { PatientDataManager, type PatientData } from '@/utils/PatientDataManager'
-import { useNurse } from '@/contexts/NurseContext'
+import { useDoctor } from '@/contexts/DoctorContext'
 
 type FormState = {
   firstName: string
@@ -68,7 +68,7 @@ export default function NewPatientPage() {
   const params = useParams()
   const patientId = params.id as string
   const router = useRouter()
-  const { nurse } = useNurse()
+  const { doctor } = useDoctor()
   const [form, setForm] = useState<FormState>(defaultFormState)
   const [patients, setPatients] = useState<PatientData[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -183,16 +183,24 @@ export default function NewPatientPage() {
       lastConsultation: '',
       status: 'Waiting',
       statusColor: 'text-slate-600 bg-slate-100 dark:bg-gray-800 dark:text-gray-200',
-      doctorId: '',
-      nurseId: nurse?.id || 'current-user',
+      doctorId: doctor?.id || 'current-user',
+      nurseId: '',
       createdAt: nowIso,
       updatedAt: nowIso,
       arrivalTime: nowIso,
-      visitType: 'Nurse Only',
+      visitType: 'Doctor Intake',
       image: ''
     }
 
-    PatientDataManager.savePatient(patientRecord, 'create', nurse?.id || 'current-user')
+    PatientDataManager.savePatient(patientRecord, 'create', doctor?.id || 'current-user')
+    PatientDataManager.logAction(
+      patientId,
+      'create',
+      'patient-profile',
+      doctor?.id || 'current-user',
+      doctor?.name || 'Doctor',
+      { notes: 'Created patient profile.' }
+    )
 
     if (form.allergies.trim()) {
       const allergies = form.allergies
@@ -216,9 +224,9 @@ export default function NewPatientPage() {
     PatientDataManager.clearDraft(patientId, 'new-patient')
     setSaving(false)
     if (destination === 'schedule') {
-      router.push(`/nurse-portal/patients/${patientId}/schedule`)
+      router.push(`/doctor/patients/${patientId}`)
     } else {
-      router.push(`/nurse-portal/patients/${patientId}`)
+      router.push(`/doctor/patients/${patientId}`)
     }
   }
 
@@ -226,7 +234,7 @@ export default function NewPatientPage() {
 
   return (
     <div className="flex flex-col lg:flex-row h-screen w-full overflow-hidden">
-      <NurseSidebar />
+      <Sidebar />
 
       <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
         <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
@@ -247,7 +255,7 @@ export default function NewPatientPage() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => router.push('/nurse-portal')}
+                  onClick={() => router.push('/doctor/patients')}
                   className="text-slate-500 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white px-3 py-1.5 rounded transition-colors text-xs"
                 >
                   Cancel
@@ -294,7 +302,7 @@ export default function NewPatientPage() {
                   {duplicateMatches.map((patient) => (
                     <button
                       key={patient.id}
-                      onClick={() => router.push(`/nurse-portal/patients/${patient.id}`)}
+                      onClick={() => router.push(`/doctor/patients/${patient.id}`)}
                       className="flex items-center justify-between rounded-lg border border-blue-200 dark:border-blue-800 bg-white/70 dark:bg-blue-950/20 px-3 py-2 text-left text-xs hover:bg-white dark:hover:bg-blue-900/30 transition-colors"
                     >
                       <div>

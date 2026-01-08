@@ -2,7 +2,7 @@ import NurseSidebar from '@/components/NurseSidebar'
 
 export default function NurseMessagesPage() {
   return (
-    <div className="relative flex min-h-screen w-full">
+    <div className="relative flex flex-col lg:flex-row min-h-screen w-full">
       <NurseSidebar />
       
       <main className="flex-1 flex flex-col h-full overflow-hidden">

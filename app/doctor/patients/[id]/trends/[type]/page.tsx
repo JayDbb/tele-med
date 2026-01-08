@@ -79,9 +79,9 @@ export default async function TrendPage({ params }: { params: Promise<{ id: stri
             {Object.entries(trendConfig).map(([key, item]) => (
               <Link
                 key={key}
-                href={`/doctor/patients/${params.id}/trends/${key}`}
+                href={`/doctor/patients/${id}/trends/${key}`}
                 className={`flex items-center gap-2 px-5 py-3 rounded-xl font-medium text-sm transition-all ${
-                  params.type === key 
+                  type === key 
                     ? 'shadow-glow bg-primary text-white' 
                     : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent hover:border-gray-200 dark:hover:border-gray-700'
                 }`}
@@ -91,14 +91,14 @@ export default async function TrendPage({ params }: { params: Promise<{ id: stri
               </Link>
             ))}
             <Link
-              href={`/doctor/patients/${params.id}/trends/o2-saturation`}
+              href={`/doctor/patients/${id}/trends/o2-saturation`}
               className="flex items-center gap-2 px-5 py-3 rounded-xl font-medium text-sm transition-all bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
             >
               <span className="material-symbols-outlined text-lg">air</span>
               O2 Saturation
             </Link>
             <Link
-              href={`/doctor/patients/${params.id}/trends/bmi`}
+              href={`/doctor/patients/${id}/trends/bmi`}
               className="flex items-center gap-2 px-5 py-3 rounded-xl font-medium text-sm transition-all bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
             >
               <span className="material-symbols-outlined text-lg">body_system</span>
@@ -159,13 +159,13 @@ export default async function TrendPage({ params }: { params: Promise<{ id: stri
                 </linearGradient>
               </defs>
               <path d="M0,150 C100,140 200,160 300,140 S500,100 600,110 S800,130 1000,120 V400 H0 Z" fill="url(#systolicGradient)" stroke="none"></path>
-              {params.type === 'blood-pressure' && (
+              {type === 'blood-pressure' && (
                 <path className="text-blue-300 dark:text-blue-600" d="M0,280 C100,285 200,270 300,275 S500,250 600,260 S800,265 1000,260" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="4"></path>
               )}
               {[0, 200, 400, 600, 800, 1000].map((x, i) => (
                 <circle key={i} className="text-primary fill-white dark:fill-gray-900 stroke-current chart-point cursor-pointer transition-all hover:scale-125" cx={x} cy={150 - i * 5} r="5" strokeWidth="3"></circle>
               ))}
-              {params.type === 'blood-pressure' && [0, 200, 400, 600, 800, 1000].map((x, i) => (
+              {type === 'blood-pressure' && [0, 200, 400, 600, 800, 1000].map((x, i) => (
                 <circle key={`diastolic-${i}`} className="text-blue-300 dark:text-blue-600 fill-white dark:fill-gray-900 stroke-current chart-point cursor-pointer transition-all hover:scale-125" cx={x} cy={280 - i * 2} r="5" strokeWidth="3"></circle>
               ))}
               <g className="chart-tooltip pointer-events-none opacity-0">
@@ -196,7 +196,7 @@ export default async function TrendPage({ params }: { params: Promise<{ id: stri
               <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-800/50 dark:text-gray-400">
                 <tr>
                   <th className="px-6 py-4 font-medium" scope="col">Date</th>
-                  <th className="px-6 py-4 font-medium" scope="col">{params.type === 'blood-pressure' ? 'BP (mmHg)' : `${config.title}`}</th>
+                  <th className="px-6 py-4 font-medium" scope="col">{type === 'blood-pressure' ? 'BP (mmHg)' : `${config.title}`}</th>
                   <th className="px-6 py-4 font-medium" scope="col">Heart Rate</th>
                   <th className="px-6 py-4 font-medium" scope="col">Temp (°F)</th>
                   <th className="px-6 py-4 font-medium" scope="col">Weight (kg)</th>
@@ -217,7 +217,7 @@ export default async function TrendPage({ params }: { params: Promise<{ id: stri
                 </tr>
                 <tr className="bg-white dark:bg-gray-900 border-b dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap text-gray-800 dark:text-white font-medium">Apr 12, 2023</td>
-                  <td className="px-6 py-4">{params.type === 'blood-pressure' ? '118/79' : config.value}</td>
+                  <td className="px-6 py-4">{type === 'blood-pressure' ? '118/79' : config.value}</td>
                   <td className="px-6 py-4">74 bpm</td>
                   <td className="px-6 py-4">98.4</td>
                   <td className="px-6 py-4">70.5</td>
@@ -228,7 +228,7 @@ export default async function TrendPage({ params }: { params: Promise<{ id: stri
                 </tr>
                 <tr className="bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap text-gray-800 dark:text-white font-medium">Mar 10, 2023</td>
-                  <td className="px-6 py-4">{params.type === 'blood-pressure' ? '122/82' : config.value}</td>
+                  <td className="px-6 py-4">{type === 'blood-pressure' ? '122/82' : config.value}</td>
                   <td className="px-6 py-4">70 bpm</td>
                   <td className="px-6 py-4">98.5</td>
                   <td className="px-6 py-4">71.2</td>

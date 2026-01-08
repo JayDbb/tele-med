@@ -12,8 +12,8 @@ const PatientsSidebar = () => {
   ]
 
   return (
-    <aside className="w-64 bg-primary flex flex-col justify-between shrink-0 shadow-xl z-20 transition-all duration-300 h-full rounded-r-3xl overflow-y-auto">
-      <div className="pt-10 pb-8 flex flex-col items-center text-center text-white">
+    <aside className="w-full lg:w-64 bg-primary flex flex-col justify-between shrink-0 shadow-xl z-20 transition-all duration-300 lg:h-full rounded-none lg:rounded-r-3xl overflow-x-hidden lg:overflow-y-auto">
+      <div className="pt-6 lg:pt-10 pb-6 lg:pb-8 flex flex-col items-center text-center text-white">
         <div className="relative mb-3">
           <div className="w-20 h-20 rounded-full bg-white p-1">
             <img 
@@ -29,11 +29,11 @@ const PatientsSidebar = () => {
         <span className="material-icons-outlined mt-2 text-blue-200 cursor-pointer hover:text-white">expand_more</span>
       </div>
 
-      <nav className="flex-1 px-4 space-y-2">
+      <nav className="flex-1 px-4 lg:space-y-2 flex flex-row lg:flex-col gap-2 flex-wrap lg:flex-nowrap pb-4 lg:pb-0">
         {navItems.map((item) => (
           <a
             key={item.label}
-            className={`flex items-center px-4 py-3 rounded-xl transition-colors group ${
+            className={`flex items-center px-4 py-3 rounded-xl transition-colors group shrink-0 ${
               item.active
                 ? 'bg-[#0d47a1] text-white shadow-lg relative overflow-hidden'
                 : 'text-blue-100 hover:bg-blue-600/30'

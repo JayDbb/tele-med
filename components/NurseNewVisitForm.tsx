@@ -356,7 +356,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
 
     const visits = PatientDataManager.getPatientSectionList(newPatientId, 'visits')
     const visitId = Date.now().toString()
-    const visitRecord = {
+    const visitRecord: any = {
       id: visitId,
       recordedAt: nowIso,
       providerId: nurse.id,
@@ -423,9 +423,9 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       const allergies = PatientDataManager.getPatientSectionList(newPatientId, 'allergies')
       const allergyItems = patientData.allergies
         .split(',')
-        .map((name) => name.trim())
+        .map((name: string) => name.trim())
         .filter(Boolean)
-        .map((name) => ({
+        .map((name: string) => ({
           id: `${visitId}-${name}`,
           name,
           severity: '',
@@ -589,7 +589,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   }), [existingPatient, patientData.allergies, patientData.dob, patientData.mrn, patientData.name])
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-screen w-full overflow-hidden">
       <NurseSidebar />
       <PatientDetailSidebar
         patientId={patientId}
@@ -624,7 +624,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
           <GlobalSearchBar />
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6 min-w-0">
+        <div className="flex-1 overflow-y-auto p-6 pb-24 lg:pb-6 min-w-0">
           <div className="w-full flex flex-col gap-6 min-w-0">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex flex-col gap-2">

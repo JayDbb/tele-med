@@ -4,7 +4,7 @@ import PatientsList from '@/components/PatientsList'
 
 export default function PatientsPage() {
   return (
-    <div className="relative flex min-h-screen w-full">
+    <div className="relative flex flex-col lg:flex-row min-h-screen w-full">
       <Sidebar />
       
       <main className="flex-1 p-8">

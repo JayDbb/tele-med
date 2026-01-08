@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useDoctor } from '@/contexts/DoctorContext'
 import { useNurse } from '@/contexts/NurseContext'
 import LoginPage from '@/app/login/page'
@@ -10,15 +10,26 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const { isAuthenticated: doctorAuth } = useDoctor()
   const { isAuthenticated: nurseAuth } = useNurse()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
+  const [isPeekMode, setIsPeekMode] = useState(false)
   
   useEffect(() => {
     // Small delay to prevent flash
     const timer = setTimeout(() => setIsLoading(false), 100)
     return () => clearTimeout(timer)
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const updatePeek = () => {
+      const params = new URLSearchParams(window.location.search)
+      setIsPeekMode(params.get('peek') === '1')
+    }
+    updatePeek()
+    window.addEventListener('popstate', updatePeek)
+    return () => window.removeEventListener('popstate', updatePeek)
+  }, [pathname])
   
   // Public routes that don't require authentication
   const publicRoutes = ['/login']
@@ -54,8 +65,6 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   if (publicRoutes.includes(pathname)) {
     return <>{children}</>
   }
-
-  const isPeekMode = searchParams.get('peek') === '1'
   if (isPeekMode && nurseRoutes.some(route => pathname.startsWith(route))) {
     return <>{children}</>
   }

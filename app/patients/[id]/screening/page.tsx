@@ -35,9 +35,9 @@ export default function PatientScreeningPage() {
   const interpretation = getScoreInterpretation(totalScore)
 
   return (
-    <div className="relative flex min-h-screen w-full">
+    <div className="relative flex flex-col lg:flex-row min-h-screen w-full">
       <Sidebar />
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
         <PatientDetailSidebar patientId={params.id as string} />
         
         <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">

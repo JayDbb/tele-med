@@ -59,7 +59,7 @@ export default function NewPatientPage() {
     };
 
     return (
-        <div className="flex h-screen w-full overflow-hidden">
+        <div className="flex flex-col lg:flex-row h-screen w-full overflow-hidden">
             <Sidebar />
 
             <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">

@@ -31,8 +31,8 @@ export default function PatientNotesPage() {
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
   const [isListening, setIsListening] = useState(false)
   const [showSignModal, setShowSignModal] = useState(false)
-  const autoSaveTimer = useRef<NodeJS.Timeout>()
-  const recognitionRef = useRef<any>()
+  const autoSaveTimer = useRef<NodeJS.Timeout | null>(null)
+  const recognitionRef = useRef<any>(null)
 
   // Macro templates
   const macroTemplates: { [key: string]: any } = {
@@ -243,7 +243,7 @@ export default function PatientNotesPage() {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-screen w-full overflow-hidden">
       <Sidebar />
       
       <main className="flex-1 flex flex-col h-full overflow-hidden bg-background-light dark:bg-background-dark">
@@ -266,7 +266,7 @@ export default function PatientNotesPage() {
           </div>
         </header>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
           {/* Notes List Sidebar */}
           <div className="w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">

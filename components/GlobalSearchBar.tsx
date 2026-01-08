@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { PatientDataManager } from '@/utils/PatientDataManager'
 import { useDoctor } from '@/contexts/DoctorContext'
 import { useNurse } from '@/contexts/NurseContext'
@@ -27,8 +27,9 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
   const [recentPatients, setRecentPatients] = useState<Patient[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [isPeek, setIsPeek] = useState(false)
   const router = useRouter()
-  const searchParams = useSearchParams()
+  const pathname = usePathname()
   const searchRef = useRef<HTMLDivElement>(null)
   const { doctor } = useDoctor()
   const { nurse } = useNurse()
@@ -56,6 +57,17 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [currentUser])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const updatePeek = () => {
+      const params = new URLSearchParams(window.location.search)
+      setIsPeek(params.get('peek') === '1')
+    }
+    updatePeek()
+    window.addEventListener('popstate', updatePeek)
+    return () => window.removeEventListener('popstate', updatePeek)
+  }, [pathname])
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -163,7 +175,7 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
     }
   }
 
-  if (searchParams.get('peek') === '1') {
+  if (isPeek) {
     return null
   }
 

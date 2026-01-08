@@ -11,6 +11,10 @@
   font-family: 'Inter', sans-serif;
 }
 
+body {
+  overflow-x: hidden;
+}
+
 .material-symbols-outlined, .material-icons-outlined {
   font-family: 'Material Symbols Outlined', 'Material Icons Outlined';
   font-weight: normal;
@@ -48,4 +52,30 @@ html:not(.icons-ready) .material-icons-outlined {
 }
 .dark ::-webkit-scrollbar-thumb {
   background: #475569; 
+}
+
+@media (max-width: 1023px) {
+  body.has-bottom-bar main {
+    padding-bottom: 6rem;
+  }
+
+  main > header {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+
+  main > header {
+    height: 3rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  main > header label {
+    height: 2.25rem;
+  }
+
+  main > header input {
+    font-size: 0.75rem;
+  }
 }

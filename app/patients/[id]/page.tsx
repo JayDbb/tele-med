@@ -6,7 +6,7 @@ import GlobalSearchBar from '@/components/GlobalSearchBar'
 export default async function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   return (
-    <div className="relative flex min-h-screen w-full">
+    <div className="relative flex flex-col lg:flex-row min-h-screen w-full">
       <Sidebar />
       <PatientDetailSidebar patientId={id} />
       

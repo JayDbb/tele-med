@@ -116,7 +116,7 @@ export default function SchedulePage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full overflow-hidden">
+      <div className="flex flex-col lg:flex-row h-screen w-full overflow-hidden">
         <NurseSidebar />
         <PatientDetailSidebar patientId={patientId} />
         
@@ -137,7 +137,7 @@ export default function SchedulePage() {
 
   if (!patient) {
     return (
-      <div className="flex h-screen w-full overflow-hidden">
+      <div className="flex flex-col lg:flex-row h-screen w-full overflow-hidden">
         <NurseSidebar />
         <PatientDetailSidebar patientId={patientId} />
         
@@ -160,7 +160,7 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-screen w-full overflow-hidden">
       <NurseSidebar />
       <PatientDetailSidebar patientId={patientId} />
       
@@ -272,7 +272,7 @@ export default function SchedulePage() {
                         type="radio"
                         value="in-person"
                         checked={appointmentType === 'in-person'}
-                        onChange={(e) => setAppointmentType(e.target.value)}
+                        onChange={(e) => setAppointmentType(e.target.value as 'virtual' | 'in-person')}
                       />
                       <span className="block text-sm font-semibold text-gray-900 dark:text-white">Immediately – In-Person</span>
                       <span className="text-[11px] text-gray-500 dark:text-gray-400">Patient is placed in the in-person waiting area and will be seen on site.</span>
@@ -289,7 +289,7 @@ export default function SchedulePage() {
                         type="radio"
                         value="virtual"
                         checked={appointmentType === 'virtual'}
-                        onChange={(e) => setAppointmentType(e.target.value)}
+                        onChange={(e) => setAppointmentType(e.target.value as 'virtual' | 'in-person')}
                       />
                       <span className="block text-sm font-semibold text-gray-900 dark:text-white">Immediately – Virtual</span>
                       <span className="text-[11px] text-gray-500 dark:text-gray-400">Patient is placed in the virtual waiting queue and can be seen via video.</span>

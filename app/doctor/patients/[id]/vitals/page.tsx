@@ -46,7 +46,7 @@ export default function PatientVitalsPage() {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex flex-col lg:flex-row h-screen w-full overflow-hidden">
       <Sidebar />
       <PatientDetailSidebar patientId={params.id as string} />
       

@@ -2,7 +2,7 @@ import Sidebar from '@/components/Sidebar'
 
 export default function InboxPage() {
   return (
-    <div className="relative flex min-h-screen w-full">
+    <div className="relative flex flex-col lg:flex-row min-h-screen w-full">
       <Sidebar />
       
       <main className="flex-1 flex flex-col h-full overflow-hidden">

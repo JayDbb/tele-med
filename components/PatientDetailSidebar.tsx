@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { PatientDataManager } from '@/utils/PatientDataManager'
 
 interface PatientDetailSidebarProps {
@@ -14,7 +14,7 @@ interface PatientDetailSidebarProps {
 const PatientDetailSidebar = ({ patientId, onNavigate, activeHref }: PatientDetailSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const pathname = usePathname()
-  const searchParams = useSearchParams()
+  const [isPeekMode, setIsPeekMode] = useState(false)
   const isNursePortal = pathname.startsWith('/nurse-portal')
   const isDoctorPortal = pathname.startsWith('/doctor')
   const lastLoggedPath = useRef<string | null>(null)
@@ -23,7 +23,18 @@ const PatientDetailSidebar = ({ patientId, onNavigate, activeHref }: PatientDeta
     return normalized.length > 0 && normalized !== 'undefined' && normalized !== 'null'
   }
 
-  if (searchParams.get('peek') === '1') {
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const updatePeek = () => {
+      const params = new URLSearchParams(window.location.search)
+      setIsPeekMode(params.get('peek') === '1')
+    }
+    updatePeek()
+    window.addEventListener('popstate', updatePeek)
+    return () => window.removeEventListener('popstate', updatePeek)
+  }, [pathname])
+
+  if (isPeekMode) {
     return null
   }
 
@@ -32,6 +43,7 @@ const PatientDetailSidebar = ({ patientId, onNavigate, activeHref }: PatientDeta
     : isDoctorPortal
       ? '/doctor/patients'
       : '/patients'
+  const listUrl = isDoctorPortal ? '/patients' : baseUrl
 
   const nurseMenuItems = [
     { label: 'Overview', href: `${baseUrl}/${patientId}`, hasAlert: false },
@@ -88,13 +100,13 @@ const PatientDetailSidebar = ({ patientId, onNavigate, activeHref }: PatientDeta
 
   if (!isValidPatientId(patientId)) {
     return (
-      <aside className="w-64 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 overflow-y-auto">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2">
-            <Link href={baseUrl} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+      <aside className="w-full lg:w-64 bg-gray-50 dark:bg-gray-800 border-b lg:border-b-0 border-gray-200 dark:border-gray-700 lg:border-r flex flex-col shrink-0 overflow-x-hidden lg:overflow-y-auto lg:sticky top-0">
+        <div className="p-1 lg:p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-1.5">
+            <Link href={listUrl} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
               <span className="material-symbols-outlined text-sm">arrow_back</span>
             </Link>
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Patient Details</h1>
+            <h1 className="text-[12px] leading-tight lg:text-lg font-semibold text-gray-900 dark:text-white">Patient Details</h1>
           </div>
         </div>
         <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
@@ -105,17 +117,17 @@ const PatientDetailSidebar = ({ patientId, onNavigate, activeHref }: PatientDeta
   }
 
   return (
-    <aside className={`${isCollapsed ? 'w-16' : 'w-64'} bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0 overflow-y-auto transition-all duration-300`}>
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-2">
-          <Link href={baseUrl} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
+    <aside className={`w-full ${isCollapsed ? 'lg:w-16' : 'lg:w-64'} bg-gray-50 dark:bg-gray-800 border-b lg:border-b-0 border-gray-200 dark:border-gray-700 lg:border-r flex flex-col shrink-0 overflow-x-hidden lg:overflow-y-auto transition-all duration-300 lg:sticky top-0`}>
+      <div className="p-1 lg:p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-1.5">
+          <Link href={listUrl} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full">
             <span className="material-symbols-outlined text-sm">arrow_back</span>
           </Link>
-          {!isCollapsed && <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Patient Details</h1>}
+          <h1 className={`text-[12px] leading-tight lg:text-lg font-semibold text-gray-900 dark:text-white ${isCollapsed ? 'lg:hidden' : ''}`}>Patient Details</h1>
         </div>
       </div>
       
-      <div className="px-4 py-3 flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
+      <div className="px-4 py-3 hidden lg:flex items-center justify-between border-b border-gray-200 dark:border-gray-700">
         {!isCollapsed && (
           <span className="font-semibold text-gray-500 dark:text-gray-400 uppercase text-xs tracking-wider">
             Medical Sections
@@ -130,9 +142,30 @@ const PatientDetailSidebar = ({ patientId, onNavigate, activeHref }: PatientDeta
           </span>
         </button>
       </div>
+
+      <nav className="lg:hidden flex flex-nowrap gap-2 px-3 pb-2 overflow-x-auto">
+        {visibleItems.map((item, index) => {
+          const isActive = activeHref ? activeHref === item.href : pathname === item.href
+          const baseClasses = `shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${isActive ? 'bg-white text-primary shadow-sm' : 'bg-white/70 text-gray-600 dark:text-gray-200 hover:bg-white'}`
+          return onNavigate ? (
+            <button
+              key={index}
+              type="button"
+              onClick={() => onNavigate(item.href)}
+              className={baseClasses}
+            >
+              {item.label}
+            </button>
+          ) : (
+            <Link key={index} className={baseClasses} href={item.href}>
+              {item.label}
+            </Link>
+          )
+        })}
+      </nav>
       
       {!isCollapsed && (
-        <nav className="flex-1 space-y-0.5 text-sm">
+        <nav className="hidden lg:block flex-1 space-y-0.5 text-sm">
         {visibleItems.map((item, index) => {
           const isActive = activeHref ? activeHref === item.href : pathname === item.href
           return (

@@ -184,8 +184,8 @@ const VisitHistory = ({ patientId }: VisitHistoryProps) => {
       PatientDataManager.savePatient(
         {
           ...patient,
-          physician: doctor.name,
-          doctorId: doctor.id,
+          physician: resolvedDoctor.name,
+          doctorId: resolvedDoctor.id,
           status: 'In Progress',
           updatedAt: new Date().toISOString()
         },

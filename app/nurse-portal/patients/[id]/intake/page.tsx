@@ -169,7 +169,7 @@ export default function NursePatientIntakePage() {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background-light dark:bg-background-dark">
+    <div className="flex flex-col lg:flex-row h-screen w-full overflow-hidden bg-background-light dark:bg-background-dark">
       <NurseSidebar />
       <PatientDetailSidebar patientId={patientId} />
 
@@ -178,11 +178,11 @@ export default function NursePatientIntakePage() {
           <GlobalSearchBar />
         </header>
 
-        <div className="flex-1 overflow-hidden p-4 lg:p-6 bg-background-light dark:bg-black/20 min-w-0">
+        <div className="flex-1 overflow-y-auto p-4 lg:p-6 pb-24 lg:pb-6 bg-background-light dark:bg-black/20 min-w-0">
           <div className="max-w-[1600px] mx-auto h-full flex flex-col xl:flex-row gap-6 min-w-0">
-            <div className="flex-1 flex flex-col gap-5 overflow-y-auto pr-2 pb-10 min-w-0">
+            <div className="flex-1 flex flex-col gap-5 pr-2 pb-10 min-w-0">
               <div className="bg-surface-light dark:bg-[#101922] border border-slate-200 dark:border-slate-800 px-6 py-4 rounded-xl shadow-sm">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="h-12 w-12 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-lg font-bold">
                       {initials}
@@ -210,16 +210,16 @@ export default function NursePatientIntakePage() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2 w-full justify-start md:justify-end">
                     <button
                       onClick={handleCancel}
-                      className="text-slate-500 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white px-4 py-2 rounded transition-colors text-sm"
+                      className="w-full sm:w-auto text-slate-500 dark:text-slate-400 font-medium hover:text-slate-900 dark:hover:text-white px-4 py-2 rounded transition-colors text-sm"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSaveDraft}
-                      className="flex items-center gap-2 px-4 py-2 rounded bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold transition-all text-sm shadow-sm"
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold transition-all text-sm shadow-sm"
                     >
                       <span className="material-symbols-outlined text-[18px]">save</span>
                       Save Draft
@@ -229,7 +229,7 @@ export default function NursePatientIntakePage() {
                         handleSaveDraft()
                         router.push(`/nurse-portal/patients/${patientId}/schedule`)
                       }}
-                      className="flex items-center gap-2 px-4 py-2 rounded bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold transition-all text-sm shadow-sm"
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold transition-all text-sm shadow-sm"
                     >
                       <span className="material-symbols-outlined text-[18px]">event</span>
                       Save &amp; Schedule
@@ -239,7 +239,7 @@ export default function NursePatientIntakePage() {
                         handleSaveDraft()
                         router.push(`/nurse-portal/patients/${patientId}/new-visit`)
                       }}
-                      className="flex items-center gap-2 px-4 py-2 rounded bg-primary text-white font-semibold hover:bg-blue-600 transition-all text-sm shadow-sm"
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded bg-primary text-white font-semibold hover:bg-blue-600 transition-all text-sm shadow-sm"
                     >
                       <span className="material-symbols-outlined text-[18px]">play_arrow</span>
                       Start Visit
@@ -567,7 +567,7 @@ export default function NursePatientIntakePage() {
               </div>
             </div>
 
-            <div className="w-full xl:w-[400px] flex flex-col gap-5 h-full overflow-y-auto pb-10 min-w-0">
+            <div className="w-full xl:w-[400px] flex flex-col gap-5 pb-10 min-w-0">
               <div className="bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col">
                 <div className="p-4 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/20">
                   <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
