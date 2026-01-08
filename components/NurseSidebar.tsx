@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useNurse } from '@/contexts/NurseContext'
 
 const NurseSidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(true)
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const router = useRouter()
   const { nurse, logout } = useNurse()
 
@@ -22,6 +23,10 @@ const NurseSidebar = () => {
   ]
 
   const bottomItems: Array<{ icon: string; label: string; href: string }> = []
+
+  if (searchParams.get('peek') === '1') {
+    return null
+  }
 
   return (
     <aside className={`flex h-screen ${isCollapsed ? 'w-16' : 'w-64'} flex-col bg-white dark:bg-gray-900 p-4 border-r border-gray-200 dark:border-gray-800 sticky top-0 transition-all duration-300`}>

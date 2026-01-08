@@ -2,9 +2,11 @@
 
 import Sidebar from '@/components/Sidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
+import { useParams } from 'next/navigation'
 import { useState } from 'react'
 
-export default function PatientScreeningPage({ params }: { params: { id: string } }) {
+export default function PatientScreeningPage() {
+  const params = useParams()
   const [selectedTab, setSelectedTab] = useState('Depression')
   const [phq9Answers, setPhq9Answers] = useState([1, 2, 0, 1, 2, 1, 0, 2, 1])
   
@@ -36,7 +38,7 @@ export default function PatientScreeningPage({ params }: { params: { id: string 
     <div className="relative flex min-h-screen w-full">
       <Sidebar />
       <div className="flex flex-1 overflow-hidden">
-        <PatientDetailSidebar patientId={params.id} />
+        <PatientDetailSidebar patientId={params.id as string} />
         
         <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
           <div className="p-6">

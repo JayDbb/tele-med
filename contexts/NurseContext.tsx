@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { supabaseBrowser } from '@/lib/supabaseBrowser'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 import type { User } from '@supabase/supabase-js'
 
 interface Nurse {
@@ -125,8 +126,8 @@ export function NurseProvider({ children }: { children: ReactNode }) {
     try {
       const supabase = supabaseBrowser()
       await supabase.auth.signOut()
-    setNurse(null)
-    setIsAuthenticated(false)
+      setNurse(null)
+      setIsAuthenticated(false)
     } catch (error) {
       console.error('Error logging out:', error)
     }

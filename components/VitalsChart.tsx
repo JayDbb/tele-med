@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { getVitals } from '@/lib/api'
+import { PatientDataManager } from '@/utils/PatientDataManager'
 
 interface VitalsChartProps {
   patientId: string
@@ -29,13 +30,26 @@ const VitalsChart = ({ patientId, patientAge = 25 }: VitalsChartProps) => {
       try {
         setLoading(true)
         setError(null)
+        const currentUser = PatientDataManager.getCurrentUser()
+        if (!currentUser) {
+          const localVitals = PatientDataManager.getPatientSectionList(patientId, 'vitals')
+          setVitalsHistory(localVitals || [])
+          setLoading(false)
+          return
+        }
         const vitals = await getVitals(patientId)
-        console.log('Loaded vitals:', vitals)
         setVitalsHistory(vitals || [])
       } catch (err: any) {
-        console.error('Failed to load vitals:', err)
-        setError(err?.message || 'Failed to load vitals')
-        setVitalsHistory([])
+        const message = err?.message || 'Failed to load vitals'
+        if (message.toLowerCase().includes('logged in')) {
+          const localVitals = PatientDataManager.getPatientSectionList(patientId, 'vitals')
+          setVitalsHistory(localVitals || [])
+          setError(null)
+        } else {
+          console.error('Failed to load vitals:', err)
+          setError(message)
+          setVitalsHistory([])
+        }
       } finally {
         setLoading(false)
       }

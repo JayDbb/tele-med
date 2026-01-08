@@ -1,7 +1,8 @@
 import Sidebar from '@/components/Sidebar'
 import Link from 'next/link'
 
-export default function TrendPage({ params }: { params: { id: string, type: string } }) {
+export default async function TrendPage({ params }: { params: Promise<{ id: string; type: string }> }) {
+  const { id, type } = await params
   const trendConfig = {
     'blood-pressure': {
       title: 'Blood Pressure',
@@ -41,7 +42,7 @@ export default function TrendPage({ params }: { params: { id: string, type: stri
     }
   }
 
-  const config = trendConfig[params.type as keyof typeof trendConfig] || trendConfig['blood-pressure']
+  const config = trendConfig[type as keyof typeof trendConfig] || trendConfig['blood-pressure']
 
   return (
     <div className="font-body bg-background-light dark:bg-background-dark text-gray-800 dark:text-gray-100 transition-colors duration-300 h-screen overflow-hidden flex">
@@ -51,7 +52,7 @@ export default function TrendPage({ params }: { params: { id: string, type: stri
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <Link href={`/patients/${params.id}`} className="text-gray-400 hover:text-primary transition-colors flex items-center gap-1 text-sm">
+              <Link href={`/patients/${id}`} className="text-gray-400 hover:text-primary transition-colors flex items-center gap-1 text-sm">
                 <span className="material-symbols-outlined text-base">arrow_back</span> Back to Patient Profile
               </Link>
             </div>

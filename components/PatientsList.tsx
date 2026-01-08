@@ -79,6 +79,32 @@ const PatientsList = () => {
     return createdLog?.userName || 'System'
   }
 
+  const isVirtualVisit = (patient: any) => {
+    const mode = `${patient.visitMode || ''}`.toLowerCase()
+    const status = `${patient.status || ''}`.toLowerCase()
+    const appointment = `${patient.appointment || ''}`.toLowerCase()
+    const appointmentStatus = `${patient.appointmentStatus || ''}`.toLowerCase()
+    const location = `${patient.location || patient.appointmentLocation || ''}`.toLowerCase()
+    return (
+      mode.includes('virtual')
+      || mode.includes('video')
+      || status.includes('virtual')
+      || appointment.includes('virtual')
+      || appointmentStatus.includes('virtual')
+      || location.includes('virtual')
+      || location.includes('video')
+    )
+  }
+
+  const getPriorityBadge = (patient: any) => {
+    const raw = `${patient.priority || ''}`.toLowerCase()
+    if (!raw) return null
+    if (raw === 'mild') return { label: 'Mild', style: 'bg-emerald-50 text-emerald-700' }
+    if (raw === 'urgent') return { label: 'Urgent', style: 'bg-amber-50 text-amber-700' }
+    if (raw === 'critical') return { label: 'Critical', style: 'bg-rose-50 text-rose-700' }
+    return { label: raw, style: 'bg-gray-100 text-gray-600' }
+  }
+
   const filteredPatients = useMemo(() => {
     const eligiblePatients = allPatients.filter((patient) => isValidPatientId(patient?.id))
     if (!doctor || !pathname.startsWith('/doctor')) return eligiblePatients
@@ -191,17 +217,28 @@ const PatientsList = () => {
                   <h4 className="font-semibold text-gray-900 dark:text-white truncate">{patient.name}</h4>
                   <div className="flex items-center gap-2">
                     <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{patient.email}</p>
-                    <button 
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        handleVideoCall(patient.email, patient.name)
-                      }}
-                      className="bg-green-500 hover:bg-green-600 text-white p-1 rounded flex items-center justify-center transition-colors"
-                      title="Start Video Call"
-                    >
-                      <span className="material-symbols-outlined text-sm">videocam</span>
-                    </button>
+                    {(() => {
+                      const badge = getPriorityBadge(patient)
+                      if (!badge) return null
+                      return (
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${badge.style}`}>
+                          {badge.label}
+                        </span>
+                      )
+                    })()}
+                    {isVirtualVisit(patient) && (
+                      <button 
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleVideoCall(patient.email, patient.name)
+                        }}
+                        className="bg-green-500 hover:bg-green-600 text-white p-1 rounded flex items-center justify-center transition-colors"
+                        title="Start Video Call"
+                      >
+                        <span className="material-symbols-outlined text-sm">videocam</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

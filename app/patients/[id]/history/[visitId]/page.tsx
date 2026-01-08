@@ -2,14 +2,15 @@ import Sidebar from '@/components/Sidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import VisitDetail from '@/components/VisitDetail'
 
-export default function VisitDetailPage({ params }: { params: { id: string; visitId: string } }) {
+export default async function VisitDetailPage({ params }: { params: Promise<{ id: string; visitId: string }> }) {
+  const { id, visitId } = await params
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
       <div className="flex-1 flex">
-        <PatientDetailSidebar patientId={params.id} />
+        <PatientDetailSidebar patientId={id} />
         <main className="flex-1 p-6">
-          <VisitDetail patientId={params.id} visitId={params.visitId} />
+          <VisitDetail patientId={id} visitId={visitId} />
         </main>
       </div>
     </div>

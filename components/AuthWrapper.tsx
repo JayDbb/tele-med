@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useDoctor } from '@/contexts/DoctorContext'
 import { useNurse } from '@/contexts/NurseContext'
 import LoginPage from '@/app/login/page'
@@ -10,6 +10,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   const { isAuthenticated: doctorAuth } = useDoctor()
   const { isAuthenticated: nurseAuth } = useNurse()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   
@@ -51,6 +52,11 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
   }
   
   if (publicRoutes.includes(pathname)) {
+    return <>{children}</>
+  }
+
+  const isPeekMode = searchParams.get('peek') === '1'
+  if (isPeekMode && nurseRoutes.some(route => pathname.startsWith(route))) {
     return <>{children}</>
   }
   

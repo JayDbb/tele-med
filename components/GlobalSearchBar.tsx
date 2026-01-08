@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { PatientDataManager } from '@/utils/PatientDataManager'
 import { useDoctor } from '@/contexts/DoctorContext'
 import { useNurse } from '@/contexts/NurseContext'
@@ -28,6 +28,7 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
   const [showDropdown, setShowDropdown] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const searchRef = useRef<HTMLDivElement>(null)
   const { doctor } = useDoctor()
   const { nurse } = useNurse()
@@ -160,6 +161,10 @@ export default function GlobalSearchBar({ placeholder = "Search patients, MRN, o
       setShowDropdown(false)
       setQuery('')
     }
+  }
+
+  if (searchParams.get('peek') === '1') {
+    return null
   }
 
   if (!currentUser) {

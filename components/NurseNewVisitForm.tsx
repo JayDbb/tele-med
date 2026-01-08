@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import NurseSidebar from '@/components/NurseSidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
@@ -18,7 +18,12 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   const router = useRouter()
   const { nurse } = useNurse()
   const { getPatientUrl } = usePatientRoutes()
-  const isNewPatient = patientId.length > 10
+  const [peekHref, setPeekHref] = useState<string | null>(null)
+  const [peekLabel, setPeekLabel] = useState<string>('Medical Section')
+  const [existingPatient, setExistingPatient] = useState<any | null>(() => (
+    PatientDataManager.getPatient(patientId)
+  ))
+  const isNewPatient = !existingPatient
   const [activeTab, setActiveTab] = useState('record')
   const profilePhotoInputRef = useRef<HTMLInputElement | null>(null)
   const documentsInputRef = useRef<HTMLInputElement | null>(null)
@@ -27,6 +32,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
     subjective: true,
     objective: true,
     assessmentPlan: true,
+    diabetes: false,
+    medications: false,
     vaccines: false,
     familyHistory: false,
     riskFlags: false,
@@ -34,17 +41,33 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
     pastMedicalHistory: false,
     orders: false
   })
-  const [patientData, setPatientData] = useState({
-    name: '',
-    dob: '',
-    mrn: `MRN-${Date.now().toString().slice(-6)}`,
-    allergies: '',
-    email: '',
-    phone: '',
-    gender: '',
-    address: '',
-    image: ''
-  })
+  const sectionKeys = [
+    'subjective',
+    'objective',
+    'assessmentPlan',
+    'diabetes',
+    'medications',
+    'vaccines',
+    'familyHistory',
+    'riskFlags',
+    'surgicalHistory',
+    'pastMedicalHistory',
+    'orders'
+  ] as const
+  const [reviewedSections, setReviewedSections] = useState<Record<string, boolean>>(() => (
+    sectionKeys.reduce((acc, key) => ({ ...acc, [key]: false }), {})
+  ))
+  const [patientData, setPatientData] = useState(() => ({
+    name: existingPatient?.name || '',
+    dob: existingPatient?.dob || '',
+    mrn: existingPatient?.mrn || `MRN-${Date.now().toString().slice(-6)}`,
+    allergies: existingPatient?.allergies || '',
+    email: existingPatient?.email || '',
+    phone: existingPatient?.phone || '',
+    gender: existingPatient?.gender || '',
+    address: existingPatient?.address || '',
+    image: existingPatient?.image || ''
+  }))
   const [uploadedDocuments, setUploadedDocuments] = useState<any[]>([])
   const [visitData, setVisitData] = useState({
     subjective: {
@@ -56,7 +79,40 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       hr: '',
       temp: '',
       weight: '',
-      examFindings: ''
+      height: '',
+      examFindings: '',
+      visionOd: '',
+      visionOs: '',
+      visionOu: '',
+      visionCorrection: '',
+      visionBlurry: '',
+      visionFloaters: '',
+      visionPain: '',
+      visionLastExamDate: ''
+    },
+    diabetes: {
+      fastingGlucose: '',
+      randomGlucose: '',
+      hbA1cValue: '',
+      hbA1cDate: '',
+      homeMonitoring: '',
+      averageReadings: '',
+      hypoglycemiaEpisodes: '',
+      hyperglycemiaSymptoms: '',
+      footExam: '',
+      eyeExamDue: ''
+    },
+    medications: {
+      currentList: '',
+      takingAsPrescribed: false,
+      missedDoses: false,
+      sideEffects: false,
+      insulinType: '',
+      insulinDose: '',
+      insulinTiming: '',
+      glucoseOral: false,
+      glucoseInjectable: false,
+      acknowledged: false
     },
     assessmentPlan: {
       assessment: '',
@@ -109,6 +165,80 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
     }
   })
   const draftKey = 'new-visit-nurse'
+  const reviewedCount = sectionKeys.filter((key) => reviewedSections[key]).length
+  const reviewProgress = Math.round((reviewedCount / sectionKeys.length) * 100)
+  const allReviewed = reviewedCount === sectionKeys.length
+  const diabetesPrefillDone = useRef(false)
+  const medicationsPrefillDone = useRef(false)
+  const isA1cOverdue = (dateValue?: string) => {
+    if (!dateValue) return false
+    const parsed = new Date(dateValue)
+    if (Number.isNaN(parsed.getTime())) return false
+    const daysSince = (Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24)
+    return daysSince > 180
+  }
+  const isVisionAbnormal = (value?: string) => {
+    if (!value) return false
+    const match = value.match(/(\d+)\s*\/\s*(\d+)/)
+    if (!match) return false
+    const denominator = Number(match[2])
+    return Number.isFinite(denominator) && denominator > 40
+  }
+  const hasDiabetesValues = (section: Record<string, string>) =>
+    Object.values(section).some((value) => value && value.trim().length > 0)
+
+  const handleToggleSection = (key: typeof sectionKeys[number]) => {
+    setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }))
+    setReviewedSections((prev) => (prev[key] ? prev : { ...prev, [key]: true }))
+  }
+  const openPeekPanel = (href: string) => {
+    const peekUrl = href.includes('?') ? `${href}&peek=1` : `${href}?peek=1`
+    setPeekHref(peekUrl)
+    const label = href.split('/').pop()?.replace(/-/g, ' ') || 'Medical Section'
+    setPeekLabel(label.replace(/\b\w/g, (char) => char.toUpperCase()))
+  }
+
+  useEffect(() => {
+    const patient = PatientDataManager.getPatient(patientId)
+    setExistingPatient(patient)
+    if (patient) {
+      setPatientData((prev) => ({
+        ...prev,
+        name: patient.name || prev.name,
+        dob: patient.dob || prev.dob,
+        mrn: patient.mrn || prev.mrn,
+        allergies: patient.allergies || prev.allergies,
+        email: patient.email || prev.email,
+        phone: patient.phone || prev.phone,
+        gender: patient.gender || prev.gender,
+        address: patient.address || prev.address,
+        image: patient.image || prev.image
+      }))
+    }
+  }, [patientId])
+
+  useEffect(() => {
+    if (medicationsPrefillDone.current) return
+    const existingMeds = PatientDataManager.getPatientSectionList<any>(patientId, 'medications')
+    if (existingMeds.length === 0) {
+      medicationsPrefillDone.current = true
+      return
+    }
+    if (!visitData.medications.currentList.trim()) {
+      const summary = existingMeds
+        .map((med) => {
+          const name = med.name || 'Medication'
+          const detail = med.dose || med.frequency || med.instructions || ''
+          return detail ? `${name} - ${detail}` : name
+        })
+        .join('\n')
+      setVisitData((prev) => ({
+        ...prev,
+        medications: { ...prev.medications, currentList: summary }
+      }))
+    }
+    medicationsPrefillDone.current = true
+  }, [patientId, visitData.medications.currentList])
 
   useEffect(() => {
     const draft = PatientDataManager.getDraft(patientId, draftKey)
@@ -117,7 +247,22 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       setPatientData((prev) => ({ ...prev, ...draft.data.patientData }))
     }
     if (draft.data.visitData) {
-      setVisitData((prev) => ({ ...prev, ...draft.data.visitData }))
+      const incoming = draft.data.visitData
+      setVisitData((prev) => ({
+        ...prev,
+        ...incoming,
+        objective: { ...prev.objective, ...incoming.objective },
+        diabetes: { ...prev.diabetes, ...incoming.diabetes },
+        medications: { ...prev.medications, ...incoming.medications },
+        subjective: { ...prev.subjective, ...incoming.subjective },
+        assessmentPlan: { ...prev.assessmentPlan, ...incoming.assessmentPlan },
+        vaccines: { ...prev.vaccines, ...incoming.vaccines },
+        familyHistory: { ...prev.familyHistory, ...incoming.familyHistory },
+        riskFlags: { ...prev.riskFlags, ...incoming.riskFlags },
+        surgicalHistory: { ...prev.surgicalHistory, ...incoming.surgicalHistory },
+        pastMedicalHistory: { ...prev.pastMedicalHistory, ...incoming.pastMedicalHistory },
+        orders: { ...prev.orders, ...incoming.orders }
+      }))
     }
     if (draft.data.uploadedDocuments) {
       setUploadedDocuments(draft.data.uploadedDocuments)
@@ -135,7 +280,31 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
     return () => clearTimeout(timeout)
   }, [patientId, patientData, visitData, uploadedDocuments])
 
-  const savePatientData = () => {
+  useEffect(() => {
+    if (diabetesPrefillDone.current) return
+    const visits = PatientDataManager.getPatientSectionList<any>(patientId, 'visits')
+    const latestWithDiabetes = visits.find((visit) => visit?.diabetes && hasDiabetesValues(visit.diabetes))
+    if (!latestWithDiabetes) {
+      diabetesPrefillDone.current = true
+      return
+    }
+    if (!hasDiabetesValues(visitData.diabetes)) {
+      const sanitized = Object.fromEntries(
+        Object.entries(latestWithDiabetes.diabetes || {}).map(([key, value]) => [key, value ?? ''])
+      ) as Record<string, string>
+      setVisitData((prev) => ({
+        ...prev,
+        diabetes: {
+          ...prev.diabetes,
+          ...sanitized
+        }
+      }))
+      setReviewedSections((prev) => ({ ...prev, diabetes: true }))
+    }
+    diabetesPrefillDone.current = true
+  }, [patientId, visitData.diabetes])
+
+  const savePatientData = (visitStatus: 'draft' | 'completed' = 'completed') => {
     if (!nurse) {
       setSaveError('Please sign in as a nurse to save this patient.')
       return null
@@ -152,6 +321,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
     const hasValues = (section: Record<string, string>) =>
       Object.values(section).some((value) => value && value.trim().length > 0)
 
+    const nowIso = new Date().toISOString()
+    const isCompleted = visitStatus === 'completed'
     const newPatient = {
       id: newPatientId,
       name: nameValue,
@@ -166,29 +337,73 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       physician: 'To be assigned',
       lastConsultation: new Date().toLocaleDateString(),
       appointment: 'To be scheduled',
-      status: 'New Patient',
-      statusColor: 'text-blue-600 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300',
+      status: isCompleted ? 'Completed' : 'In Progress',
+      statusColor: isCompleted
+        ? 'text-emerald-700 bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-300'
+        : 'text-blue-600 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300',
       doctorId: '',
       nurseId: nurse.id,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: nowIso,
+      completedAt: isCompleted ? nowIso : ''
     }
     
     PatientDataManager.savePatient(newPatient, isNewPatient ? 'create' : 'update', nurse.id)
     
-    // Clear draft after successful save
-    PatientDataManager.clearDraft(patientId, draftKey)
+    if (isCompleted) {
+      PatientDataManager.clearDraft(patientId, draftKey)
+    }
 
     const visits = PatientDataManager.getPatientSectionList(newPatientId, 'visits')
     const visitId = Date.now().toString()
     const visitRecord = {
       id: visitId,
-      recordedAt: new Date().toISOString(),
+      recordedAt: nowIso,
       providerId: nurse.id,
       providerName: nurse.name,
       subjective: visitData.subjective,
       objective: visitData.objective,
-      assessmentPlan: visitData.assessmentPlan
+      diabetes: visitData.diabetes,
+      medications: visitData.medications,
+      assessmentPlan: visitData.assessmentPlan,
+      status: isCompleted ? 'Completed' : 'Draft'
+    }
+    const appointments = PatientDataManager.getPatientSectionList<any>(newPatientId, 'appointments')
+    const sortedAppointments = [...appointments].sort((a, b) => {
+      const aTime = new Date(a?.updatedAt || a?.createdAt || a?.scheduledFor || 0).getTime()
+      const bTime = new Date(b?.updatedAt || b?.createdAt || b?.scheduledFor || 0).getTime()
+      return bTime - aTime
+    })
+    const linkedAppointment = sortedAppointments.find((appointment) => {
+      const status = `${appointment?.status || ''}`.toLowerCase()
+      return status !== 'completed'
+    }) || sortedAppointments[0]
+    if (linkedAppointment) {
+      const location = `${linkedAppointment.location || ''}`.trim()
+      const locationLower = location.toLowerCase()
+      const visitMode = locationLower.includes('virtual')
+        || locationLower.includes('video')
+        || locationLower.includes('tele')
+        || linkedAppointment.deliveryMethod
+        ? 'Video Call'
+        : 'In Person'
+      visitRecord.appointmentId = linkedAppointment.id
+      visitRecord.scheduledFor = linkedAppointment.scheduledFor || ''
+      visitRecord.scheduledProvider = linkedAppointment.doctorDisplayName || linkedAppointment.doctorName || ''
+      visitRecord.visitMode = visitMode
+      visitRecord.appointmentLocation = location
+      visitRecord.appointmentStatus = linkedAppointment.status || ''
+      visitRecord.priority = linkedAppointment.priority || ''
+    }
+    const intakeSection = PatientDataManager.getPatientSection(newPatientId, 'intake')
+    if (intakeSection?.data) {
+      visitRecord.intakeSnapshot = intakeSection.data
+      PatientDataManager.updatePatientSection(newPatientId, 'intake', {
+        ...intakeSection,
+        data: intakeSection.data,
+        status: 'linked',
+        linkedVisitId: visitId
+      }, nurse.id)
     }
     PatientDataManager.savePatientSectionList(newPatientId, 'visits', [visitRecord, ...visits], nurse.id)
 
@@ -317,59 +532,107 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   }
 
   const handleSavePatientAndSchedule = () => {
-    savePatientData()
+    savePatientData('completed')
     router.push(`/nurse-portal/patients/${patientId}/schedule`)
   }
 
   const handleSavePatientAndClose = () => {
-    const newPatientId = savePatientData()
+    const newPatientId = savePatientData('completed')
     if (!newPatientId) return
     router.push('/nurse-portal')
   }
 
   const handleSavePatient = () => {
-    const newPatientId = savePatientData()
+    const newPatientId = savePatientData('completed')
     if (!newPatientId) return
     router.push(getPatientUrl(newPatientId))
+  }
+
+  const handleSaveVisitOnly = () => {
+    const newPatientId = savePatientData('completed')
+    if (!newPatientId) return
+    router.push(`/nurse-portal/patients/${newPatientId}`)
+  }
+
+  const handleSaveVisitAndSchedule = () => {
+    const newPatientId = savePatientData('completed')
+    if (!newPatientId) return
+    router.push(`/nurse-portal/patients/${newPatientId}/schedule`)
+  }
+
+  const handleSaveVisitDraft = () => {
+    const newPatientId = savePatientData('draft')
+    if (!newPatientId) return
+    setSaveError(null)
+    router.push(`/nurse-portal/patients/${newPatientId}`)
   }
 
   const handleCancel = () => {
     if (isNewPatient) {
       PatientDataManager.deletePatient(patientId)
       PatientDataManager.clearDraft(patientId, draftKey)
+      router.push('/nurse-portal')
+      return
     }
-    router.push('/nurse-portal')
+    router.push(`/nurse-portal/patients/${patientId}`)
   }
 
-  const patient = isNewPatient ? {
-    name: patientData.name || 'New Patient',
-    dob: patientData.dob ? new Date(patientData.dob).toLocaleDateString() : 'Not provided',
-    mrn: patientData.mrn,
-    allergies: patientData.allergies || 'None'
-  } : {
-    name: 'Patient',
-    dob: 'Not provided',
-    mrn: 'Not assigned',
-    allergies: 'None'
-  }
+  const patient = useMemo(() => ({
+    name: patientData.name || (existingPatient?.name ?? 'Patient'),
+    dob: patientData.dob
+      ? new Date(patientData.dob).toLocaleDateString()
+      : existingPatient?.dob
+        ? new Date(existingPatient.dob).toLocaleDateString()
+        : 'Not provided',
+    mrn: patientData.mrn || existingPatient?.mrn || 'Not assigned',
+    allergies: patientData.allergies || existingPatient?.allergies || 'None'
+  }), [existingPatient, patientData.allergies, patientData.dob, patientData.mrn, patientData.name])
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
       <NurseSidebar />
-      {!isNewPatient && <PatientDetailSidebar patientId={patientId} />}
+      <PatientDetailSidebar
+        patientId={patientId}
+        onNavigate={openPeekPanel}
+        activeHref={peekHref ? peekHref.replace(/\?.*$/, '') : undefined}
+      />
       
-      <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-light dark:bg-background-dark">
+      {peekHref && (
+        <aside className="hidden xl:flex w-[360px] 2xl:w-[420px] bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="h-full flex flex-col w-full">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <div className="text-sm font-semibold text-gray-900 dark:text-white">{peekLabel}</div>
+              <button
+                type="button"
+                onClick={() => setPeekHref(null)}
+                className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                <span className="material-symbols-outlined text-sm text-gray-500">close</span>
+              </button>
+            </div>
+            <iframe
+              src={peekHref}
+              className="w-full h-full bg-white dark:bg-gray-900"
+              title="Patient chart preview"
+            />
+          </div>
+        </aside>
+      )}
+
+      <main className="flex-1 flex flex-col h-full min-w-0 relative overflow-hidden bg-background-light dark:bg-background-dark">
         <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shrink-0 z-10">
           <GlobalSearchBar />
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="w-full flex flex-col gap-6">
+        <div className="flex-1 overflow-y-auto p-6 min-w-0">
+          <div className="w-full flex flex-col gap-6 min-w-0">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex flex-col gap-2">
                 <div className="flex items-baseline gap-3">
                   <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{patient.name}</h1>
-                  <span className="px-2.5 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 text-xs font-bold border border-yellow-200 dark:border-yellow-800">Draft</span>
+                  {isNewPatient && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 text-xs font-bold border border-yellow-200 dark:border-yellow-800">Draft</span>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-6 text-gray-600 dark:text-gray-300 text-sm">
                   <span className="flex items-center gap-1.5">
@@ -398,31 +661,48 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                   <>
                     <button 
                       onClick={handleSavePatientAndSchedule}
-                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2"
+                      disabled={!allReviewed}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <span>Save Patient & Schedule Doctor</span>
                       <span className="material-symbols-outlined text-sm">event</span>
                     </button>
                     <button 
                       onClick={handleSavePatientAndClose}
-                      className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2"
+                      disabled={!allReviewed}
+                      className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <span>Save Patient & Close</span>
                       <span className="material-symbols-outlined text-sm">close</span>
                     </button>
                     <button 
                       onClick={handleSavePatient}
-                      className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2"
+                      disabled={!allReviewed}
+                      className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <span>Save Patient & Visit</span>
                       <span className="material-symbols-outlined text-sm">arrow_forward</span>
                     </button>
                   </>
                 ) : (
-                  <button className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2">
-                    <span>Continue to Visit</span>
-                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                  </button>
+                  <>
+                    <button
+                      onClick={handleSaveVisitAndSchedule}
+                      disabled={!allReviewed}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className="material-symbols-outlined text-sm">event</span>
+                      Save &amp; Schedule
+                    </button>
+                    <button
+                      onClick={handleSaveVisitOnly}
+                      disabled={!allReviewed}
+                      className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span>Save Visit</span>
+                      <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                    </button>
+                  </>
                 )}
               </div>
               {saveError && (
@@ -432,8 +712,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
               )}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              <div className="lg:col-span-4 flex flex-col gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 min-w-0">
+              <div className="xl:col-span-4 flex flex-col gap-6 min-w-0">
                 {isNewPatient && (
                   <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4">
                     <div className="flex items-center gap-3 mb-4">
@@ -649,7 +929,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                 </div>
               </div>
 
-              <div className="lg:col-span-8 flex flex-col">
+              <div className="xl:col-span-8 flex flex-col min-w-0">
                 <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden flex flex-col">
                   <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between bg-white dark:bg-gray-900">
                     <div className="flex items-center gap-3">
@@ -659,21 +939,36 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                       <h2 className="text-lg font-bold text-gray-900 dark:text-white">Visit Note</h2>
                     </div>
                   </div>
+                  <div className="px-6 pt-5">
+                    <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      <span>Review progress</span>
+                      <span>{reviewProgress}% complete</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                      <div
+                        className="h-full bg-primary transition-all"
+                        style={{ width: `${reviewProgress}%` }}
+                      />
+                    </div>
+                  </div>
 
                   <div className="p-6 space-y-8 overflow-y-auto flex-1">
-                    <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                      <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                    <section className={`space-y-3 relative pl-4 border-l-2 ${reviewedSections.subjective ? 'border-blue-400/60' : 'border-red-400/60'}`}>
+                      <div className={`absolute -left-2 top-0 size-4 rounded-full border-2 border-white dark:border-gray-900 ${reviewedSections.subjective ? 'bg-blue-500' : 'bg-red-500'}`}></div>
                       <button 
-                        onClick={() => setExpandedSections({...expandedSections, subjective: !expandedSections.subjective})}
+                        onClick={() => handleToggleSection('subjective')}
                         className="w-full flex items-center justify-between text-left"
+                        title="Click to review. No changes required."
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                           Subjective
                           <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Chief Complaint & HPI</span>
                         </h3>
-                        <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
-                          {expandedSections.subjective ? 'expand_less' : 'expand_more'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                            {expandedSections.subjective ? 'expand_less' : 'expand_more'}
+                          </span>
+                        </div>
                       </button>
                       {expandedSections.subjective && (
                         <div className="space-y-4">
@@ -707,19 +1002,22 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                       )}
                     </section>
 
-                    <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                      <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                    <section className={`space-y-3 relative pl-4 border-l-2 ${reviewedSections.objective ? 'border-blue-400/60' : 'border-red-400/60'}`}>
+                      <div className={`absolute -left-2 top-0 size-4 rounded-full border-2 border-white dark:border-gray-900 ${reviewedSections.objective ? 'bg-blue-500' : 'bg-red-500'}`}></div>
                       <button 
-                        onClick={() => setExpandedSections({...expandedSections, objective: !expandedSections.objective})}
+                        onClick={() => handleToggleSection('objective')}
                         className="w-full flex items-center justify-between text-left"
+                        title="Click to review. No changes required."
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                           Objective
                           <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Vitals & Exam</span>
                         </h3>
-                        <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
-                          {expandedSections.objective ? 'expand_less' : 'expand_more'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                            {expandedSections.objective ? 'expand_less' : 'expand_more'}
+                          </span>
+                        </div>
                       </button>
                       {expandedSections.objective && (
                         <div className="space-y-4">
@@ -776,6 +1074,19 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                                 })}
                               />
                             </div>
+                            <div>
+                              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">Height (in)</label>
+                              <input
+                                className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                placeholder="65"
+                                type="text"
+                                value={visitData.objective.height}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  objective: { ...visitData.objective, height: e.target.value }
+                                })}
+                              />
+                            </div>
                           </div>
                           
                           <div>
@@ -791,20 +1102,469 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                               rows={3}
                             />
                           </div>
+
+                          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-900/40 p-4 space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Vision Exam</h4>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Visual acuity and symptom screening</p>
+                              </div>
+                              <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Quick Entry</span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                              <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Right Eye (OD)</label>
+                                <input
+                                  className={`w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary ${isVisionAbnormal(visitData.objective.visionOd) ? 'border-rose-400' : 'border-gray-200 dark:border-gray-700'}`}
+                                  placeholder="20/20"
+                                  value={visitData.objective.visionOd}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, visionOd: e.target.value }
+                                  })}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Left Eye (OS)</label>
+                                <input
+                                  className={`w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary ${isVisionAbnormal(visitData.objective.visionOs) ? 'border-rose-400' : 'border-gray-200 dark:border-gray-700'}`}
+                                  placeholder="20/20"
+                                  value={visitData.objective.visionOs}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, visionOs: e.target.value }
+                                  })}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Both Eyes (OU)</label>
+                                <input
+                                  className={`w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary ${isVisionAbnormal(visitData.objective.visionOu) ? 'border-rose-400' : 'border-gray-200 dark:border-gray-700'}`}
+                                  placeholder="20/20"
+                                  value={visitData.objective.visionOu}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, visionOu: e.target.value }
+                                  })}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Correction</label>
+                                <select
+                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                  value={visitData.objective.visionCorrection}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, visionCorrection: e.target.value }
+                                  })}
+                                >
+                                  <option value="">Select</option>
+                                  <option value="With correction">With correction</option>
+                                  <option value="Without correction">Without correction</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                              <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Blurry Vision</label>
+                                <select
+                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                  value={visitData.objective.visionBlurry}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, visionBlurry: e.target.value }
+                                  })}
+                                >
+                                  <option value="">Select</option>
+                                  <option value="Yes">Yes</option>
+                                  <option value="No">No</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Floaters / Flashes</label>
+                                <select
+                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                  value={visitData.objective.visionFloaters}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, visionFloaters: e.target.value }
+                                  })}
+                                >
+                                  <option value="">Select</option>
+                                  <option value="Yes">Yes</option>
+                                  <option value="No">No</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Eye Pain</label>
+                                <select
+                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                  value={visitData.objective.visionPain}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, visionPain: e.target.value }
+                                  })}
+                                >
+                                  <option value="">Select</option>
+                                  <option value="Yes">Yes</option>
+                                  <option value="No">No</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Last Eye Exam</label>
+                                <input
+                                  type="date"
+                                  className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                  value={visitData.objective.visionLastExamDate}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    objective: { ...visitData.objective, visionLastExamDate: e.target.value }
+                                  })}
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </section>
 
-                    <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                      <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
-                      <button 
-                        onClick={() => setExpandedSections({...expandedSections, assessmentPlan: !expandedSections.assessmentPlan})}
+                    <section className={`space-y-3 relative pl-4 border-l-2 ${reviewedSections.diabetes ? 'border-blue-400/60' : 'border-red-400/60'}`}>
+                      <div className={`absolute -left-2 top-0 size-4 rounded-full border-2 border-white dark:border-gray-900 ${reviewedSections.diabetes ? 'bg-blue-500' : 'bg-red-500'}`}></div>
+                      <button
+                        onClick={() => handleToggleSection('diabetes')}
                         className="w-full flex items-center justify-between text-left"
+                        title="Click to review. No changes required."
+                      >
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-bold text-gray-900 dark:text-white">Diabetes / Sugar Intake</h3>
+                          {isA1cOverdue(visitData.diabetes.hbA1cDate) && (
+                            <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-100/80 dark:bg-amber-900/40 px-2 py-0.5 rounded-full">
+                              A1c overdue
+                            </span>
+                          )}
+                        </div>
+                        <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                          {expandedSections.diabetes ? 'expand_less' : 'expand_more'}
+                        </span>
+                      </button>
+                      {expandedSections.diabetes && (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Fasting Blood Glucose</label>
+                              <input
+                                className="w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                placeholder="mg/dL"
+                                value={visitData.diabetes.fastingGlucose}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  diabetes: { ...visitData.diabetes, fastingGlucose: e.target.value }
+                                })}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Random Blood Glucose</label>
+                              <input
+                                className="w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                placeholder="mg/dL"
+                                value={visitData.diabetes.randomGlucose}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  diabetes: { ...visitData.diabetes, randomGlucose: e.target.value }
+                                })}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">HbA1c</label>
+                              <div className="flex gap-2">
+                                <input
+                                  className="w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                  placeholder="e.g. 7.1%"
+                                  value={visitData.diabetes.hbA1cValue}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    diabetes: { ...visitData.diabetes, hbA1cValue: e.target.value }
+                                  })}
+                                />
+                                <input
+                                  type="date"
+                                  className="h-9 px-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                  value={visitData.diabetes.hbA1cDate}
+                                  onChange={(e) => setVisitData({
+                                    ...visitData,
+                                    diabetes: { ...visitData.diabetes, hbA1cDate: e.target.value }
+                                  })}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Home Glucose Monitoring</label>
+                              <select
+                                className="w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                value={visitData.diabetes.homeMonitoring}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  diabetes: { ...visitData.diabetes, homeMonitoring: e.target.value }
+                                })}
+                              >
+                                <option value="">Select</option>
+                                <option value="Yes">Yes</option>
+                                <option value="No">No</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Average Readings</label>
+                              <input
+                                className="w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                placeholder="mg/dL"
+                                value={visitData.diabetes.averageReadings}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  diabetes: { ...visitData.diabetes, averageReadings: e.target.value }
+                                })}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Hypoglycemia Episodes</label>
+                              <input
+                                className="w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                placeholder="Frequency / notes"
+                                value={visitData.diabetes.hypoglycemiaEpisodes}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  diabetes: { ...visitData.diabetes, hypoglycemiaEpisodes: e.target.value }
+                                })}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Hyperglycemia Symptoms</label>
+                              <input
+                                className="w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                placeholder="Symptoms noted"
+                                value={visitData.diabetes.hyperglycemiaSymptoms}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  diabetes: { ...visitData.diabetes, hyperglycemiaSymptoms: e.target.value }
+                                })}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Foot Exam Performed</label>
+                              <select
+                                className="w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                value={visitData.diabetes.footExam}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  diabetes: { ...visitData.diabetes, footExam: e.target.value }
+                                })}
+                              >
+                                <option value="">Select</option>
+                                <option value="Yes">Yes</option>
+                                <option value="No">No</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Eye Exam Due</label>
+                              <select
+                                className="w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                value={visitData.diabetes.eyeExamDue}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  diabetes: { ...visitData.diabetes, eyeExamDue: e.target.value }
+                                })}
+                              >
+                                <option value="">Select</option>
+                                <option value="Yes">Yes</option>
+                                <option value="No">No</option>
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </section>
+
+                    <section className={`space-y-3 relative pl-4 border-l-2 ${reviewedSections.medications ? 'border-blue-400/60' : 'border-red-400/60'}`}>
+                      <div className={`absolute -left-2 top-0 size-4 rounded-full border-2 border-white dark:border-gray-900 ${reviewedSections.medications ? 'bg-blue-500' : 'bg-red-500'}`}></div>
+                      <button
+                        onClick={() => handleToggleSection('medications')}
+                        className="w-full flex items-center justify-between text-left"
+                        title="Click to review. No changes required."
+                      >
+                        <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                          Medications
+                          <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Adherence</span>
+                        </h3>
+                        <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                          {expandedSections.medications ? 'expand_less' : 'expand_more'}
+                        </span>
+                      </button>
+                      {expandedSections.medications && (
+                        <div className="space-y-5">
+                          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Current Medications</div>
+                              <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                {PatientDataManager.getPatientSectionList(patientId, 'medications').length || 0} on file
+                              </span>
+                            </div>
+                            <textarea
+                              className="w-full min-h-[110px] rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                              placeholder="List current medications and dosing instructions..."
+                              value={visitData.medications.currentList}
+                              onChange={(e) => setVisitData({
+                                ...visitData,
+                                medications: { ...visitData.medications, currentList: e.target.value }
+                              })}
+                            />
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                              Auto-filled from the chart when available. Update only if needed.
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                checked={visitData.medications.takingAsPrescribed}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  medications: { ...visitData.medications, takingAsPrescribed: e.target.checked }
+                                })}
+                              />
+                              Taking as prescribed
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                checked={visitData.medications.missedDoses}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  medications: { ...visitData.medications, missedDoses: e.target.checked }
+                                })}
+                              />
+                              Missed doses
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                checked={visitData.medications.sideEffects}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  medications: { ...visitData.medications, sideEffects: e.target.checked }
+                                })}
+                              />
+                              Side effects
+                            </label>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Insulin Type</label>
+                              <input
+                                className="w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                placeholder="e.g. Lispro"
+                                value={visitData.medications.insulinType}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  medications: { ...visitData.medications, insulinType: e.target.value }
+                                })}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Insulin Dose</label>
+                              <input
+                                className="w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                placeholder="Units"
+                                value={visitData.medications.insulinDose}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  medications: { ...visitData.medications, insulinDose: e.target.value }
+                                })}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Insulin Timing</label>
+                              <input
+                                className="w-full h-9 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                placeholder="e.g. Before meals"
+                                value={visitData.medications.insulinTiming}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  medications: { ...visitData.medications, insulinTiming: e.target.value }
+                                })}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                checked={visitData.medications.glucoseOral}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  medications: { ...visitData.medications, glucoseOral: e.target.checked }
+                                })}
+                              />
+                              Glucose-lowering agents (oral)
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                checked={visitData.medications.glucoseInjectable}
+                                onChange={(e) => setVisitData({
+                                  ...visitData,
+                                  medications: { ...visitData.medications, glucoseInjectable: e.target.checked }
+                                })}
+                              />
+                              Glucose-lowering agents (injectable)
+                            </label>
+                          </div>
+
+                          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 border-t border-gray-200 dark:border-gray-700 pt-4">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                              checked={visitData.medications.acknowledged}
+                              onChange={(e) => {
+                                const acknowledged = e.target.checked
+                                setVisitData({
+                                  ...visitData,
+                                  medications: { ...visitData.medications, acknowledged }
+                                })
+                                setReviewedSections((prev) => ({ ...prev, medications: acknowledged }))
+                              }}
+                            />
+                            Nurse acknowledgment required
+                          </label>
+                        </div>
+                      )}
+                    </section>
+
+                    <section className={`space-y-3 relative pl-4 border-l-2 ${reviewedSections.assessmentPlan ? 'border-blue-400/60' : 'border-red-400/60'}`}>
+                      <div className={`absolute -left-2 top-0 size-4 rounded-full border-2 border-white dark:border-gray-900 ${reviewedSections.assessmentPlan ? 'bg-blue-500' : 'bg-red-500'}`}></div>
+                      <button 
+                        onClick={() => handleToggleSection('assessmentPlan')}
+                        className="w-full flex items-center justify-between text-left"
+                        title="Click to review. No changes required."
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white">Assessment & Plan</h3>
-                        <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
-                          {expandedSections.assessmentPlan ? 'expand_less' : 'expand_more'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                            {expandedSections.assessmentPlan ? 'expand_less' : 'expand_more'}
+                          </span>
+                        </div>
                       </button>
                       {expandedSections.assessmentPlan && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -848,19 +1608,22 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                       )}
                     </section>
 
-                    <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                      <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                    <section className={`space-y-3 relative pl-4 border-l-2 ${reviewedSections.vaccines ? 'border-blue-400/60' : 'border-red-400/60'}`}>
+                      <div className={`absolute -left-2 top-0 size-4 rounded-full border-2 border-white dark:border-gray-900 ${reviewedSections.vaccines ? 'bg-blue-500' : 'bg-red-500'}`}></div>
                       <button 
-                        onClick={() => setExpandedSections({...expandedSections, vaccines: !expandedSections.vaccines})}
+                        onClick={() => handleToggleSection('vaccines')}
                         className="w-full flex items-center justify-between text-left"
+                        title="Click to review. No changes required."
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                           Vaccines
                           <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Immunizations</span>
                         </h3>
-                        <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
-                          {expandedSections.vaccines ? 'expand_less' : 'expand_more'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                            {expandedSections.vaccines ? 'expand_less' : 'expand_more'}
+                          </span>
+                        </div>
                       </button>
                       {expandedSections.vaccines && (
                         <div className="space-y-4">
@@ -971,19 +1734,22 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                       )}
                     </section>
 
-                    <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                      <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                    <section className={`space-y-3 relative pl-4 border-l-2 ${reviewedSections.familyHistory ? 'border-blue-400/60' : 'border-red-400/60'}`}>
+                      <div className={`absolute -left-2 top-0 size-4 rounded-full border-2 border-white dark:border-gray-900 ${reviewedSections.familyHistory ? 'bg-blue-500' : 'bg-red-500'}`}></div>
                       <button 
-                        onClick={() => setExpandedSections({...expandedSections, familyHistory: !expandedSections.familyHistory})}
+                        onClick={() => handleToggleSection('familyHistory')}
                         className="w-full flex items-center justify-between text-left"
+                        title="Click to review. No changes required."
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                           Family Health History
                           <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Genetic Risk Factors</span>
                         </h3>
-                        <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
-                          {expandedSections.familyHistory ? 'expand_less' : 'expand_more'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                            {expandedSections.familyHistory ? 'expand_less' : 'expand_more'}
+                          </span>
+                        </div>
                       </button>
                       {expandedSections.familyHistory && (
                         <div className="space-y-4">
@@ -1037,19 +1803,22 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                       )}
                     </section>
 
-                    <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                      <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                    <section className={`space-y-3 relative pl-4 border-l-2 ${reviewedSections.riskFlags ? 'border-blue-400/60' : 'border-red-400/60'}`}>
+                      <div className={`absolute -left-2 top-0 size-4 rounded-full border-2 border-white dark:border-gray-900 ${reviewedSections.riskFlags ? 'bg-blue-500' : 'bg-red-500'}`}></div>
                       <button 
-                        onClick={() => setExpandedSections({...expandedSections, riskFlags: !expandedSections.riskFlags})}
+                        onClick={() => handleToggleSection('riskFlags')}
                         className="w-full flex items-center justify-between text-left"
+                        title="Click to review. No changes required."
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                           Risk Flags
                           <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Social & Lifestyle</span>
                         </h3>
-                        <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
-                          {expandedSections.riskFlags ? 'expand_less' : 'expand_more'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                            {expandedSections.riskFlags ? 'expand_less' : 'expand_more'}
+                          </span>
+                        </div>
                       </button>
                       {expandedSections.riskFlags && (
                         <div className="space-y-4">
@@ -1143,19 +1912,22 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                       )}
                     </section>
 
-                    <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                      <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                    <section className={`space-y-3 relative pl-4 border-l-2 ${reviewedSections.surgicalHistory ? 'border-blue-400/60' : 'border-red-400/60'}`}>
+                      <div className={`absolute -left-2 top-0 size-4 rounded-full border-2 border-white dark:border-gray-900 ${reviewedSections.surgicalHistory ? 'bg-blue-500' : 'bg-red-500'}`}></div>
                       <button 
-                        onClick={() => setExpandedSections({...expandedSections, surgicalHistory: !expandedSections.surgicalHistory})}
+                        onClick={() => handleToggleSection('surgicalHistory')}
                         className="w-full flex items-center justify-between text-left"
+                        title="Click to review. No changes required."
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                           Surgical History
                           <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Procedures & Operations</span>
                         </h3>
-                        <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
-                          {expandedSections.surgicalHistory ? 'expand_less' : 'expand_more'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                            {expandedSections.surgicalHistory ? 'expand_less' : 'expand_more'}
+                          </span>
+                        </div>
                       </button>
                       {expandedSections.surgicalHistory && (
                         <div className="space-y-4">
@@ -1247,19 +2019,22 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                       )}
                     </section>
 
-                    <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                      <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                    <section className={`space-y-3 relative pl-4 border-l-2 ${reviewedSections.pastMedicalHistory ? 'border-blue-400/60' : 'border-red-400/60'}`}>
+                      <div className={`absolute -left-2 top-0 size-4 rounded-full border-2 border-white dark:border-gray-900 ${reviewedSections.pastMedicalHistory ? 'bg-blue-500' : 'bg-red-500'}`}></div>
                       <button 
-                        onClick={() => setExpandedSections({...expandedSections, pastMedicalHistory: !expandedSections.pastMedicalHistory})}
+                        onClick={() => handleToggleSection('pastMedicalHistory')}
                         className="w-full flex items-center justify-between text-left"
+                        title="Click to review. No changes required."
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                           Past Medical History
                           <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Chronic Conditions</span>
                         </h3>
-                        <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
-                          {expandedSections.pastMedicalHistory ? 'expand_less' : 'expand_more'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                            {expandedSections.pastMedicalHistory ? 'expand_less' : 'expand_more'}
+                          </span>
+                        </div>
                       </button>
                       {expandedSections.pastMedicalHistory && (
                         <div className="space-y-4">
@@ -1353,19 +2128,22 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                       )}
                     </section>
 
-                    <section className="space-y-3 relative pl-4 border-l-2 border-primary/20">
-                      <div className="absolute -left-2 top-0 size-4 rounded-full bg-primary border-2 border-white dark:border-gray-900"></div>
+                    <section className={`space-y-3 relative pl-4 border-l-2 ${reviewedSections.orders ? 'border-blue-400/60' : 'border-red-400/60'}`}>
+                      <div className={`absolute -left-2 top-0 size-4 rounded-full border-2 border-white dark:border-gray-900 ${reviewedSections.orders ? 'bg-blue-500' : 'bg-red-500'}`}></div>
                       <button 
-                        onClick={() => setExpandedSections({...expandedSections, orders: !expandedSections.orders})}
+                        onClick={() => handleToggleSection('orders')}
                         className="w-full flex items-center justify-between text-left"
+                        title="Click to review. No changes required."
                       >
                         <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                           Orders
                           <span className="text-xs font-normal text-gray-500 dark:text-gray-400 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full">Labs, Imaging & Medications</span>
                         </h3>
-                        <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
-                          {expandedSections.orders ? 'expand_less' : 'expand_more'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-gray-500 dark:text-gray-400">
+                            {expandedSections.orders ? 'expand_less' : 'expand_more'}
+                          </span>
+                        </div>
                       </button>
                       {expandedSections.orders && (
                         <div className="space-y-4">
@@ -1448,14 +2226,6 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                     </section>
                   </div>
 
-                  <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 flex justify-between items-center">
-                    <span className="text-xs text-gray-500 dark:text-gray-400 italic">Last saved: 2 mins ago</span>
-                    <div className="flex gap-3">
-                      <button className="text-gray-900 dark:text-white hover:bg-white dark:hover:bg-gray-900 px-3 py-1.5 rounded-lg text-sm font-medium border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all">
-                        Save Draft
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>

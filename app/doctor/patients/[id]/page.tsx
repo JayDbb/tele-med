@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import PatientDetail from '@/components/PatientDetail'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
@@ -8,12 +9,14 @@ import GlobalSearchBar from '@/components/GlobalSearchBar'
 import { PatientDataManager } from '@/utils/PatientDataManager'
 import { useDoctor } from '@/contexts/DoctorContext'
 
-export default function PatientDetailPage({ params }: { params: { id: string } }) {
+export default function PatientDetailPage() {
+  const params = useParams()
+  const patientId = Array.isArray(params.id) ? params.id[0] : params.id || ''
   const { doctor } = useDoctor()
   const [isCompleting, setIsCompleting] = useState(false)
 
   const handleMarkComplete = () => {
-    const patient = PatientDataManager.getPatient(params.id)
+    const patient = PatientDataManager.getPatient(patientId)
     if (!patient || isCompleting) return
     setIsCompleting(true)
     const nowIso = new Date().toISOString()
@@ -28,7 +31,7 @@ export default function PatientDetailPage({ params }: { params: { id: string } }
       doctor?.id || 'system'
     )
     PatientDataManager.logAction(
-      params.id,
+      patientId,
       'complete',
       'patient-profile',
       doctor?.id || 'system',
@@ -41,7 +44,7 @@ export default function PatientDetailPage({ params }: { params: { id: string } }
   return (
     <div className="relative flex min-h-screen w-full">
       <Sidebar />
-      <PatientDetailSidebar patientId={params.id} />
+      <PatientDetailSidebar patientId={patientId} />
       
       <main className="flex-1 p-8">
         <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -55,7 +58,7 @@ export default function PatientDetailPage({ params }: { params: { id: string } }
             Mark Complete
           </button>
         </div>
-        <PatientDetail patientId={params.id} />
+        <PatientDetail patientId={patientId} />
       </main>
     </div>
   )

@@ -106,6 +106,11 @@ export class PatientDataManager {
     return value.length > 0 && value !== 'undefined' && value !== 'null'
   }
 
+  private static notifyPatientUpdate(): void {
+    if (typeof window === 'undefined') return
+    window.dispatchEvent(new Event('patient-data-updated'))
+  }
+
   // Save patient data with audit logging
   static savePatient(patientData: PatientData, action: string = 'create', userId: string = 'current-user'): void {
     try {
@@ -135,6 +140,7 @@ export class PatientDataManager {
 
       localStorage.setItem(patientKey, JSON.stringify(patientData))
       this.patientCache.set(patientData.id, patientData)
+      this.notifyPatientUpdate()
 
       // Log the action
       const resolvedUser = this.resolveUser(userId)
@@ -198,6 +204,7 @@ export class PatientDataManager {
       }
       localStorage.setItem(sectionKey, JSON.stringify(payload))
       this.sectionCache.set(sectionKey, payload)
+      this.notifyPatientUpdate()
 
       // Log the section update
       const resolvedUser = this.resolveUser(userId)
@@ -417,6 +424,7 @@ export class PatientDataManager {
       this.patientCache.clear()
       this.sectionCache.clear()
       this.auditCache.clear()
+      this.notifyPatientUpdate()
     } catch (error) {
       console.error('Error clearing patient data:', error)
     }
@@ -483,6 +491,7 @@ export class PatientDataManager {
       }
       keysToRemove.forEach((key) => localStorage.removeItem(key))
       this.patientCache.clear()
+      this.notifyPatientUpdate()
     } catch (error) {
       console.error('Error cleaning up blank patients:', error)
     }
@@ -509,6 +518,7 @@ export class PatientDataManager {
       keysToRemove.forEach((key) => localStorage.removeItem(key))
       this.patientCache.delete(patientId)
       this.auditCache.delete(patientId)
+      this.notifyPatientUpdate()
     } catch (error) {
       console.error('Error deleting patient data:', error)
     }
