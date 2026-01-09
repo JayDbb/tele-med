@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import Sidebar from '@/components/Sidebar'
 import NurseSidebar from '@/components/NurseSidebar'
 import PatientDetailSidebar from '@/components/PatientDetailSidebar'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
 import { PatientDataManager } from '@/utils/PatientDataManager'
 import { useNurse } from '@/contexts/NurseContext'
-import { usePatientRoutes } from '@/lib/usePatientRoutes'
+import { useDoctor } from '@/contexts/DoctorContext'
 
 interface NurseNewVisitFormProps {
   patientId: string
@@ -16,8 +17,15 @@ interface NurseNewVisitFormProps {
 
 const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   const router = useRouter()
+  const pathname = usePathname()
   const { nurse } = useNurse()
-  const { getPatientUrl } = usePatientRoutes()
+  const { doctor } = useDoctor()
+  const isDoctorPortal = pathname.startsWith('/doctor')
+  const isNursePortal = pathname.startsWith('/nurse-portal')
+  const portalBase = isDoctorPortal ? '/doctor/patients' : isNursePortal ? '/nurse-portal/patients' : '/patients'
+  const actor = doctor ?? nurse
+  const actorId = actor?.id || ''
+  const actorName = actor?.name || (doctor ? 'Doctor' : 'Nurse')
   const [peekHref, setPeekHref] = useState<string | null>(null)
   const [peekLabel, setPeekLabel] = useState<string>('Medical Section')
   const [existingPatient, setExistingPatient] = useState<any | null>(() => (
@@ -168,6 +176,13 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   const reviewedCount = sectionKeys.filter((key) => reviewedSections[key]).length
   const reviewProgress = Math.round((reviewedCount / sectionKeys.length) * 100)
   const allReviewed = reviewedCount === sectionKeys.length
+  const bmiValue = useMemo(() => {
+    const weight = Number(visitData.objective.weight)
+    const height = Number(visitData.objective.height)
+    if (!Number.isFinite(weight) || !Number.isFinite(height) || height <= 0) return ''
+    const bmi = (weight / (height * height)) * 703
+    return Number.isFinite(bmi) ? bmi.toFixed(1) : ''
+  }, [visitData.objective.height, visitData.objective.weight])
   const diabetesPrefillDone = useRef(false)
   const medicationsPrefillDone = useRef(false)
   const isA1cOverdue = (dateValue?: string) => {
@@ -305,8 +320,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
   }, [patientId, visitData.diabetes])
 
   const savePatientData = (visitStatus: 'draft' | 'completed' = 'completed') => {
-    if (!nurse) {
-      setSaveError('Please sign in as a nurse to save this patient.')
+    if (!actorId) {
+      setSaveError('Please sign in to save this patient.')
       return null
     }
     const nameValue = patientData.name.trim()
@@ -341,14 +356,14 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       statusColor: isCompleted
         ? 'text-emerald-700 bg-emerald-100 dark:bg-emerald-900/40 dark:text-emerald-300'
         : 'text-blue-600 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300',
-      doctorId: '',
-      nurseId: nurse.id,
+      doctorId: doctor?.id || '',
+      nurseId: nurse?.id || '',
       createdAt: new Date().toISOString(),
       updatedAt: nowIso,
       completedAt: isCompleted ? nowIso : ''
     }
     
-    PatientDataManager.savePatient(newPatient, isNewPatient ? 'create' : 'update', nurse.id)
+    PatientDataManager.savePatient(newPatient, isNewPatient ? 'create' : 'update', actorId)
     
     if (isCompleted) {
       PatientDataManager.clearDraft(patientId, draftKey)
@@ -359,8 +374,8 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
     const visitRecord: any = {
       id: visitId,
       recordedAt: nowIso,
-      providerId: nurse.id,
-      providerName: nurse.name,
+      providerId: actorId,
+      providerName: actorName,
       subjective: visitData.subjective,
       objective: visitData.objective,
       diabetes: visitData.diabetes,
@@ -403,9 +418,9 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
         data: intakeSection.data,
         status: 'linked',
         linkedVisitId: visitId
-      }, nurse.id)
+      }, actorId)
     }
-    PatientDataManager.savePatientSectionList(newPatientId, 'visits', [visitRecord, ...visits], nurse.id)
+    PatientDataManager.savePatientSectionList(newPatientId, 'visits', [visitRecord, ...visits], actorId)
 
     if (hasValues(visitData.objective)) {
       const vitals = PatientDataManager.getPatientSectionList(newPatientId, 'vitals')
@@ -416,7 +431,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
           ...visitData.objective
         },
         ...vitals
-      ], nurse.id)
+      ], actorId)
     }
 
     if (patientData.allergies.trim()) {
@@ -433,7 +448,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
           status: 'Active',
           recordedAt: new Date().toISOString()
         }))
-      PatientDataManager.savePatientSectionList(newPatientId, 'allergies', [...allergyItems, ...allergies], nurse.id)
+      PatientDataManager.savePatientSectionList(newPatientId, 'allergies', [...allergyItems, ...allergies], actorId)
     }
 
     if (hasValues(visitData.vaccines)) {
@@ -441,7 +456,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       PatientDataManager.savePatientSectionList(newPatientId, 'vaccines', [
         { id: visitId, ...visitData.vaccines, recordedAt: new Date().toISOString() },
         ...vaccines
-      ], nurse.id)
+      ], actorId)
     }
 
     if (hasValues(visitData.familyHistory)) {
@@ -449,7 +464,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       PatientDataManager.savePatientSectionList(newPatientId, 'family-history', [
         { id: visitId, ...visitData.familyHistory, recordedAt: new Date().toISOString() },
         ...familyHistory
-      ], nurse.id)
+      ], actorId)
     }
 
     if (hasValues(visitData.riskFlags)) {
@@ -457,7 +472,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       PatientDataManager.savePatientSectionList(newPatientId, 'social-history', [
         { id: visitId, ...visitData.riskFlags, recordedAt: new Date().toISOString() },
         ...socialHistory
-      ], nurse.id)
+      ], actorId)
     }
 
     if (hasValues(visitData.surgicalHistory)) {
@@ -465,7 +480,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       PatientDataManager.savePatientSectionList(newPatientId, 'surgical-history', [
         { id: visitId, ...visitData.surgicalHistory, recordedAt: new Date().toISOString() },
         ...surgicalHistory
-      ], nurse.id)
+      ], actorId)
     }
 
     if (hasValues(visitData.pastMedicalHistory)) {
@@ -473,7 +488,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       PatientDataManager.savePatientSectionList(newPatientId, 'past-medical-history', [
         { id: visitId, ...visitData.pastMedicalHistory, recordedAt: new Date().toISOString() },
         ...pastMedicalHistory
-      ], nurse.id)
+      ], actorId)
     }
 
     if (hasValues(visitData.orders)) {
@@ -481,7 +496,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       PatientDataManager.savePatientSectionList(newPatientId, 'orders', [
         { id: visitId, ...visitData.orders, recordedAt: new Date().toISOString() },
         ...orders
-      ], nurse.id)
+      ], actorId)
     }
 
     if (uploadedDocuments.length > 0) {
@@ -489,7 +504,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
       PatientDataManager.savePatientSectionList(newPatientId, 'documents', [
         ...uploadedDocuments,
         ...documents
-      ], nurse.id)
+      ], actorId)
     }
 
     PatientDataManager.clearDraft(patientId, draftKey)
@@ -533,48 +548,48 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
 
   const handleSavePatientAndSchedule = () => {
     savePatientData('completed')
-    router.push(`/nurse-portal/patients/${patientId}/schedule`)
+    router.push(`${portalBase}/${patientId}/schedule`)
   }
 
   const handleSavePatientAndClose = () => {
     const newPatientId = savePatientData('completed')
     if (!newPatientId) return
-    router.push('/nurse-portal')
+    router.push(isDoctorPortal ? '/doctor' : '/nurse-portal')
   }
 
   const handleSavePatient = () => {
     const newPatientId = savePatientData('completed')
     if (!newPatientId) return
-    router.push(getPatientUrl(newPatientId))
+    router.push(`${portalBase}/${newPatientId}`)
   }
 
   const handleSaveVisitOnly = () => {
     const newPatientId = savePatientData('completed')
     if (!newPatientId) return
-    router.push(`/nurse-portal/patients/${newPatientId}`)
+    router.push(`${portalBase}/${newPatientId}`)
   }
 
   const handleSaveVisitAndSchedule = () => {
     const newPatientId = savePatientData('completed')
     if (!newPatientId) return
-    router.push(`/nurse-portal/patients/${newPatientId}/schedule`)
+    router.push(`${portalBase}/${newPatientId}/schedule`)
   }
 
   const handleSaveVisitDraft = () => {
     const newPatientId = savePatientData('draft')
     if (!newPatientId) return
     setSaveError(null)
-    router.push(`/nurse-portal/patients/${newPatientId}`)
+    router.push(`${portalBase}/${newPatientId}`)
   }
 
   const handleCancel = () => {
     if (isNewPatient) {
       PatientDataManager.deletePatient(patientId)
       PatientDataManager.clearDraft(patientId, draftKey)
-      router.push('/nurse-portal')
+      router.push(isDoctorPortal ? '/doctor' : '/nurse-portal')
       return
     }
-    router.push(`/nurse-portal/patients/${patientId}`)
+    router.push(`${portalBase}/${patientId}`)
   }
 
   const patient = useMemo(() => ({
@@ -590,7 +605,7 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
 
   return (
     <div className="flex flex-col lg:flex-row h-screen w-full overflow-hidden">
-      <NurseSidebar />
+      {isDoctorPortal ? <Sidebar /> : <NurseSidebar />}
       <PatientDetailSidebar
         patientId={patientId}
         onNavigate={openPeekPanel}
@@ -1085,6 +1100,16 @@ const NurseNewVisitForm = ({ patientId }: NurseNewVisitFormProps) => {
                                   ...visitData,
                                   objective: { ...visitData.objective, height: e.target.value }
                                 })}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1">BMI (kg/m2)</label>
+                              <input
+                                className="w-full h-8 px-2 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
+                                placeholder="--"
+                                type="text"
+                                value={bmiValue}
+                                readOnly
                               />
                             </div>
                           </div>

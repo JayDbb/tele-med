@@ -8,6 +8,7 @@ import { useDoctor } from '@/contexts/DoctorContext'
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [hasUnreadMessages, setHasUnreadMessages] = useState(true)
+  const [isPeekMode, setIsPeekMode] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
   const { doctor, logout } = useDoctor()
@@ -18,11 +19,26 @@ const Sidebar = () => {
   }
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    const updatePeek = () => {
+      const params = new URLSearchParams(window.location.search)
+      setIsPeekMode(params.get('peek') === '1')
+    }
+    updatePeek()
+    window.addEventListener('popstate', updatePeek)
+    return () => window.removeEventListener('popstate', updatePeek)
+  }, [pathname])
+
+  useEffect(() => {
+    if (isPeekMode) {
+      document.body.classList.remove('has-bottom-bar')
+      return
+    }
     document.body.classList.add('has-bottom-bar')
     return () => {
       document.body.classList.remove('has-bottom-bar')
     }
-  }, [])
+  }, [isPeekMode])
 
   const navItems = [
     { icon: 'home', label: 'Home', href: '/doctor/dashboard' },
@@ -30,6 +46,10 @@ const Sidebar = () => {
   ]
 
   const bottomItems: Array<{ icon: string; label: string; href: string }> = []
+
+  if (isPeekMode) {
+    return null
+  }
 
   return (
     <aside className={`flex w-full ${isCollapsed ? 'lg:w-16' : 'lg:w-64'} flex-col bg-white dark:bg-gray-900 p-2 lg:p-4 border-b lg:border-b-0 border-gray-200 dark:border-gray-800 lg:border-r lg:h-screen lg:sticky top-0 transition-all duration-300 overflow-x-hidden lg:overflow-y-auto`}>

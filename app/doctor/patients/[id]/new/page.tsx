@@ -13,7 +13,6 @@ type FormState = {
   preferredName: string
   dob: string
   sexAtBirth: string
-  pronouns: string
   phone: string
   email: string
   street: string
@@ -38,7 +37,6 @@ const defaultFormState: FormState = {
   preferredName: '',
   dob: '',
   sexAtBirth: '',
-  pronouns: '',
   phone: '',
   email: '',
   street: '',
@@ -81,6 +79,25 @@ export default function NewPatientPage() {
   const normalizedPhone = useMemo(() => form.phone.replace(/\D/g, ''), [form.phone])
   const normalizedEmail = useMemo(() => form.email.trim().toLowerCase(), [form.email])
   const normalizedName = useMemo(() => fullName.trim().toLowerCase(), [fullName])
+  const dobError = useMemo(() => {
+    if (!form.dob) return ''
+    const parsed = new Date(form.dob)
+    if (Number.isNaN(parsed.getTime())) return 'Enter a valid date of birth.'
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (parsed > today) return 'Date of birth cannot be in the future.'
+    return ''
+  }, [form.dob])
+  const phoneError = useMemo(() => {
+    if (!form.phone.trim()) return ''
+    return normalizedPhone.length === 10 ? '' : 'Phone number must be 10 digits.'
+  }, [form.phone, normalizedPhone])
+  const emailError = useMemo(() => {
+    if (!normalizedEmail) return ''
+    return /^[^\s@]+@[^\s@]+\.com$/i.test(normalizedEmail)
+      ? ''
+      : 'Email must end with .com.'
+  }, [normalizedEmail])
 
   const duplicateMatches = useMemo(() => {
     if (!patients.length) return []
@@ -101,6 +118,7 @@ export default function NewPatientPage() {
   const requiredMissing = useMemo(() => {
     return !form.firstName.trim() || !form.lastName.trim() || !form.dob || !form.sexAtBirth || !form.phone.trim()
   }, [form.firstName, form.lastName, form.dob, form.sexAtBirth, form.phone])
+  const hasValidationErrors = Boolean(dobError || phoneError || emailError)
 
   useEffect(() => {
     setPatients(PatientDataManager.getAllPatients())
@@ -132,6 +150,11 @@ export default function NewPatientPage() {
       return
     }
 
+    if (hasValidationErrors) {
+      setError('Please resolve the highlighted fields before creating the patient.')
+      return
+    }
+
     if (duplicateMatches.length > 0) {
       setError('A matching patient already exists. Open their chart to avoid duplicate records.')
       return
@@ -154,7 +177,6 @@ export default function NewPatientPage() {
       dob: form.dob,
       gender: getGenderLabel(form.sexAtBirth),
       sexAtBirth: form.sexAtBirth,
-      pronouns: form.pronouns,
       preferredName: form.preferredName.trim(),
       phone: form.phone.trim(),
       email: form.email.trim(),
@@ -230,7 +252,7 @@ export default function NewPatientPage() {
     }
   }
 
-  const canSubmit = !requiredMissing && duplicateMatches.length === 0 && !saving
+  const canSubmit = !requiredMissing && !hasValidationErrors && duplicateMatches.length === 0 && !saving
 
   return (
     <div className="flex flex-col lg:flex-row h-screen w-full overflow-hidden">
@@ -276,16 +298,6 @@ export default function NewPatientPage() {
                   <span className="material-symbols-outlined text-[16px]">check</span>
                   Create Patient
                 </button>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2">
-              <span className="material-symbols-outlined text-[16px]">warning</span>
-              <div>
-                <p className="font-semibold">Data safety notice</p>
-                <p className="text-[11px] text-amber-700 dark:text-amber-300">
-                  Drafts are saved locally. If this device is cleared or offline, data loss is possible until records are synced.
-                </p>
               </div>
             </div>
 
@@ -366,9 +378,10 @@ export default function NewPatientPage() {
                         value={form.dob}
                         onChange={(e) => updateForm({ dob: e.target.value })}
                       />
+                      {dobError && <p className="mt-1 text-[10px] text-rose-600">{dobError}</p>}
                     </div>
                     <div className="col-span-2 sm:col-span-2">
-                      <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">Sex at Birth <span className="text-red-500">*</span></label>
+                      <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">Gender <span className="text-red-500">*</span></label>
                       <select
                         className="w-full h-8 px-2 py-0 rounded border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-1 focus:ring-primary focus:border-primary text-xs"
                         value={form.sexAtBirth}
@@ -378,19 +391,6 @@ export default function NewPatientPage() {
                         <option value="F">Female</option>
                         <option value="M">Male</option>
                         <option value="I">Intersex</option>
-                      </select>
-                    </div>
-                    <div className="col-span-2 sm:col-span-2">
-                      <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">Pronouns</label>
-                      <select
-                        className="w-full h-8 px-2 py-0 rounded border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-1 focus:ring-primary focus:border-primary text-xs"
-                        value={form.pronouns}
-                        onChange={(e) => updateForm({ pronouns: e.target.value })}
-                      >
-                        <option value="">Select</option>
-                        <option value="She/Her">She/Her</option>
-                        <option value="He/Him">He/Him</option>
-                        <option value="They/Them">They/Them</option>
                       </select>
                     </div>
                   </div>
@@ -411,6 +411,7 @@ export default function NewPatientPage() {
                         />
                         <span className="material-symbols-outlined absolute left-2 top-2 text-slate-400 pointer-events-none text-[14px]">phone</span>
                       </div>
+                      {phoneError && <p className="mt-1 text-[10px] text-rose-600">{phoneError}</p>}
                     </div>
                     <div className="col-span-3">
                       <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">Email</label>
@@ -424,6 +425,7 @@ export default function NewPatientPage() {
                         />
                         <span className="material-symbols-outlined absolute left-2 top-2 text-slate-400 pointer-events-none text-[14px]">mail</span>
                       </div>
+                      {emailError && <p className="mt-1 text-[10px] text-rose-600">{emailError}</p>}
                     </div>
                     <div className="col-span-6">
                       <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">Street Address</label>
